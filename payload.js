@@ -1255,7 +1255,7 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
     tabs[4].btn.onclick = async () => {
         switchMainTab(tabs[4].btn);
         await loadProfilesForUI(); // Спочатку чекаємо анкети з сервера
-        renderVipRules();          // І тільки потім малюємо їх у правилах
+        window.renderVipRules();   // БЕЗПЕЧНИЙ ВИКЛИК
     };
     tabs[5].btn.onclick = () => switchMainTab(tabs[5].btn);
 
@@ -1605,23 +1605,76 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
     const vipRulesArea = document.getElementById("vipRulesArea");
     const vipRulesList = document.getElementById("vipRulesList");
 
-    // Відновлюємо стан тумблера
-    const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
-    vipToggleInput.checked = isVipEnabled;
-    updateVipToggle(isVipEnabled);
+    // 1. СПОЧАТКУ створюємо функцію (щоб скрипт про неї знав)
+    window.renderVipRules = function() {
+        vipRulesList.innerHTML = "";
+        let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
 
-    vipToggleInput.addEventListener("change", (e) => {
-        const isOn = e.target.checked;
-        localStorage.setItem("alphaVipEnabled", isOn);
-        updateVipToggle(isOn);
-    });
+        if (rules.length === 0) {
+            vipRulesList.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block; padding: 10px 0;">Ще немає жодного правила</span>';
+            return;
+        }
 
+        // Беремо вже завантажені анкети з іншого селекта (оптимізація)
+        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">-- Оберіть анкету --</option>';
+
+        rules.forEach((rule, index) => {
+            const row = document.createElement("div");
+            row.style.cssText = `display: flex; gap: 10px; align-items: center; background: #f9f9f9; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px;`;
+
+            // Поле вводу ID клієнта
+            const inputVip = document.createElement("input");
+            inputVip.type = "text";
+            inputVip.placeholder = "ID Клієнта";
+            inputVip.value = rule.vip_id;
+            inputVip.style.cssText = `width: 100px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
+
+            // Збереження при введенні
+            inputVip.oninput = (e) => {
+                rules[index].vip_id = e.target.value.trim();
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            const arrow = document.createElement("span");
+            arrow.innerHTML = "➔";
+            arrow.style.color = "#999";
+
+            // Вибір анкети
+            const selectProfile = document.createElement("select");
+            selectProfile.innerHTML = profileOptionsHtml;
+            selectProfile.value = rule.profile_id;
+            selectProfile.style.cssText = `flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
+
+            selectProfile.onchange = (e) => {
+                rules[index].profile_id = e.target.value;
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            // Кнопка видалення
+            const delBtn = document.createElement("span");
+            delBtn.innerHTML = "❌";
+            delBtn.style.cssText = `cursor: pointer; font-size: 14px; margin-left: 5px;`;
+            delBtn.onclick = () => {
+                rules.splice(index, 1);
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+                window.renderVipRules(); // Викликаємо безпечно
+            };
+
+            row.appendChild(inputVip);
+            row.appendChild(arrow);
+            row.appendChild(selectProfile);
+            row.appendChild(delBtn);
+            vipRulesList.appendChild(row);
+        });
+    };
+
+    // 2. ФУНКЦІЯ ПЕРЕМИКАЧА (тепер вона знає про renderVipRules)
     function updateVipToggle(isOn) {
         if (isOn) {
             vipToggleBg.style.backgroundColor = "#ff9800";
             vipToggleKnob.style.left = "23px";
             vipRulesArea.style.display = "flex";
-            renderVipRules();
+            window.renderVipRules(); // Викликаємо безпечно
         } else {
             vipToggleBg.style.backgroundColor = "#ccc";
             vipToggleKnob.style.left = "3px";
@@ -1629,11 +1682,22 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
     }
 
+    // 3. Відновлюємо стан тумблера
+    const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
+    vipToggleInput.checked = isVipEnabled;
+    updateVipToggle(isVipEnabled); // <--- Тепер це не викличе помилку!
+
+    vipToggleInput.addEventListener("change", (e) => {
+        const isOn = e.target.checked;
+        localStorage.setItem("alphaVipEnabled", isOn);
+        updateVipToggle(isOn);
+    });
+
     document.getElementById("vipAddRuleBtn").onclick = () => {
         let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
         rules.push({ vip_id: "", profile_id: "" });
         localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-        renderVipRules();
+        window.renderVipRules(); // Викликаємо безпечно
     };
 
     // Зробили функцію глобальною, щоб викликати її з вкладки
