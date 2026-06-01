@@ -1,5 +1,8 @@
 import sqlite3
 import os
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+import hashlib
+import base64
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,8 +12,8 @@ from fastapi.responses import Response
 app = FastAPI()
 
 # Абсолютні шляхи - це наш захист від того, що сервер "забуде" де файли
-DB_PATH = "/root/alpha/admin_panel.db"
-PAYLOAD_PATH = "/root/alpha/payload.js"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PAYLOAD_PATH = os.path.join(BASE_DIR, "payload.js")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,44 +23,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Спрощена модель для прийому будь-яких даних від завантажувача
+
 class AuthRequest(BaseModel):
     access_key: str = ""
-    from pydantic import Field
-
-    profiles: list = Field(default_factory=list)
     session_id: str = "default_sess"
-
-
-import database
+    hwid: str = ""  # ДОДАНО HWID
+    profiles: list = []
 
 
 @app.post("/auth")
 async def authenticate(request: AuthRequest):
-    # Очищаємо ключ від лапок
     key = request.access_key.replace('"', '').strip()
+    hwid = request.hwid.strip()
 
-    # Викликаємо перевірку з database.py (яку ми перепишемо в наступному кроці)
-    # Поки що припускаємо, що функція повертає True/False
-    if database.check_key(key):
-        try:
-            with open(PAYLOAD_PATH, "r", encoding="utf-8") as f:
-                return {"status": "success", "code": f.read()}
-        except Exception as e:
-            return {"status": "error", "message": "Файл payload не знайдено"}
-
-    return {"status": "error", "message": "Невірний ключ"}
+    success, message = database.verify_and_bind_key(key, hwid)
+    if success:
+        return {"status": "success", "message": message}
+    return {"status": "error", "message": message}
 
 
 @app.get("/get_payload")
-async def get_payload(key: str = ""):
+async def get_payload(key: str = "", session_id: str = "", hwid: str = ""):
     key = key.replace('"', '').strip()
+    hwid = hwid.strip()
 
-    if database.check_key(key):
+    success, msg = database.verify_and_bind_key(key, hwid)
+    if success:
         try:
             with open(PAYLOAD_PATH, "r", encoding="utf-8") as f:
-                return Response(content=f.read(), media_type="application/javascript")
+                raw_js = f.read()
+                encrypted_js = encrypt_payload(raw_js, key)
+                # Віддаємо як текст, щоб завантажувач міг його розшифрувати
+                return Response(content=encrypted_js, media_type="text/plain")
         except Exception:
-            return Response(content="console.error('Payload missing');", media_type="application/javascript")
-
+            return Response(content="console.error('Payload error');", media_type="application/javascript")
     return Response(content="console.error('Access Denied');", media_type="application/javascript")
+
+
+def encrypt_payload(payload: str, key: str) -> str:
+    # Створюємо 32-байтний ключ з access_key для AES-256
+    aes_key = hashlib.sha256(key.encode()).digest()
+    aesgcm = AESGCM(aes_key)
+    nonce = os.urandom(12)  # Унікальний вектор ініціалізації
+
+    # Шифруємо і об'єднуємо з nonce
+    ct = aesgcm.encrypt(nonce, payload.encode('utf-8'), None)
+    return base64.b64encode(nonce + ct).decode('utf-8')

@@ -1,7 +1,10 @@
 import sqlite3
 import json
+import os
 
-DB_PATH = "/root/alpha/admin_panel.db"
+# Динамічний шлях: шукає базу в тій самій папці, де лежить скрипт
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "admin_panel.db")
 
 
 def get_connection():
@@ -70,6 +73,53 @@ def check_key(access_key: str) -> bool:
         print(f"DB ERROR: {e}")
         return False
 
+# Замінюємо стару check_key на нову з перевіркою HWID
+def verify_and_bind_key(access_key: str, hwid: str) -> tuple[bool, str]:
+    if not access_key or not hwid:
+        return False, "Ключ або HWID відсутні"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT is_banned, hwid FROM keys WHERE access_key = ?", (access_key,))
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return False, "Невірний ключ"
+
+        is_banned, current_hwid = row
+
+        if is_banned == 1:
+            conn.close()
+            return False, "Ключ заблоковано"
+
+        # Якщо HWID ще не прив'язаний — прив'язуємо
+        if current_hwid is None:
+            cursor.execute("UPDATE keys SET hwid = ? WHERE access_key = ?", (hwid, access_key))
+            conn.commit()
+            conn.close()
+            return True, "Ключ успішно прив'язано до пристрою"
+
+        # Якщо HWID вже є — порівнюємо
+        conn.close()
+        if current_hwid == hwid:
+            return True, "Авторизація успішна"
+        else:
+            return False, "Цей ключ вже використовується на іншому пристрої"
+    except Exception as e:
+        print(f"DB ERROR: {e}")
+        return False, "Помилка бази даних"
+
+
+def reset_hwid(access_key: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE keys SET hwid = NULL WHERE access_key = ?", (access_key,))
+    updated = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return updated > 0
 
 def ban_key(access_key: str):
     conn = get_connection()
