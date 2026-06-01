@@ -10,7 +10,16 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import database
 
-BOT_TOKEN = "8812111232:AAGVEyNU0hB_Xe1Z3NCeFhzuWJKKzpTE3cE"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+token_path = os.path.join(BASE_DIR, "token.txt")
+
+# Перевіряємо, чи існує файл token.txt
+if os.path.exists(token_path):
+    with open(token_path, "r", encoding="utf-8") as f:
+        TOKEN = f.read().strip()
+else:
+    # Якщо файлу немає, використовуємо твій старий бойовий токен
+    TOKEN = "ТВІЙ_ОСНОВНИЙ_БОЙОВИЙ_ТОКЕН_ТУТ"
 ADMIN_IDS = [7898484797, 5844872531, 249944251]
 
 bot = Bot(token=BOT_TOKEN)
