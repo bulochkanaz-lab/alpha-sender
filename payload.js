@@ -2379,6 +2379,8 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                     });
                 }
              }
+          } // <--- ВІДНОВЛЕНА ДУЖКА (закриває if(onlineId))
+       } // <--- ВІДНОВЛЕНА ДУЖКА (закриває if(payload.action...))
 
        // ==========================================
        // АВТОВІДПОВІДАЧ (Лайки / Вінки)
