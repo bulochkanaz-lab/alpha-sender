@@ -859,11 +859,50 @@ function injectBotUI() {
             tabWinks: "Вінки/Лайки",
             tabVip: "Повідомлення",
             tabStats: "Статистика",
+
+            delayLabel: "Затримка між відправками (сек):",
+            phaseDelayLabel: "Пауза між Інвайтами та Листами (хв):",
+            breakTimeLabel: "Глобальна перерва між циклами (хв):",
+            inviteModeLabel: "Режим відправки інвайтів:",
+            modeBatch: "Усі разом",
+            modeLoop: "По одному на коло",
+            useSiteToggleLabel: "Інвайти/Листи з сендеру",
             btnStart: "▶ Почати розсилку",
             btnStop: "⏹ Зупинити",
+            statusLabel: "Статус:",
+            statusWaiting: "Очікування...",
+            profileLabel: "Анкета:",
+
+            invitesProfileLabel: "Оберіть анкету для Інвайтів:",
+            loadingProfiles: "Завантаження анкет...",
+            invitesPlaceholder: "Введіть текст вашого інвайту...",
+            invitesSaveBtn: "💾 Зберегти Інвайт",
+            invitesEmpty: "Оберіть анкету, щоб додати інвайти",
+
+            lettersProfileLabel: "Оберіть анкету для Листів:",
+            lettersPlaceholder: "Введіть текст вашого листа...",
+            lettersSaveBtn: "💾 Зберегти Лист",
+            lettersEmpty: "Оберіть анкету, щоб додати листи",
+
+            respProfileLabel: "Оберіть анкету:",
+            respTabLike: "Лайки",
+            respTabWink: "Вінки",
+            respPlaceholder: "Введіть текст відповіді...",
+            respSaveBtn: "Зберегти текст",
+            respSpeedLabel: "Швидкість відповіді (сек):",
+            respSpeedSub: "Час \"імітації друку\" перед відправкою",
+            respEmpty: "Оберіть анкету, щоб додати тексти",
+
+            statsInvitesLabel: "Надіслано інвайтів",
+            statsLettersLabel: "Надіслано листів",
+
             vipTitle: "🎯 VIP Радар",
             vipSub: "Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.",
-            vipAdd: "➕ Додати мужика"
+            vipRulesLabel: "(Мужик ➔ Анкета):",
+            vipAddRuleBtn: "➕ Додати мужика",
+
+            galleryTitle: "Виберіть фото для листа",
+            galleryConfirmBtn: "Готово"
         },
         ru: {
             title: "⚙ Alpha Sender Pro",
@@ -873,11 +912,50 @@ function injectBotUI() {
             tabWinks: "Винки/Лайки",
             tabVip: "Уведомления",
             tabStats: "Статистика",
+
+            delayLabel: "Задержка между отправками (сек):",
+            phaseDelayLabel: "Пауза между Инвайтами и Письмами (мин):",
+            breakTimeLabel: "Глобальный перерыв между циклами (мин):",
+            inviteModeLabel: "Режим отправки инвайтов:",
+            modeBatch: "Все вместе",
+            modeLoop: "По одному на круг",
+            useSiteToggleLabel: "Инвайты/Письма с сендера",
             btnStart: "▶ Начать рассылку",
             btnStop: "⏹ Остановить",
+            statusLabel: "Статус:",
+            statusWaiting: "Ожидание...",
+            profileLabel: "Анкета:",
+
+            invitesProfileLabel: "Выберите анкету для Инвайтов:",
+            loadingProfiles: "Загрузка анкет...",
+            invitesPlaceholder: "Введите текст вашего инвайта...",
+            invitesSaveBtn: "💾 Сохранить Инвайт",
+            invitesEmpty: "Выберите анкету, чтобы добавить инвайты",
+
+            lettersProfileLabel: "Выберите анкету для Писем:",
+            lettersPlaceholder: "Введите текст вашего письма...",
+            lettersSaveBtn: "💾 Сохранить Письмо",
+            lettersEmpty: "Выберите анкету, чтобы добавить письма",
+
+            respProfileLabel: "Выберите анкету:",
+            respTabLike: "Лайки",
+            respTabWink: "Винки",
+            respPlaceholder: "Введите текст ответа...",
+            respSaveBtn: "Сохранить текст",
+            respSpeedLabel: "Скорость ответа (сек):",
+            respSpeedSub: "Время \"имитации печати\" перед отправкой",
+            respEmpty: "Выберите анкету, чтобы добавить тексты",
+
+            statsInvitesLabel: "Отправлено инвайтов",
+            statsLettersLabel: "Отправлено писем",
+
             vipTitle: "🎯 VIP Радар",
             vipSub: "Уведомления о входе работают всегда. Авто-отключение анкеты можно настроить для каждого мужчины отдельно.",
-            vipAdd: "➕ Добавить мужика"
+            vipRulesLabel: "(Мужик ➔ Анкета):",
+            vipAddRuleBtn: "➕ Добавить мужика",
+
+            galleryTitle: "Выберите фото для письма",
+            galleryConfirmBtn: "Готово"
         }
     };
 
@@ -912,9 +990,6 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 `;
 
 	modal.innerHTML = `
-
-<!-- Шапка -->
-
 <div style="background: #f5f8fa; padding: 15px 20px; border-bottom: 1px solid #e1e8ed; display: flex; justify-content: space-between; align-items: center;">
     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
     <div style="display: flex; align-items: center; gap: 15px;">
@@ -926,292 +1001,141 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
     </div>
 </div>
 
-
-
-<!-- 5 Вкладок (Інвайти та Листи приховані за замовчуванням) -->
-
-<!-- 6 Вкладок -->
 <div style="display: flex; border-bottom: 1px solid #e1e8ed; background: #fff;">
-<div id="tabBtnSettings" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #1976d2; border-bottom: 2px solid #1976d2; font-size: 11px;">Розсилка</div>
-<div id="tabBtnInvites" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px; display: none;">Інвайти</div>
-<div id="tabBtnLetters" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px; display: none;">Листи</div>
-<div id="tabBtnWinks" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Вінки/Лайки</div>
-<div id="tabBtnVip" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Повідомлення</div>
-<div id="tabBtnStats" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Статистика</div>
+<div id="tabBtnSettings" data-lang="tabSettings" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #1976d2; border-bottom: 2px solid #1976d2; font-size: 11px;">Розсилка</div>
+<div id="tabBtnInvites" data-lang="tabInvites" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px; display: none;">Інвайти</div>
+<div id="tabBtnLetters" data-lang="tabLetters" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px; display: none;">Листи</div>
+<div id="tabBtnWinks" data-lang="tabWinks" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Вінки/Лайки</div>
+<div id="tabBtnVip" data-lang="tabVip" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Повідомлення</div>
+<div id="tabBtnStats" data-lang="tabStats" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Статистика</div>
 </div>
-
-
-
-<!-- Тіло меню -->
 
 <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
 
-
-
-<!-- Вкладка 1: Розсилка (Налаштування) -->
-
 <div id="tabContentSettings">
-
 <div style="margin-bottom: 12px;">
-
-<label style="font-size: 12px; color: #666; font-weight: 600;">Затримка між відправками (сек):</label>
-
+<label data-lang="delayLabel" style="font-size: 12px; color: #666; font-weight: 600;">Затримка між відправками (сек):</label>
 <input type="number" id="uiDelay" value="4" min="1" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-
 </div>
-
 <div style="margin-bottom: 12px;">
-
-<label style="font-size: 12px; color: #666; font-weight: 600;">Пауза між Інвайтами та Листами (хв):</label>
-
+<label data-lang="phaseDelayLabel" style="font-size: 12px; color: #666; font-weight: 600;">Пауза між Інвайтами та Листами (хв):</label>
 <input type="number" id="uiPhaseDelay" value="2" min="0" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-
 </div>
-
 <div style="margin-bottom: 15px;">
-
-<label style="font-size: 12px; color: #666; font-weight: 600;">Глобальна перерва між циклами (хв):</label>
-
+<label data-lang="breakTimeLabel" style="font-size: 12px; color: #666; font-weight: 600;">Глобальна перерва між циклами (хв):</label>
 <input type="number" id="uiBreakTime" value="10" min="5" max="60" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-
 </div>
-
-
 
 <div style="margin-bottom: 15px;">
-
-<label style="font-size: 12px; color: #666; font-weight: 600;">Режим відправки інвайтів:</label>
-
+<label data-lang="inviteModeLabel" style="font-size: 12px; color: #666; font-weight: 600;">Режим відправки інвайтів:</label>
 <select id="uiInviteMode" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-
-<option value="batch">Усі разом</option>
-
-<option value="loop">По одному на коло</option>
-
+<option value="batch" data-lang="modeBatch">Усі разом</option>
+<option value="loop" data-lang="modeLoop">По одному на коло</option>
 </select>
-
 </div>
-
-
 
 <div style="margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-
 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e8ed;">
-
 <div>
-
-<div style="font-size: 13px; font-weight: bold; color: #333;">Інвайти/Листи з сендеру</div>
-
+<div data-lang="useSiteToggleLabel" style="font-size: 13px; font-weight: bold; color: #333;">Інвайти/Листи з сендеру</div>
 </div>
-
 <div style="position: relative; width: 44px; height: 24px; flex-shrink: 0;">
-
 <input type="checkbox" id="uiUseSiteToggle" checked style="opacity: 0; width: 0; height: 0; position: absolute;">
-
 <span id="uiToggleBg" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #4caf50; border-radius: 24px; transition: .3s;"></span>
-
 <span id="uiToggleKnob" style="position: absolute; height: 18px; width: 18px; left: 23px; bottom: 3px; background-color: white; border-radius: 50%; transition: .3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
-
 </div>
-
 </label>
-
 </div>
 
-
-
-<button id="uiStartBtn" style="width: 100%; padding: 12px; background: #1976d2; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; margin-bottom: 10px;">▶ Почати розсилку</button>
-
-<button id="uiStopBtn" style="width: 100%; padding: 12px; background: #d32f2f; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; display: none; margin-bottom: 10px;">⏹ Зупинити</button>
-
-
+<button id="uiStartBtn" data-lang="btnStart" style="width: 100%; padding: 12px; background: #1976d2; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; margin-bottom: 10px;">▶ Почати розсилку</button>
+<button id="uiStopBtn" data-lang="btnStop" style="width: 100%; padding: 12px; background: #d32f2f; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; display: none; margin-bottom: 10px;">⏹ Зупинити</button>
 
 <div style="padding: 10px; background: #f5f8fa; border-radius: 5px; font-size: 13px; border: 1px solid #e1e8ed;">
-
-<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">Статус: <span id="uiStatusText" style="color: #666;">Очікування...</span></div>
-
-<div style="display: flex; justify-content: space-between;">Анкета: <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
-
+<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span data-lang="statusLabel">Статус:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666;">Очікування...</span></div>
+<div style="display: flex; justify-content: space-between;"><span data-lang="profileLabel">Анкета:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
 </div>
-
 </div>
-
-
-
-<!-- Вкладка 2: МОЇ ІНВАЙТИ -->
 
 <div id="tabContentInvites" style="display: none;">
-
 <div style="margin-bottom: 15px;">
-
-<label style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету для Інвайтів:</label>
-
+<label data-lang="invitesProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету для Інвайтів:</label>
 <select id="invitesProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-
-<option value="">Завантаження анкет...</option>
-
+<option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
 </select>
-
 </div>
-
 <div id="invitesWorkArea" style="display: none; flex-direction: column;">
-
-<textarea id="invitesMessageInput" placeholder="Введіть текст вашого інвайту..." style="width: 100%; height: 80px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px; font-size: 13px;"></textarea>
-
-<button id="invitesSaveBtn" style="width: 100%; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">💾 Зберегти Інвайт</button>
-
+<textarea id="invitesMessageInput" data-lang="invitesPlaceholder" placeholder="Введіть текст вашого інвайту..." style="width: 100%; height: 80px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px; font-size: 13px;"></textarea>
+<button id="invitesSaveBtn" data-lang="invitesSaveBtn" style="width: 100%; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">💾 Зберегти Інвайт</button>
 <div id="invitesSavedList" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;"></div>
-
 </div>
-
-<div id="invitesEmptyState" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати інвайти</div>
-
+<div id="invitesEmptyState" data-lang="invitesEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати інвайти</div>
 </div>
-
-
-
-<!-- Вкладка 3: МОЇ ЛИСТИ -->
 
 <div id="tabContentLetters" style="display: none;">
-
 <div style="margin-bottom: 15px;">
-
-<label style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету для Листів:</label>
-
+<label data-lang="lettersProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету для Листів:</label>
 <select id="lettersProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-
-<option value="">Завантаження анкет...</option>
-
+<option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
 </select>
-
 </div>
-
 <div id="lettersWorkArea" style="display: none; flex-direction: column;">
-
-<textarea id="lettersMessageInput" placeholder="Введіть текст вашого листа..." style="width: 100%; height: 80px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px; font-size: 13px;"></textarea>
-
-
-
-<!-- Ряд з квадратною кнопкою фото та збереженням -->
-
+<textarea id="lettersMessageInput" data-lang="lettersPlaceholder" placeholder="Введіть текст вашого листа..." style="width: 100%; height: 80px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px; font-size: 13px;"></textarea>
 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-
 <button id="lettersGalleryBtn" style="width: 45px; height: 45px; background: #f0f4f8; border: 1px solid #cdd5df; border-radius: 8px; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: .2s;">📷</button>
-
-<button id="lettersSaveBtn" style="flex: 1; height: 45px; background: #4caf50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer;">💾 Зберегти Лист</button>
-
+<button id="lettersSaveBtn" data-lang="lettersSaveBtn" style="flex: 1; height: 45px; background: #4caf50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer;">💾 Зберегти Лист</button>
 </div>
-
-
-
 <div id="lettersSavedList" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;"></div>
-
 </div>
-
-<div id="lettersEmptyState" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати листи</div>
-
+<div id="lettersEmptyState" data-lang="lettersEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати листи</div>
 </div>
-
-
-
-<!-- Вкладка 4: Вінки/Лайки (Автовідповідач) -->
 
 <div id="tabContentWinks" style="display: none;">
-
 <div style="margin-bottom: 15px;">
-
-<label style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету:</label>
-
+<label data-lang="respProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету:</label>
 <select id="respProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-
-<option value="">Завантаження анкет...</option>
-
+<option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
 </select>
-
 </div>
-
-
-
 <div id="respTabsArea" style="display: none; flex-direction: column;">
-
 <div style="display: flex; border-bottom: 1px solid #eee; margin-bottom: 10px;">
-
-<div id="respTabLike" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #1976d2; border-bottom: 2px solid #1976d2; font-weight: bold; font-size: 13px;">Лайки</div>
-
-<div id="respTabWink" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; font-weight: bold; font-size: 13px;">Вінки</div>
-
+<div id="respTabLike" data-lang="respTabLike" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #1976d2; border-bottom: 2px solid #1976d2; font-weight: bold; font-size: 13px;">Лайки</div>
+<div id="respTabWink" data-lang="respTabWink" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; font-weight: bold; font-size: 13px;">Вінки</div>
 </div>
-
-
-
-<textarea id="respMessageInput" placeholder="Введіть текст відповіді..." style="width: 100%; height: 70px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px;"></textarea>
-
-<button id="respSaveBtn" style="padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">Зберегти текст</button>
-
-
-
+<textarea id="respMessageInput" data-lang="respPlaceholder" placeholder="Введіть текст відповіді..." style="width: 100%; height: 70px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px;"></textarea>
+<button id="respSaveBtn" data-lang="respSaveBtn" style="padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">Зберегти текст</button>
 <div id="respSavedList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; max-height: 150px; overflow-y: auto;"></div>
-
-
-
 <div style="border-top: 1px solid #eee; padding-top: 15px;">
-
-<label style="font-size: 12px; color: #666; font-weight: 600;">Швидкість відповіді (сек):</label>
-
+<label data-lang="respSpeedLabel" style="font-size: 12px; color: #666; font-weight: 600;">Швидкість відповіді (сек):</label>
 <input type="number" id="respSpeedInput" value="3" min="0" max="10" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-
-<small style="color: #999; font-size: 11px;">Час "імітації друку" перед відправкою</small>
-
+<small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Час "імітації друку" перед відправкою</small>
 </div>
-
 </div>
-
-
-
-<div id="respEmptyState" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати тексти</div>
-
+<div id="respEmptyState" data-lang="respEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати тексти</div>
 </div>
-
-
-
-<!-- Вкладка 5: Статистика -->
 
 <div id="tabContentStats" style="display: none;">
-
 <div style="padding: 15px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffe0b2; text-align: center; margin-bottom: 12px;">
-
-<div style="font-size: 12px; color: #e65100; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Надіслано інвайтів</div>
-
+<div data-lang="statsInvitesLabel" style="font-size: 12px; color: #e65100; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Надіслано інвайтів</div>
 <div id="uiStatsInvites" style="font-size: 28px; font-weight: bold; color: #f57c00;">0</div>
-
 </div>
-
 <div style="padding: 15px; background: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9; text-align: center;">
-
-<div style="font-size: 12px; color: #1b5e20; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Надіслано листів</div>
-
+<div data-lang="statsLettersLabel" style="font-size: 12px; color: #1b5e20; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Надіслано листів</div>
 <div id="uiStatsLetters" style="font-size: 28px; font-weight: bold; color: #2e7d32;">0</div>
-
+</div>
 </div>
 
-</div>
-
-<!-- Вкладка 6: Повідомлення -->
 <div id="tabContentVip" style="display: none;">
     <div style="padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px;">
-        <div style="font-size: 14px; font-weight: bold; color: #e65100;">повідомлення</div>
-        <div style="font-size: 12px; color: #666; margin-top: 5px;">Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.</div>
+        <div data-lang="vipTitle" style="font-size: 14px; font-weight: bold; color: #e65100;">🎯 VIP Радар</div>
+        <div data-lang="vipSub" style="font-size: 12px; color: #666; margin-top: 5px;">Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.</div>
     </div>
-
     <div id="vipRulesArea" style="display: flex; flex-direction: column; gap: 10px;">
-        <div style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px;">(Мужик ➔ Анкета):</div>
+        <div data-lang="vipRulesLabel" style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px;">(Мужик ➔ Анкета):</div>
         <div id="vipRulesList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;"></div>
-        <button id="vipAddRuleBtn" style="padding: 12px; background: #f0f4f8; color: #1976d2; border: 1px dashed #1976d2; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 13px; transition: 0.2s;">➕ Додати мужика</button>
+        <button id="vipAddRuleBtn" data-lang="vipAddRuleBtn" style="padding: 12px; background: #f0f4f8; color: #1976d2; border: 1px dashed #1976d2; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 13px; transition: 0.2s;">➕ Додати мужика</button>
     </div>
 </div>
-
 </div>
-
 `;
 
 	// --- Створюємо приховану Галерею ---
@@ -1233,21 +1157,13 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
 `;
 
 	galleryModal.innerHTML = `
-
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-
-<h4 style="margin: 0; color: #1976d2; font-size: 20px;">Виберіть фото для листа</h4>
-
+<h4 data-lang="galleryTitle" style="margin: 0; color: #1976d2; font-size: 20px;">Виберіть фото для листа</h4>
 <span id="closeGalleryBtn" style="cursor: pointer; font-size: 32px; color: #999; font-weight: bold; line-height: 1;">&times;</span>
-
 </div>
-
 <div id="galleryGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; overflow-y: auto; flex-grow: 1; margin-bottom: 15px;">
-
 </div>
-
-<button id="confirmGalleryBtn" style="padding: 15px; background: #4caf50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">Готово</button>
-
+<button id="confirmGalleryBtn" data-lang="galleryConfirmBtn" style="padding: 15px; background: #4caf50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">Готово</button>
 `;
 
 	// ДОДАЄМО В OVERLAY, А НЕ В MODAL!
