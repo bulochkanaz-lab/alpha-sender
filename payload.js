@@ -2283,11 +2283,9 @@ transform: translateX(150%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 
 }
 
 // ==========================================
-// ЛОГІКА АВТОВІДПОВІДАЧА (СЛУХАЄ SPY.JS)
+// ЛОГІКА АВТОВІДПОВІДАЧА ТА VIP-РАДАРУ
 // ==========================================
-
 window.addEventListener("AlphaSocketMessage", async function (e) {
-    // 🔥 ГОЛОВНИЙ ЗАХИСТ: Якщо розширення вимкнено (натиснуто СТОП), ігноруємо всі події!
     if (!isRunning) return;
 
     const rawData = e.detail;
@@ -2297,6 +2295,54 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        if (!Array.isArray(parsed) || parsed.length < 2) return;
 
        const payload = parsed[1];
+
+       // 🎯 VIP РАДАР (ПЕРЕНЕСЕНО НА САМИЙ ВЕРХ!)
+       if (payload.action === "user_online" || payload.action === "online" || payload.type === "user_online") {
+
+          let onlineId = null;
+          let clientName = "VIP Клієнт";
+
+          if (payload.message && payload.message.message && payload.message.message.external_id) {
+             onlineId = String(payload.message.message.external_id);
+             clientName = payload.message.message.name || clientName;
+          } else if (payload.external_id) {
+             onlineId = String(payload.external_id);
+             clientName = payload.name || clientName;
+          }
+
+          if (onlineId) {
+             const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
+             if (!isVipEnabled) return;
+
+             const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+
+             // ВИПРАВЛЕНО: Шукаємо ВСІ анкети, до яких прив'язаний цей мужик (filter замість find)
+             const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
+
+             if (matchedRules.length > 0) {
+                showVipNotification(clientName, onlineId);
+
+                if (isRunning) {
+                   document.getElementById("uiStopBtn").click(); // Зупиняємо бота
+
+                   // Вимикаємо ВСІ знайдені анкети паралельно
+                   let disabledProfiles = [];
+                   for (const rule of matchedRules) {
+                       disableProfile(rule.profile_id).then(success => {
+                           if (!success) console.error(`Не вдалося вимкнути анкету ${rule.profile_id}`);
+                       });
+                       disabledProfiles.push(rule.profile_id);
+                   }
+
+                   alert(`🚨 VIP Клієнт (${onlineId}) онлайн!\n\nБот ЗУПИНЕНО.\nАнкети, які зараз вимикаються: ${disabledProfiles.join(', ')}`);
+                }
+             }
+          }
+       }
+
+       // ==========================================
+       // АВТОВІДПОВІДАЧ (Лайки / Вінки)
+       // ==========================================
        const womanId = payload.external_id;
        let manId = null;
 
@@ -2306,59 +2352,9 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           manId = payload.notification_object.sender_external_id;
        }
 
+       // Тільки тут блокуємо виконання, якщо це неповний пакет
        if (!manId || !womanId) return;
 
-       // 🎯 VIP РАДАР (Оновлений під нові правила)
-       if (payload.action === "user_online" || payload.action === "online" || payload.type === "user_online") {
-
-          let onlineId = null;
-          let clientName = "VIP Клієнт";
-
-          // Спроба 1: Старий формат сайту
-          if (payload.message && payload.message.message && payload.message.message.external_id) {
-             onlineId = String(payload.message.message.external_id);
-             clientName = payload.message.message.name || clientName;
-          }
-          // Спроба 2: Можливий новий формат сайту
-          else if (payload.external_id) {
-             onlineId = String(payload.external_id);
-             clientName = payload.name || clientName;
-          }
-
-          if (onlineId) {
-             // 1. Перевіряємо, чи увімкнений радар у новій вкладці
-             const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
-             if (!isVipEnabled) return;
-
-             // 2. Читаємо наші нові правила (Мужик ➔ Анкета)
-             const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
-
-             // 3. Шукаємо, чи є цей мужик в правилах
-             const matchedRule = rules.find(r => String(r.vip_id) === onlineId);
-
-             if (matchedRule) {
-                // Виводимо пуш-повідомлення
-                showVipNotification(clientName, onlineId);
-
-                // 🚨 ЛОГІКА ЗАХИСТУ 🚨
-                if (isRunning) {
-                   document.getElementById("uiStopBtn").click(); // Програмно тиснемо "Зупинити"
-
-                   // АВТОМАТИЧНО ВИМИКАЄМО АНКЕТУ!
-                   disableProfile(matchedRule.profile_id).then(success => {
-                       if(success) {
-                           alert(`🚨 VIP Клієнт (${onlineId}) онлайн!\n\nБот ЗУПИНЕНО.\nАнкету ${matchedRule.profile_id} УСПІШНО ВИМКНЕНО (офлайн).`);
-                       } else {
-                           alert(`🚨 VIP Клієнт (${onlineId}) онлайн!\n\nБот ЗУПИНЕНО.\n⚠️ ПОМИЛКА: Не вдалося автоматично вимкнути анкету ${matchedRule.profile_id}. ВИМКНІТЬ ЇЇ ВРУЧНУ!`);
-                       }
-                   });
-                }
-             }
-          }
-       } // <--- ПЕРША ПРОПУЩЕНА ДУЖКА (Закриває if(onlineId))
-       // <--- ДРУГА ПРОПУЩЕНА ДУЖКА (Закриває if(payload.action === user_online))
-
-       // АВТОВІДПОВІДАЧ
        if (payload.action === "liked") {
           await handleAutoReply(womanId, manId, "like");
        } else if (payload.action === "message" && payload.message_object && payload.message_object.message_type === "SENT_WINK") {
