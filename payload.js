@@ -370,7 +370,7 @@ async function sendLetter(token, profileId, recipientId, template, imageMap) {
 }
 
 // ==========================================
-// ЕКСТРЕНЕ ВИМКНЕННЯ АНКЕТИ
+// ЕКСТРЕНЕ ВИМКНЕННЯ АНКЕТИ (БЕЗПЕЧНИЙ ПАРСИНГ)
 // ==========================================
 async function disableProfile(profileId) {
     let token = localStorage.getItem("token");
@@ -381,12 +381,18 @@ async function disableProfile(profileId) {
 
     // Дістаємо operator_id прямо з JWT токена
     try {
-        const payloadBase64 = token.split('.')[1];
-        // Декодуємо Base64
-        const decoded = JSON.parse(atob(payloadBase64));
-        operatorId = decoded.id; // У токені сайту ID оператора лежить під ключем "id"
+        let base64Url = token.split('.')[1];
+        // Виправляємо символи для стандартного Base64
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        // Додаємо вирівнювання (=), якщо його не вистачає
+        while (base64.length % 4) {
+            base64 += '=';
+        }
+
+        const decoded = JSON.parse(atob(base64));
+        operatorId = decoded.id;
     } catch (e) {
-        console.error("Помилка парсингу токена");
+        console.error("Помилка парсингу токена:", e);
         return false;
     }
 
@@ -401,12 +407,13 @@ async function disableProfile(profileId) {
     try {
         const response = await fetch("https://alpha.date/api/operator/setProfileOnline", {
             method: "POST",
-            headers: getHeaders(token), // Використовуємо твою готову функцію генерації заголовків
+            headers: getHeaders(token),
             body: JSON.stringify(bodyData)
         });
 
         const data = await response.json();
-        return data.status === true;
+        // Сервер може віддати status: true, або просто відповісти 200 OK
+        return response.ok;
     } catch (error) {
         return false;
     }
