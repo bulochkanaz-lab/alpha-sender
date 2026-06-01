@@ -2289,6 +2289,30 @@ transform: translateX(150%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 
 	}, 8000);
 }
 
+// Функція для красивих системних сповіщень (замість alert)
+function showSystemAlert(title, text, color = "#4caf50") {
+    const popup = document.createElement("div");
+    popup.style.cssText = `
+        position: fixed; bottom: 100px; right: 30px; background: #ffffff;
+        border-left: 5px solid ${color}; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        padding: 15px 20px; border-radius: 8px; z-index: 9999999;
+        font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; gap: 5px;
+        transform: translateX(150%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    `;
+    popup.innerHTML = `
+        <div style="font-size: 15px; font-weight: bold; color: #333;">${title}</div>
+        <div style="font-size: 13px; color: #666;">${text}</div>
+    `;
+    document.body.appendChild(popup);
+
+    setTimeout(() => (popup.style.transform = "translateX(0)"), 100);
+    // Висить 12 секунд, щоб працівник точно встиг прочитати
+    setTimeout(() => {
+       popup.style.transform = "translateX(150%)";
+       setTimeout(() => popup.remove(), 400);
+    }, 12000);
+}
+
 // ==========================================
 // ЛОГІКА АВТОВІДПОВІДАЧА ТА VIP-РАДАРУ
 // ==========================================
@@ -2324,28 +2348,37 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
 
              // ВИПРАВЛЕНО: Шукаємо ВСІ анкети, до яких прив'язаний цей мужик (filter замість find)
+             // 3. Шукаємо, чи є цей мужик в правилах (filter знайде всіх)
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
 
              if (matchedRules.length > 0) {
+                // Виводимо перше пуш-повідомлення (Хто зайшов)
                 showVipNotification(clientName, onlineId);
 
-                if (isRunning) {
-                   document.getElementById("uiStopBtn").click(); // Зупиняємо бота
+                // 🚨 ЗМІНЕНО: Більше НЕ натискаємо кнопку СТОП
+                // Бот продовжує працювати і робити розсилку для інших!
 
-                   // Вимикаємо ВСІ знайдені анкети паралельно
-                   let disabledProfiles = [];
-                   for (const rule of matchedRules) {
-                       disableProfile(rule.profile_id).then(success => {
-                           if (!success) console.error(`Не вдалося вимкнути анкету ${rule.profile_id}`);
-                       });
-                       disabledProfiles.push(rule.profile_id);
-                   }
-
-                   alert(`🚨 VIP Клієнт (${onlineId}) онлайн!\n\nБот ЗУПИНЕНО.\nАнкети, які зараз вимикаються: ${disabledProfiles.join(', ')}`);
+                // Вимикаємо тільки ті анкети, до яких він прив'язаний
+                for (const rule of matchedRules) {
+                    disableProfile(rule.profile_id).then(success => {
+                        if(success) {
+                            // Викликаємо стильне червоне повідомлення
+                            showSystemAlert(
+                                "🔌 Анкета вимкнена",
+                                `Анкету <b>${rule.profile_id}</b> переведено в офлайн через клієнта ${onlineId}.`,
+                                "#f44336"
+                            );
+                        } else {
+                            // Викликаємо стильне жовте повідомлення про помилку
+                            showSystemAlert(
+                                "⚠️ Помилка вимкнення",
+                                `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>. Зробіть це вручну!`,
+                                "#ff9800"
+                            );
+                        }
+                    });
                 }
              }
-          }
-       }
 
        // ==========================================
        // АВТОВІДПОВІДАЧ (Лайки / Вінки)
