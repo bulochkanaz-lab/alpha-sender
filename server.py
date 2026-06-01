@@ -1,4 +1,5 @@
 import sqlite3
+import database
 import os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import hashlib
