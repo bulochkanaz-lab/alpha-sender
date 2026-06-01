@@ -848,6 +848,39 @@ let currentSelectedTab = "like";
 // ==========================================
 
 function injectBotUI() {
+
+    // СЛОВНИК ПЕРЕКЛАДІВ
+    const alphaDict = {
+        ua: {
+            title: "⚙ Alpha Sender Pro",
+            tabSettings: "Розсилка",
+            tabInvites: "Інвайти",
+            tabLetters: "Листи",
+            tabWinks: "Вінки/Лайки",
+            tabVip: "Повідомлення",
+            tabStats: "Статистика",
+            btnStart: "▶ Почати розсилку",
+            btnStop: "⏹ Зупинити",
+            vipTitle: "🎯 VIP Радар",
+            vipSub: "Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.",
+            vipAdd: "➕ Додати мужика"
+        },
+        ru: {
+            title: "⚙ Alpha Sender Pro",
+            tabSettings: "Рассылка",
+            tabInvites: "Инвайты",
+            tabLetters: "Письма",
+            tabWinks: "Винки/Лайки",
+            tabVip: "Уведомления",
+            tabStats: "Статистика",
+            btnStart: "▶ Начать рассылку",
+            btnStop: "⏹ Остановить",
+            vipTitle: "🎯 VIP Радар",
+            vipSub: "Уведомления о входе работают всегда. Авто-отключение анкеты можно настроить для каждого мужчины отдельно.",
+            vipAdd: "➕ Добавить мужика"
+        }
+    };
+
 	if (document.getElementById("alpha-sender-overlay")) return;
 
 	const overlay = document.createElement("div");
@@ -883,11 +916,14 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 <!-- Шапка -->
 
 <div style="background: #f5f8fa; padding: 15px 20px; border-bottom: 1px solid #e1e8ed; display: flex; justify-content: space-between; align-items: center;">
-
-<h3 style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-
-<span id="uiCloseBtn" style="cursor: pointer; font-size: 24px; color: #999; line-height: 1; font-weight: bold;">&times;</span>
-
+    <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="display: flex; gap: 10px; font-size: 18px; user-select: none;">
+            <span id="langUaBtn" style="cursor: pointer; opacity: 1; transition: 0.2s;" title="Українська">🇺🇦</span>
+            <span id="langRuBtn" style="cursor: pointer; opacity: 0.4; transition: 0.2s;" title="Русский">🇷🇺</span>
+        </div>
+        <span id="uiCloseBtn" style="cursor: pointer; font-size: 24px; color: #999; line-height: 1; font-weight: bold;">&times;</span>
+    </div>
 </div>
 
 
@@ -1688,6 +1724,38 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         });
     };
 
+    // ==========================================
+    // ЛОГІКА МУЛЬТИМОВНОСТІ
+    // ==========================================
+    const langUaBtn = document.getElementById("langUaBtn");
+    const langRuBtn = document.getElementById("langRuBtn");
+
+    function applyTranslations(lang) {
+        localStorage.setItem("alphaLang", lang); // Зберігаємо вибір
+
+        // Виділяємо активний прапорець (інший робимо напівпрозорим)
+        langUaBtn.style.opacity = lang === "ua" ? "1" : "0.4";
+        langRuBtn.style.opacity = lang === "ru" ? "1" : "0.4";
+
+        // Пробігаємося по всіх елементах з міткою data-lang
+        document.querySelectorAll("[data-lang]").forEach(el => {
+            const key = el.getAttribute("data-lang");
+            if (alphaDict[lang] && alphaDict[lang][key]) {
+                if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+                    el.placeholder = alphaDict[lang][key];
+                } else {
+                    el.innerText = alphaDict[lang][key];
+                }
+            }
+        });
+    }
+
+    langUaBtn.onclick = () => applyTranslations("ua");
+    langRuBtn.onclick = () => applyTranslations("ru");
+
+    // Відновлюємо мову відразу при відкритті
+    applyTranslations(localStorage.getItem("alphaLang") || "ua");
+
 	document.getElementById("uiCloseBtn").onclick = () => (overlay.style.display = "none");
 
 	document.getElementById("uiStartBtn").onclick = () => {
@@ -2186,7 +2254,7 @@ transform: translateX(150%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 
 
 	popup.innerHTML = `
 
-<div style="font-size: 15px; font-weight: bold; color: #333;">‼️УВАГА‼️‼</div>
+<div style="font-size: 15px; font-weight: bold; color: #333;">‼️УВАГА‼️</div>
 
 <div style="font-size: 13px; color: #666;"><b>${name}</b> (${id}) щойно зайшов на сайт.</div>
 
