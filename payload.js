@@ -156,7 +156,7 @@ async function collectAllMen(token, profileId) {
     let hasMore = true;
 
     while (hasMore && isRunning) {
-        updatePopup(`Шукаю клієнтів (Сторінка ${page})...`);
+        updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
         const bodyData = {
             user_id: "",
             chat_uid: false,
@@ -205,7 +205,7 @@ async function collectAllMen(token, profileId) {
                 }
             }
 
-            updatePopup(`Збір клієнтів (Сторінка ${page})... Знайдено: ${allClients.length}`);
+            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
             await sleep(500);
         } catch (error) {
@@ -1632,7 +1632,7 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             // Поле вводу ID клієнта
             const inputVip = document.createElement("input");
             inputVip.type = "text";
-            inputVip.placeholder = "ID Клієнта";
+            inputVip.placeholder = "ID мужика";
             inputVip.value = rule.vip_id;
             inputVip.style.cssText = `width: 100px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
 
@@ -1727,7 +1727,7 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             // Поле вводу ID клієнта
             const inputVip = document.createElement("input");
             inputVip.type = "text";
-            inputVip.placeholder = "ID Клієнта";
+            inputVip.placeholder = "ID мужика";
             inputVip.value = rule.vip_id;
             inputVip.style.cssText = `width: 100px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
 
@@ -2268,7 +2268,7 @@ transform: translateX(150%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 
 
 	popup.innerHTML = `
 
-<div style="font-size: 15px; font-weight: bold; color: #333;">🚨 VIP Клієнт онлайн!</div>
+<div style="font-size: 15px; font-weight: bold; color: #333;">‼️УВАГА‼️‼</div>
 
 <div style="font-size: 13px; color: #666;"><b>${name}</b> (${id}) щойно зайшов на сайт.</div>
 
@@ -2331,7 +2331,7 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        if (payload.action === "user_online" || payload.action === "online" || payload.type === "user_online") {
 
           let onlineId = null;
-          let clientName = "VIP Клієнт";
+          let clientName = "важлививий мужик";
 
           if (payload.message && payload.message.message && payload.message.message.external_id) {
              onlineId = String(payload.message.message.external_id);
@@ -2342,45 +2342,39 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
 
           if (onlineId) {
-             const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
-             if (!isVipEnabled) return;
-
+             // 1. ЗАВЖДИ читаємо правила з пам'яті (без перевірки тумблера)
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
-
-             // ВИПРАВЛЕНО: Шукаємо ВСІ анкети, до яких прив'язаний цей мужик (filter замість find)
-             // 3. Шукаємо, чи є цей мужик в правилах (filter знайде всіх)
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
 
              if (matchedRules.length > 0) {
-                // Виводимо перше пуш-повідомлення (Хто зайшов)
+                // 2. ЗАВЖДИ виводимо пуш-повідомлення (Радар працює постійно)
                 showVipNotification(clientName, onlineId);
 
-                // 🚨 ЗМІНЕНО: Більше НЕ натискаємо кнопку СТОП
-                // Бот продовжує працювати і робити розсилку для інших!
+                // 3. ДОДАТКОВА ФУНКЦІЯ: перевіряємо тумблер Авто-вимкнення ТІЛЬКИ ТУТ
+                const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
 
-                // Вимикаємо тільки ті анкети, до яких він прив'язаний
-                for (const rule of matchedRules) {
-                    disableProfile(rule.profile_id).then(success => {
-                        if(success) {
-                            // Викликаємо стильне червоне повідомлення
-                            showSystemAlert(
-                                "🔌 Анкета вимкнена",
-                                `Анкету <b>${rule.profile_id}</b> переведено в офлайн через клієнта ${onlineId}.`,
-                                "#f44336"
-                            );
-                        } else {
-                            // Викликаємо стильне жовте повідомлення про помилку
-                            showSystemAlert(
-                                "⚠️ Помилка вимкнення",
-                                `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>. Зробіть це вручну!`,
-                                "#ff9800"
-                            );
-                        }
-                    });
+                if (isVipEnabled) {
+                    // Якщо тумблер увімкнений — вирубаємо анкети
+                    for (const rule of matchedRules) {
+                        disableProfile(rule.profile_id).then(success => {
+                            if(success) {
+                                showSystemAlert(
+                                    "🔌 Анкета вимкнена",
+                                    `Анкету <b>${rule.profile_id}</b> переведено в офлайн через клієнта ${onlineId}.`,
+                                    "#f44336"
+                                );
+                            } else {
+                                showSystemAlert(
+                                    "⚠️ Помилка вимкнення",
+                                    `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>. Зробіть це вручну!`,
+                                    "#ff9800"
+                                );
+                            }
+                        });
+                    }
                 }
              }
-          } // <--- ВІДНОВЛЕНА ДУЖКА (закриває if(onlineId))
-       } // <--- ВІДНОВЛЕНА ДУЖКА (закриває if(payload.action...))
+          } // <--- ВІДНОВЛЕНА ДУЖКА (закриває if(payload.action...))
 
        // ==========================================
        // АВТОВІДПОВІДАЧ (Лайки / Вінки)
