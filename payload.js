@@ -1162,16 +1162,12 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 
 <!-- Вкладка 6: Повідомлення -->
 <div id="tabContentVip" style="display: none;">
-    <label style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px; cursor: pointer;">
-        <div style="font-size: 14px; font-weight: bold; color: #e65100;">🛡️ Авто-вимкнення анкети</div>
-        <div style="position: relative; width: 44px; height: 24px;">
-            <input type="checkbox" id="vipToggleInput" style="opacity: 0; width: 0; height: 0; position: absolute; cursor: pointer;">
-            <span id="vipToggleBg" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 24px; transition: .3s; pointer-events: none;"></span>
-            <span id="vipToggleKnob" style="position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); pointer-events: none;"></span>
-        </div>
-    </label>
+    <div style="padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px;">
+        <div style="font-size: 14px; font-weight: bold; color: #e65100;">повідомлення</div>
+        <div style="font-size: 12px; color: #666; margin-top: 5px;">Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.</div>
+    </div>
 
-    <div id="vipRulesArea" style="display: none; flex-direction: column; gap: 10px;">
+    <div id="vipRulesArea" style="display: flex; flex-direction: column; gap: 10px;">
         <div style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px;">(Мужик ➔ Анкета):</div>
         <div id="vipRulesList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;"></div>
         <button id="vipAddRuleBtn" style="padding: 12px; background: #f0f4f8; color: #1976d2; border: 1px dashed #1976d2; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 13px; transition: 0.2s;">➕ Додати мужика</button>
@@ -1604,15 +1600,18 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
 	};
 
 	// ==========================================
-    // ЛОГІКА VIP РАДАРУ (ПУЛЬТ)
+    // ЛОГІКА VIP РАДАРУ (ПУЛЬТ) - ОНОВЛЕНО
     // ==========================================
-    const vipToggleInput = document.getElementById("vipToggleInput");
-    const vipToggleBg = document.getElementById("vipToggleBg");
-    const vipToggleKnob = document.getElementById("vipToggleKnob");
-    const vipRulesArea = document.getElementById("vipRulesArea");
     const vipRulesList = document.getElementById("vipRulesList");
 
-    // 1. СПОЧАТКУ створюємо функцію (щоб скрипт про неї знав)
+    document.getElementById("vipAddRuleBtn").onclick = () => {
+        let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+        // Додано нове поле auto_disable
+        rules.push({ vip_id: "", profile_id: "", auto_disable: false });
+        localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+        window.renderVipRules();
+    };
+
     window.renderVipRules = function() {
         vipRulesList.innerHTML = "";
         let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
@@ -1622,21 +1621,21 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             return;
         }
 
-        // Беремо вже завантажені анкети з іншого селекта (оптимізація)
         const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">-- Оберіть анкету --</option>';
 
         rules.forEach((rule, index) => {
-            const row = document.createElement("div");
-            row.style.cssText = `display: flex; gap: 10px; align-items: center; background: #f9f9f9; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px;`;
+            const container = document.createElement("div");
+            container.style.cssText = `display: flex; flex-direction: column; gap: 8px; background: #f9f9f9; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px;`;
 
-            // Поле вводу ID клієнта
+            // Верхній ряд: ID -> Анкета -> Видалити
+            const topRow = document.createElement("div");
+            topRow.style.cssText = `display: flex; gap: 10px; align-items: center;`;
+
             const inputVip = document.createElement("input");
             inputVip.type = "text";
             inputVip.placeholder = "ID мужика";
-            inputVip.value = rule.vip_id;
-            inputVip.style.cssText = `width: 100px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
-
-            // Збереження при введенні
+            inputVip.value = rule.vip_id || "";
+            inputVip.style.cssText = `width: 90px; padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
             inputVip.oninput = (e) => {
                 rules[index].vip_id = e.target.value.trim();
                 localStorage.setItem("alphaVipRules", JSON.stringify(rules));
@@ -1646,32 +1645,47 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             arrow.innerHTML = "➔";
             arrow.style.color = "#999";
 
-            // Вибір анкети
             const selectProfile = document.createElement("select");
             selectProfile.innerHTML = profileOptionsHtml;
-            selectProfile.value = rule.profile_id;
-            selectProfile.style.cssText = `flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
-
+            selectProfile.value = rule.profile_id || "";
+            selectProfile.style.cssText = `flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
             selectProfile.onchange = (e) => {
                 rules[index].profile_id = e.target.value;
                 localStorage.setItem("alphaVipRules", JSON.stringify(rules));
             };
 
-            // Кнопка видалення
             const delBtn = document.createElement("span");
             delBtn.innerHTML = "❌";
             delBtn.style.cssText = `cursor: pointer; font-size: 14px; margin-left: 5px;`;
             delBtn.onclick = () => {
                 rules.splice(index, 1);
                 localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-                window.renderVipRules(); // Викликаємо безпечно
+                window.renderVipRules();
             };
 
-            row.appendChild(inputVip);
-            row.appendChild(arrow);
-            row.appendChild(selectProfile);
-            row.appendChild(delBtn);
-            vipRulesList.appendChild(row);
+            topRow.appendChild(inputVip);
+            topRow.appendChild(arrow);
+            topRow.appendChild(selectProfile);
+            topRow.appendChild(delBtn);
+
+            // Нижній ряд: Чекбокс авто-вимкнення
+            const bottomRow = document.createElement("label");
+            bottomRow.style.cssText = `display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; cursor: pointer;`;
+
+            const autoDisableCheckbox = document.createElement("input");
+            autoDisableCheckbox.type = "checkbox";
+            autoDisableCheckbox.checked = rule.auto_disable === true;
+            autoDisableCheckbox.onchange = (e) => {
+                rules[index].auto_disable = e.target.checked;
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            bottomRow.appendChild(autoDisableCheckbox);
+            bottomRow.appendChild(document.createTextNode("🔌 Вимкнути анкету, якщо він зайде"));
+
+            container.appendChild(topRow);
+            container.appendChild(bottomRow);
+            vipRulesList.appendChild(container);
         });
     };
 
@@ -2327,11 +2341,11 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        const payload = parsed[1];
 
-       // 🎯 VIP РАДАР (ПЕРЕНЕСЕНО НА САМИЙ ВЕРХ!)
+       // 🎯 VIP РАДАР
        if (payload.action === "user_online" || payload.action === "online" || payload.type === "user_online") {
 
           let onlineId = null;
-          let clientName = "важлививий мужик";
+          let clientName = "Важливий клієнт";
 
           if (payload.message && payload.message.message && payload.message.message.external_id) {
              onlineId = String(payload.message.message.external_id);
@@ -2342,20 +2356,16 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
 
           if (onlineId) {
-             // 1. ЗАВЖДИ читаємо правила з пам'яті (без перевірки тумблера)
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
 
              if (matchedRules.length > 0) {
-                // 2. ЗАВЖДИ виводимо пуш-повідомлення (Радар працює постійно)
+                // Пуш показуємо ЗАВЖДИ
                 showVipNotification(clientName, onlineId);
 
-                // 3. ДОДАТКОВА ФУНКЦІЯ: перевіряємо тумблер Авто-вимкнення ТІЛЬКИ ТУТ
-                const isVipEnabled = localStorage.getItem("alphaVipEnabled") === "true";
-
-                if (isVipEnabled) {
-                    // Якщо тумблер увімкнений — вирубаємо анкети
-                    for (const rule of matchedRules) {
+                for (const rule of matchedRules) {
+                    // Вимикаємо ТІЛЬКИ якщо в цьому правилі стоїть галочка
+                    if (rule.auto_disable === true) {
                         disableProfile(rule.profile_id).then(success => {
                             if(success) {
                                 showSystemAlert(
@@ -2374,8 +2384,8 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                     }
                 }
              }
-          } // <--- ВІДНОВЛЕНА ДУЖКА (закриває if(payload.action...))
-
+          }
+       } // <--- ОСЬ ТА САМА ПРОПУЩЕНА ДУЖКА!
        // ==========================================
        // АВТОВІДПОВІДАЧ (Лайки / Вінки)
        // ==========================================
