@@ -1155,14 +1155,14 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 
 <!-- Вкладка 6: Повідомлення -->
 <div id="tabContentVip" style="display: none;">
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px;">
+    <label style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px; cursor: pointer;">
         <div style="font-size: 14px; font-weight: bold; color: #e65100;">🛡️ Авто-вимкнення анкети</div>
         <div style="position: relative; width: 44px; height: 24px;">
             <input type="checkbox" id="vipToggleInput" style="opacity: 0; width: 0; height: 0; position: absolute; cursor: pointer;">
             <span id="vipToggleBg" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 24px; transition: .3s; pointer-events: none;"></span>
             <span id="vipToggleKnob" style="position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); pointer-events: none;"></span>
         </div>
-    </div>
+    </label>
 
     <div id="vipRulesArea" style="display: none; flex-direction: column; gap: 10px;">
         <div style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px;">(Мужик ➔ Анкета):</div>
@@ -1251,7 +1251,12 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
     tabs[2].btn.onclick = () => switchMainTab(tabs[2].btn);
     tabs[3].btn.onclick = () => { switchMainTab(tabs[3].btn); loadProfilesForUI(); };
     // Обробник нової вкладки:
-    tabs[4].btn.onclick = () => { switchMainTab(tabs[4].btn); loadProfilesForUI(); renderVipRules(); };
+    // Обробник нової вкладки (ЗМІНЕНО: додано async та await)
+    tabs[4].btn.onclick = async () => {
+        switchMainTab(tabs[4].btn);
+        await loadProfilesForUI(); // Спочатку чекаємо анкети з сервера
+        renderVipRules();          // І тільки потім малюємо їх у правилах
+    };
     tabs[5].btn.onclick = () => switchMainTab(tabs[5].btn);
 
 	// 2. Логіка ПОВЗУНКА (Тумблера)
