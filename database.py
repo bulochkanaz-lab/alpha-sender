@@ -128,22 +128,6 @@ def reset_hwid(access_key: str) -> bool:
     conn.close()
     return updated > 0
 
-def ban_key(access_key: str):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "UPDATE keys SET is_banned = 1 WHERE access_key = ?",
-        (access_key,)
-    )
-
-    updated = cursor.rowcount
-
-    conn.commit()
-    conn.close()
-
-    return updated > 0
-
 
 def get_all_keys():
     conn = get_connection()
@@ -182,11 +166,40 @@ def update_profiles(access_key: str, profiles: list) -> bool:
         return False
 
 
-def delete_banned_keys() -> int:
-    conn = get_connection()  # Використовуємо правильний шлях з DB_PATH
+def toggle_ban_key(access_key: str) -> tuple[bool, str]:
+    """Змінює статус ключа на протилежний (Заблокований <-> Активний)"""
+    conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM keys WHERE is_banned = 1")
+    # Спочатку дізнаємося поточний статус
+    cursor.execute("SELECT is_banned FROM keys WHERE access_key = ?", (access_key,))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return False, "not_found"
+
+    current_status = row[0]
+    # Якщо був 1 (бан), ставимо 0. Якщо був 0, ставимо 1.
+    new_status = 0 if current_status == 1 else 1
+
+    cursor.execute("UPDATE keys SET is_banned = ? WHERE access_key = ?", (new_status, access_key))
+    conn.commit()
+    conn.close()
+
+    return True, "banned" if new_status == 1 else "unbanned"
+
+
+def delete_keys(keys_list: list) -> int:
+    """Видаляє список ключів з бази"""
+    if not keys_list:
+        return 0
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # executemany дозволяє виконати один запит для цілого списку
+    cursor.executemany("DELETE FROM keys WHERE access_key = ?", [(k,) for k in keys_list])
     count = cursor.rowcount
 
     conn.commit()

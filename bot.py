@@ -30,32 +30,50 @@ dp = Dispatcher()
 main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔑 Додати ключ"), KeyboardButton(text="📋 База ключів")],
-        [KeyboardButton(text="🧹 Видалити заблоковані"), KeyboardButton(text="➕ Згенерувати ключі")],
-        [KeyboardButton(text="⛔ Заблокувати ключ"), KeyboardButton(text="🔄 Скинути HWID")] # Нова кнопка
+        [KeyboardButton(text="🗑 Видалити ключі"), KeyboardButton(text="➕ Згенерувати ключі")],
+        [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути HWID")]
     ],
     resize_keyboard=True
 )
 
 
 # Стан для очікування вводу ключа
-class BanKeyStates(StatesGroup):
+class ToggleBanStates(StatesGroup):
     waiting_for_key = State()
 
-class BanKeyStates(StatesGroup):
-    waiting_for_key = State()
+class DeleteKeysStates(StatesGroup):
+    waiting_for_keys = State()
 
 
-# Обробник натискання на кнопку в меню
-@dp.message(F.text == "⛔ Заблокувати ключ")
-async def prompt_ban_key(message: types.Message, state: FSMContext):
-    if not is_admin(message.from_user.id):
-        return
-    await message.answer("Введіть ключ, який потрібно заблокувати:")
-    await state.set_state(BanKeyStates.waiting_for_key)
+# ==========================================
+# ЛОГІКА БЛОКУВАННЯ / РОЗБЛОКУВАННЯ
+# ==========================================
+@dp.message(F.text == "⛔ Заблокувати/Розблокувати")
+async def prompt_toggle_ban(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Введіть ключ, щоб змінити його статус:")
+    await state.set_state(ToggleBanStates.waiting_for_key)
 
 
-class ResetHwidStates(StatesGroup):
-    waiting_for_key = State()
+@dp.message(ToggleBanStates.waiting_for_key)
+async def process_toggle_ban(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+
+    key_to_toggle = message.text.strip()
+    success, new_status = database.toggle_ban_key(key_to_toggle)
+
+    if success:
+        if new_status == "banned":
+            await message.answer(
+                f"🔴 Ключ <code>{key_to_toggle}</code> ЗАБЛОКОВАНО!\nСкрипт зупиниться при наступній перевірці.",
+                parse_mode="HTML")
+        else:
+            await message.answer(f"🟢 Ключ <code>{key_to_toggle}</code> РОЗБЛОКОВАНО!\nДоступ відновлено.",
+                                 parse_mode="HTML")
+    else:
+        await message.answer("❌ Такого ключа не знайдено в базі.")
+
+    await state.clear()
 
 
 @dp.message(F.text == "🔄 Скинути HWID")
@@ -78,14 +96,32 @@ async def process_reset_hwid(message: types.Message, state: FSMContext):
         await message.answer("❌ Такого ключа не знайдено в базі.")
     await state.clear()
 
-@dp.message(F.text == "🧹 Видалити заблоковані")
-async def delete_banned_keys_handler(message: types.Message):
+
+# ==========================================
+# ЛОГІКА МАСОВОГО ВИДАЛЕННЯ
+# ==========================================
+@dp.message(F.text == "🗑 Видалити ключі")
+async def prompt_delete_keys(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.answer("Надішліть ключі для видалення (через пробіл або з нового рядка):")
+    await state.set_state(DeleteKeysStates.waiting_for_keys)
+
+
+@dp.message(DeleteKeysStates.waiting_for_keys)
+async def process_delete_keys(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
 
-    # Тепер бот викликає безпечну функцію з database.py
-    count = database.delete_banned_keys()
+    # split() автоматично розбиває і по пробілах, і по Enter
+    keys_to_delete = message.text.split()
 
-    await message.answer(f"✅ Успішно видалено {count} заблокованих ключів.")
+    if not keys_to_delete:
+        await message.answer("⚠️ Ви не ввели жодного ключа. Спробуйте ще раз.")
+        return
+
+    deleted_count = database.delete_keys(keys_to_delete)
+
+    await message.answer(f"✅ Успішно видалено {deleted_count} ключів із {len(keys_to_delete)} запитаних.")
+    await state.clear()
 
 @dp.message(F.text == "➕ Згенерувати ключі")
 async def prompt_gen_keys(message: types.Message, state: FSMContext):
