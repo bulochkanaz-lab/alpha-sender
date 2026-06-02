@@ -43,6 +43,31 @@ async def authenticate(request: AuthRequest):
     return {"status": "error", "message": message}
 
 
+class HeartbeatRequest(BaseModel):
+    access_key: str = ""
+    hwid: str = ""
+    profiles: list = []
+
+
+@app.post("/heartbeat")
+async def heartbeat(request: HeartbeatRequest):
+    key = request.access_key.replace('"', '').strip()
+    hwid = request.hwid.strip()
+
+    # Перевіряємо, чи ключ валідний і чи не змінився HWID
+    success, message = database.verify_and_bind_key(key, hwid)
+
+    if success:
+        # ЗАПИСУЄМО АНКЕТИ В БАЗУ ДЛЯ ТЕЛЕГРАМ БОТА
+        database.update_profiles(key, request.profiles)
+        return {"status": "success"}
+
+    if message == "Ключ заблоковано":
+        return {"status": "banned", "message": message}
+
+    return {"status": "error", "message": message}
+
+
 @app.get("/get_payload")
 async def get_payload(key: str = "", session_id: str = "", hwid: str = ""):
     key = key.replace('"', '').strip()

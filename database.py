@@ -19,10 +19,17 @@ def init_db():
     CREATE TABLE IF NOT EXISTS keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         access_key TEXT UNIQUE,
+        hwid TEXT,
         is_banned INTEGER DEFAULT 0,
         profiles TEXT DEFAULT '[]'
     )
     """)
+
+    # ДОДАЛИ ЦЕЙ БЛОК: Безпечно додаємо колонку до вже існуючої таблиці
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
+    except sqlite3.OperationalError:
+        pass  # Якщо колонка вже є, нічого не робимо
 
     conn.commit()
     conn.close()
@@ -152,3 +159,24 @@ def get_all_keys():
     conn.close()
 
     return rows
+
+
+def update_profiles(access_key: str, profiles: list) -> bool:
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Перетворюємо список ID анкет у текст (JSON), бо SQLite не має типу масиву
+        profiles_json = json.dumps(profiles, ensure_ascii=False)
+
+        cursor.execute(
+            "UPDATE keys SET profiles = ? WHERE access_key = ?",
+            (profiles_json, access_key)
+        )
+
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"DB ERROR update_profiles: {e}")
+        return False

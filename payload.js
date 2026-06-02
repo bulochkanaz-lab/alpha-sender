@@ -242,25 +242,35 @@ async function fetchTemplates(token, profileId, mailType) {
     }
 }
 
-async function checkBanStatus() {
-    // Беремо ключ і HWID, які нам дбайливо передав background.js
+// Оновлена функція Heartbeat (Пінг)
+async function sendHeartbeatToServer(profilesList = []) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
     const currentHwid = window.alphaHWID || "";
 
     if (!currentKey || !currentHwid) return;
 
     try {
-        const response = await fetch(`https://bulochka-sender.duckdns.org/heartbeat?key=${currentKey}&hwid=${currentHwid}`);
+        // Увага: тут URL твого сервера FastAPI
+        const response = await fetch("http://178.105.190.180:8001/heartbeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                access_key: currentKey,
+                hwid: currentHwid,
+                profiles: profilesList.map(p => p.id) // Відправляємо тільки ID анкет масивом
+            })
+        });
+
         const data = await response.json();
 
-        // Якщо сервер відповів, що доступ заборонено
+        // Якщо адміністратор натиснув "Заблокувати ключ" в боті
         if (data.status === "banned") {
             localStorage.removeItem('alphaAccessKey');
             alert("⛔ Ваш ключ доступу або пристрій був заблокований адміністратором.");
             location.reload();
         }
     } catch (e) {
-        // Сервер тимчасово лежить - ігноруємо
+        // Сервер тимчасово недоступний - ігноруємо, щоб не зупиняти роботу
     }
 }
 
@@ -648,6 +658,25 @@ async function startSendingProcess() {
 	} else {
 		profilesToProcess = [{ id: singleProfileId, name: "Ручне введення" }];
 	}
+
+	// --- ПОЧАТОК НОВОГО КОДУ ---
+    // Відправляємо список анкет одразу при старті розсилки
+    sendHeartbeatToServer(profilesToProcess);
+
+    // Запускаємо таймер: відправляти "я живий" кожні 60 секунд
+    if (window.alphaHeartbeatInterval) {
+        clearInterval(window.alphaHeartbeatInterval);
+    }
+    window.alphaHeartbeatInterval = setInterval(() => {
+        if (isRunning) {
+            sendHeartbeatToServer(profilesToProcess);
+        } else {
+            // Якщо бот зупинений - відправляємо порожній список, щоб в Telegram показало "Немає активних"
+            sendHeartbeatToServer([]);
+            clearInterval(window.alphaHeartbeatInterval);
+        }
+    }, 60000);
+    // --- КІНЕЦЬ НОВОГО КОДУ ---
 
 	for (let pIndex = 0; pIndex < profilesToProcess.length; pIndex++) {
 		if (!isRunning) break;
@@ -2247,7 +2276,7 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        // 🎯 VIP РАДАР
        if (eventName === "user_online" || (payload && (payload.action === "user_online" || payload.type === "user_online"))) {
-          console.log("🛠️ [Дебаг Радара] 1. Це подія онлайну! Payload:", payload);
+          //console.log("🛠️ [Дебаг Радара] 1. Це подія онлайну! Payload:", payload);
 
           let onlineId = null;
           let clientName = "Важливий клієнт";
@@ -2265,22 +2294,22 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
           extractVipData(payload);
 
-          console.log("🛠️ [Дебаг Радара] 2. Знайдений ID мужика:", onlineId);
+          //console.log("🛠️ [Дебаг Радара] 2. Знайдений ID мужика:", onlineId);
 
           if (onlineId) {
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
-             console.log("🛠️ [Дебаг Радара] 3. Правила в пам'яті бота:", rules);
+             //console.log("🛠️ [Дебаг Радара] 3. Правила в пам'яті бота:", rules);
 
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
-             console.log("🛠️ [Дебаг Радара] 4. Збігів знайдено:", matchedRules.length);
+             //console.log("🛠️ [Дебаг Радара] 4. Збігів знайдено:", matchedRules.length);
 
              if (matchedRules.length > 0) {
-                console.log("🛠️ [Дебаг Радара] 5. БІНГО! Виводимо пуш і перевіряємо вимкнення.");
+                //console.log("🛠️ [Дебаг Радара] 5. БІНГО! Виводимо пуш і перевіряємо вимкнення.");
                 showVipNotification(clientName, onlineId);
 
                 for (const rule of matchedRules) {
                     if (rule.auto_disable === true) {
-                        console.log(`🛠️ [Дебаг Радара] 6. Вимикаємо анкету ${rule.profile_id}`);
+                        //console.log(`🛠️ [Дебаг Радара] 6. Вимикаємо анкету ${rule.profile_id}`);
                         disableProfile(rule.profile_id).then(success => {
                             if(success) {
                                 showSystemAlert("🔌 Анкета вимкнена", `Анкету <b>${rule.profile_id}</b> переведено в офлайн.`, "#f44336");
@@ -2289,14 +2318,14 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                             }
                         });
                     } else {
-                        console.log(`🛠️ [Дебаг Радара] 6. Галочка авто-вимкнення НЕ стоїть для анкети ${rule.profile_id}`);
+                        //console.log(`🛠️ [Дебаг Радара] 6. Галочка авто-вимкнення НЕ стоїть для анкети ${rule.profile_id}`);
                     }
                 }
              } else {
-                 console.log("🛠️ [Дебаг Радара] ❌ Цей мужик є онлайн, але його ID немає у ваших правилах!");
+                 //console.log("🛠️ [Дебаг Радара] ❌ Цей мужик є онлайн, але його ID немає у ваших правилах!");
              }
           } else {
-              console.log("🛠️ [Дебаг Радара] ❌ Не змогли витягнути ID з Payload!");
+              //console.log("🛠️ [Дебаг Радара] ❌ Не змогли витягнути ID з Payload!");
           }
        }
 
