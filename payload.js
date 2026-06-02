@@ -604,8 +604,6 @@ async function sendInvite(token, profileId, recipientId, template) {
 async function startSendingProcess() {
 	// 🔥 ПЕРЕВІРКА СТАТУСУ КЛЮЧА 🔥
 
-	await checkBanStatus();
-
 	let token = localStorage.getItem("token");
 
 	if (!token) {
