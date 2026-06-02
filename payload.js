@@ -245,36 +245,15 @@ async function fetchTemplates(token, profileId, mailType) {
 // Оновлена функція Heartbeat (Пінг)
 async function sendHeartbeatToServer(profilesList = []) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
-    const currentHwid = window.alphaHWID || "";
+    if (!currentKey) return;
 
-    if (!currentKey || !currentHwid) return;
-
-    // ДОДАЙ ЦЕЙ РЯДОК ДЛЯ ДЕБАГУ:
-    console.log(`[DEBUG] Відправка на сервер... Ключ: ${currentKey}, Анкети:`, profilesList.map(p => p.id));
-
-    try {
-        // Увага: тут URL твого сервера FastAPI
-        const response = await fetch("http://178.105.190.180:8001/heartbeat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                access_key: currentKey,
-                hwid: currentHwid,
-                profiles: profilesList.map(p => p.id) // Відправляємо тільки ID анкет масивом
-            })
-        });
-
-        const data = await response.json();
-
-        // Якщо адміністратор натиснув "Заблокувати ключ" в боті
-        if (data.status === "banned") {
-            localStorage.removeItem('alphaAccessKey');
-            alert("⛔ Ваш ключ доступу або пристрій був заблокований адміністратором.");
-            location.reload();
+    // Кидаємо подію в межах сторінки, щоб її спіймав content.js
+    window.dispatchEvent(new CustomEvent("AlphaPing", {
+        detail: {
+            key: currentKey,
+            profiles: profilesList.map(p => p.id)
         }
-    } catch (e) {
-        // Сервер тимчасово недоступний - ігноруємо, щоб не зупиняти роботу
-    }
+    }));
 }
 
 async function getExternalIdsFromLastMessage(token, chatUids) {
