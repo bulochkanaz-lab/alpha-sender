@@ -2233,7 +2233,7 @@ function showSystemAlert(title, text, color = "#4caf50") {
 }
 
 // ==========================================
-// ЛОГІКА АВТОВІДПОВІДАЧА ТА VIP-РАДАРУ
+// ЛОГІКА АВТОВІДПОВІДАЧА ТА VIP-РАДАРУ (З ДЕБАГОМ)
 // ==========================================
 window.addEventListener("AlphaSocketMessage", async function (e) {
     const rawData = e.detail;
@@ -2245,13 +2245,14 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        const eventName = parsed[0];
        const payload = parsed[1];
 
-       // 🎯 VIP РАДАР (Тепер працює ЗАВЖДИ, навіть коли розсилка на паузі!)
+       // 🎯 VIP РАДАР
        if (eventName === "user_online" || (payload && (payload.action === "user_online" || payload.type === "user_online"))) {
+          console.log("🛠️ [Дебаг Радара] 1. Це подія онлайну! Payload:", payload);
 
           let onlineId = null;
-          let clientName = "VIP Клієнт";
+          let clientName = "Важливий клієнт";
 
-          // Бронебійний сканер: шукає ID мужика на будь-якій глибині "матрьошки"
+          // Бронебійний сканер
           function extractVipData(obj) {
               if (!obj || typeof obj !== 'object') return;
               if (obj.external_id && !onlineId) {
@@ -2264,38 +2265,44 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
           extractVipData(payload);
 
+          console.log("🛠️ [Дебаг Радара] 2. Знайдений ID мужика:", onlineId);
+
           if (onlineId) {
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+             console.log("🛠️ [Дебаг Радара] 3. Правила в пам'яті бота:", rules);
+
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
+             console.log("🛠️ [Дебаг Радара] 4. Збігів знайдено:", matchedRules.length);
 
              if (matchedRules.length > 0) {
-                // Пуш показуємо ЗАВЖДИ
+                console.log("🛠️ [Дебаг Радара] 5. БІНГО! Виводимо пуш і перевіряємо вимкнення.");
                 showVipNotification(clientName, onlineId);
 
                 for (const rule of matchedRules) {
-                    // Вимикаємо ТІЛЬКИ якщо в цьому правилі стоїть галочка
                     if (rule.auto_disable === true) {
+                        console.log(`🛠️ [Дебаг Радара] 6. Вимикаємо анкету ${rule.profile_id}`);
                         disableProfile(rule.profile_id).then(success => {
                             if(success) {
-                                showSystemAlert(
-                                    "🔌 Анкета вимкнена",
-                                    `Анкету <b>${rule.profile_id}</b> переведено в офлайн через клієнта ${onlineId}.`,
-                                    "#f44336"
-                                );
+                                showSystemAlert("🔌 Анкета вимкнена", `Анкету <b>${rule.profile_id}</b> переведено в офлайн.`, "#f44336");
                             } else {
-                                showSystemAlert(
-                                    "⚠️ Помилка вимкнення",
-                                    `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>. Зробіть це вручну!`,
-                                    "#ff9800"
-                                );
+                                showSystemAlert("⚠️ Помилка вимкнення", `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>.`, "#ff9800");
                             }
                         });
+                    } else {
+                        console.log(`🛠️ [Дебаг Радара] 6. Галочка авто-вимкнення НЕ стоїть для анкети ${rule.profile_id}`);
                     }
                 }
+             } else {
+                 console.log("🛠️ [Дебаг Радара] ❌ Цей мужик є онлайн, але його ID немає у ваших правилах!");
              }
+          } else {
+              console.log("🛠️ [Дебаг Радара] ❌ Не змогли витягнути ID з Payload!");
           }
        }
 
+       if (!isRunning) return; // 🛑 Блокуємо розсилку та автовідповідач, якщо на паузі
+
+       // ==========================================
        // 🛑 УВАГА: Далі йде автовідповідач (Лайки/Вінки).
        // Він МАЄ блокуватися, якщо бот зупинений!
        if (!isRunning) return;
