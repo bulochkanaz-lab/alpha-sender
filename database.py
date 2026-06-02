@@ -180,3 +180,16 @@ def update_profiles(access_key: str, profiles: list) -> bool:
     except Exception as e:
         print(f"DB ERROR update_profiles: {e}")
         return False
+
+
+def delete_banned_keys() -> int:
+    conn = get_connection()  # Використовуємо правильний шлях з DB_PATH
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM keys WHERE is_banned = 1")
+    count = cursor.rowcount
+
+    conn.commit()
+    conn.close()
+
+    return count

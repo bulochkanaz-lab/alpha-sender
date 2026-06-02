@@ -79,15 +79,11 @@ async def process_reset_hwid(message: types.Message, state: FSMContext):
     await state.clear()
 
 @dp.message(F.text == "🧹 Видалити заблоковані")
-async def delete_banned_keys(message: types.Message):
+async def delete_banned_keys_handler(message: types.Message):
     if not is_admin(message.from_user.id): return
 
-    conn = sqlite3.connect('/root/alpha/admin_panel.db')
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM keys WHERE is_banned = 1')
-    count = cursor.rowcount
-    conn.commit()
-    conn.close()
+    # Тепер бот викликає безпечну функцію з database.py
+    count = database.delete_banned_keys()
 
     await message.answer(f"✅ Успішно видалено {count} заблокованих ключів.")
 
