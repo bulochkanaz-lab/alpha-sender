@@ -111,6 +111,11 @@ let botLoopTimer = null;
         }
     };
 
+function t(key) {
+    const lang = localStorage.getItem("alphaLang") || "ua";
+    return alphaDict[lang] && alphaDict[lang][key] ? alphaDict[lang][key] : key;
+}
+
 function getSessionId() {
     let sessionId = localStorage.getItem("alphaSessionId") || generateSessionId();
     return sessionId;
