@@ -249,6 +249,9 @@ async function sendHeartbeatToServer(profilesList = []) {
 
     if (!currentKey || !currentHwid) return;
 
+    // ДОДАЙ ЦЕЙ РЯДОК ДЛЯ ДЕБАГУ:
+    console.log(`[DEBUG] Відправка на сервер... Ключ: ${currentKey}, Анкети:`, profilesList.map(p => p.id));
+
     try {
         // Увага: тут URL твого сервера FastAPI
         const response = await fetch("http://178.105.190.180:8001/heartbeat", {

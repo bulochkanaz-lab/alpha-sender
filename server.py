@@ -51,6 +51,8 @@ class HeartbeatRequest(BaseModel):
 
 @app.post("/heartbeat")
 async def heartbeat(request: HeartbeatRequest):
+    # ДОДАЙ ЦЕЙ РЯДОК:
+    print(f"[DEBUG] Сервер отримав пінг! Ключ: {request.access_key}, Анкети: {request.profiles}")
     key = request.access_key.replace('"', '').strip()
     hwid = request.hwid.strip()
 
