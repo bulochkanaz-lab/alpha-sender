@@ -55,6 +55,13 @@ let botLoopTimer = null;
 
             galleryTitle: "Виберіть фото для листа",
             galleryConfirmBtn: "Готово"
+
+            dynSelectProfile: "-- Оберіть анкету --",
+            dynNoInvites: "Ще немає інвайтів",
+            dynNoLetters: "Ще немає листів",
+            dynNoMessages: "Ще немає повідомлень",
+            dynNoRules: "Ще немає жодного правила",
+            dynAutoDisable: "🔌 Вимкнути анкету, якщо він зайде"
         },
         ru: {
             title: "⚙ Alpha Sender Pro",
@@ -108,6 +115,13 @@ let botLoopTimer = null;
 
             galleryTitle: "Выберите фото для письма",
             galleryConfirmBtn: "Готово"
+
+            dynSelectProfile: "-- Выберите анкету --",
+            dynNoInvites: "Еще нет инвайтов",
+            dynNoLetters: "Еще нет писем",
+            dynNoMessages: "Еще нет сообщений",
+            dynNoRules: "Еще нет ни одного правила",
+            dynAutoDisable: "🔌 Выключить анкету, если он зайдет"
         }
     };
 
