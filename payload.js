@@ -48,7 +48,7 @@ let botLoopTimer = null;
             statsInvitesLabel: "Надіслано інвайтів",
             statsLettersLabel: "Надіслано листів",
 
-            vipTitle: "🎯 VIP Радар",
+            vipTitle: "Онлайн повідомлення",
             vipSub: "Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.",
             vipRulesLabel: "(Мужик ➔ Анкета):",
             vipAddRuleBtn: "➕ Додати мужика",
@@ -107,7 +107,7 @@ let botLoopTimer = null;
             statsInvitesLabel: "Отправлено инвайтов",
             statsLettersLabel: "Отправлено писем",
 
-            vipTitle: "🎯 VIP Радар",
+            vipTitle: "Онлайн уведомления",
             vipSub: "Уведомления о входе работают всегда. Авто-отключение анкеты можно настроить для каждого мужчины отдельно.",
             vipRulesLabel: "(Мужик ➔ Анкета):",
             vipAddRuleBtn: "➕ Добавить мужика",
@@ -1143,7 +1143,7 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 
 <div id="tabContentVip" style="display: none;">
     <div style="padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px;">
-        <div data-lang="vipTitle" style="font-size: 14px; font-weight: bold; color: #e65100;">🎯 VIP Радар</div>
+        <div data-lang="vipTitle" style="font-size: 14px; font-weight: bold; color: #e65100;">уведомления</div>
         <div data-lang="vipSub" style="font-size: 12px; color: #666; margin-top: 5px;">Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.</div>
     </div>
     <div id="vipRulesArea" style="display: flex; flex-direction: column; gap: 10px;">
@@ -2148,7 +2148,7 @@ function injectMenuButton() {
 
 		settingBtn.className = firstItem ? firstItem.className.split(" ")[0] : "BottomMenu_clmn_1_bottom_menu_item__4xtik";
 
-		settingBtn.innerText = "🚀 Setting V2";
+		settingBtn.innerText = "⚙  Setting";
 
 		settingBtn.style.cursor = "pointer";
 
