@@ -54,8 +54,7 @@ let botLoopTimer = null;
             vipAddRuleBtn: "➕ Додати мужика",
 
             galleryTitle: "Виберіть фото для листа",
-            galleryConfirmBtn: "Готово"
-
+            galleryConfirmBtn: "Готово",
             dynSelectProfile: "-- Оберіть анкету --",
             dynNoInvites: "Ще немає інвайтів",
             dynNoLetters: "Ще немає листів",
@@ -114,8 +113,7 @@ let botLoopTimer = null;
             vipAddRuleBtn: "➕ Добавить мужика",
 
             galleryTitle: "Выберите фото для письма",
-            galleryConfirmBtn: "Готово"
-
+            galleryConfirmBtn: "Готово",
             dynSelectProfile: "-- Выберите анкету --",
             dynNoInvites: "Еще нет инвайтов",
             dynNoLetters: "Еще нет писем",
