@@ -2236,29 +2236,33 @@ function showSystemAlert(title, text, color = "#4caf50") {
 // ЛОГІКА АВТОВІДПОВІДАЧА ТА VIP-РАДАРУ
 // ==========================================
 window.addEventListener("AlphaSocketMessage", async function (e) {
-    if (!isRunning) return;
-
     const rawData = e.detail;
 
     try {
        const parsed = JSON.parse(rawData.substring(2));
        if (!Array.isArray(parsed) || parsed.length < 2) return;
 
+       const eventName = parsed[0];
        const payload = parsed[1];
 
-       // 🎯 VIP РАДАР
-       if (payload.action === "user_online" || payload.action === "online" || payload.type === "user_online") {
+       // 🎯 VIP РАДАР (Тепер працює ЗАВЖДИ, навіть коли розсилка на паузі!)
+       if (eventName === "user_online" || (payload && (payload.action === "user_online" || payload.type === "user_online"))) {
 
           let onlineId = null;
-          let clientName = "Важливий клієнт";
+          let clientName = "VIP Клієнт";
 
-          if (payload.message && payload.message.message && payload.message.message.external_id) {
-             onlineId = String(payload.message.message.external_id);
-             clientName = payload.message.message.name || clientName;
-          } else if (payload.external_id) {
-             onlineId = String(payload.external_id);
-             clientName = payload.name || clientName;
+          // Бронебійний сканер: шукає ID мужика на будь-якій глибині "матрьошки"
+          function extractVipData(obj) {
+              if (!obj || typeof obj !== 'object') return;
+              if (obj.external_id && !onlineId) {
+                  onlineId = String(obj.external_id);
+                  if (obj.name) clientName = obj.name;
+              }
+              if (!onlineId) {
+                  Object.values(obj).forEach(val => extractVipData(val));
+              }
           }
+          extractVipData(payload);
 
           if (onlineId) {
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
@@ -2290,7 +2294,12 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                 }
              }
           }
-       } // <--- ОСЬ ТА САМА ПРОПУЩЕНА ДУЖКА!
+       }
+
+       // 🛑 УВАГА: Далі йде автовідповідач (Лайки/Вінки).
+       // Він МАЄ блокуватися, якщо бот зупинений!
+       if (!isRunning) return;
+
        // ==========================================
        // АВТОВІДПОВІДАЧ (Лайки / Вінки)
        // ==========================================
@@ -2303,7 +2312,6 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           manId = payload.notification_object.sender_external_id;
        }
 
-       // Тільки тут блокуємо виконання, якщо це неповний пакет
        if (!manId || !womanId) return;
 
        if (payload.action === "liked") {
