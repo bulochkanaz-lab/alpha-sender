@@ -1,6 +1,116 @@
 let isRunning = false;
 let botLoopTimer = null;
 
+// СЛОВНИК ПЕРЕКЛАДІВ
+    const alphaDict = {
+        ua: {
+            title: "⚙ Alpha Sender Pro",
+            tabSettings: "Розсилка",
+            tabInvites: "Інвайти",
+            tabLetters: "Листи",
+            tabWinks: "Вінки/Лайки",
+            tabVip: "Повідомлення",
+            tabStats: "Статистика",
+
+            delayLabel: "Затримка між відправками (сек):",
+            phaseDelayLabel: "Пауза між Інвайтами та Листами (хв):",
+            breakTimeLabel: "Глобальна перерва між циклами (хв):",
+            inviteModeLabel: "Режим відправки інвайтів:",
+            modeBatch: "Усі разом",
+            modeLoop: "По одному на коло",
+            useSiteToggleLabel: "Інвайти/Листи з сендеру",
+            btnStart: "▶ Почати розсилку",
+            btnStop: "⏹ Зупинити",
+            statusLabel: "Статус:",
+            statusWaiting: "Очікування...",
+            profileLabel: "Анкета:",
+
+            invitesProfileLabel: "Оберіть анкету для Інвайтів:",
+            loadingProfiles: "Завантаження анкет...",
+            invitesPlaceholder: "Введіть текст вашого інвайту...",
+            invitesSaveBtn: "💾 Зберегти Інвайт",
+            invitesEmpty: "Оберіть анкету, щоб додати інвайти",
+
+            lettersProfileLabel: "Оберіть анкету для Листів:",
+            lettersPlaceholder: "Введіть текст вашого листа...",
+            lettersSaveBtn: "💾 Зберегти Лист",
+            lettersEmpty: "Оберіть анкету, щоб додати листи",
+
+            respProfileLabel: "Оберіть анкету:",
+            respTabLike: "Лайки",
+            respTabWink: "Вінки",
+            respPlaceholder: "Введіть текст відповіді...",
+            respSaveBtn: "Зберегти текст",
+            respSpeedLabel: "Швидкість відповіді (сек):",
+            respSpeedSub: "Час \"імітації друку\" перед відправкою",
+            respEmpty: "Оберіть анкету, щоб додати тексти",
+
+            statsInvitesLabel: "Надіслано інвайтів",
+            statsLettersLabel: "Надіслано листів",
+
+            vipTitle: "🎯 VIP Радар",
+            vipSub: "Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.",
+            vipRulesLabel: "(Мужик ➔ Анкета):",
+            vipAddRuleBtn: "➕ Додати мужика",
+
+            galleryTitle: "Виберіть фото для листа",
+            galleryConfirmBtn: "Готово"
+        },
+        ru: {
+            title: "⚙ Alpha Sender Pro",
+            tabSettings: "Рассылка",
+            tabInvites: "Инвайты",
+            tabLetters: "Письма",
+            tabWinks: "Винки/Лайки",
+            tabVip: "Уведомления",
+            tabStats: "Статистика",
+
+            delayLabel: "Задержка между отправками (сек):",
+            phaseDelayLabel: "Пауза между Инвайтами и Письмами (мин):",
+            breakTimeLabel: "Глобальный перерыв между циклами (мин):",
+            inviteModeLabel: "Режим отправки инвайтов:",
+            modeBatch: "Все вместе",
+            modeLoop: "По одному на круг",
+            useSiteToggleLabel: "Инвайты/Письма с сендера",
+            btnStart: "▶ Начать рассылку",
+            btnStop: "⏹ Остановить",
+            statusLabel: "Статус:",
+            statusWaiting: "Ожидание...",
+            profileLabel: "Анкета:",
+
+            invitesProfileLabel: "Выберите анкету для Инвайтов:",
+            loadingProfiles: "Загрузка анкет...",
+            invitesPlaceholder: "Введите текст вашего инвайта...",
+            invitesSaveBtn: "💾 Сохранить Инвайт",
+            invitesEmpty: "Выберите анкету, чтобы добавить инвайты",
+
+            lettersProfileLabel: "Выберите анкету для Писем:",
+            lettersPlaceholder: "Введите текст вашего письма...",
+            lettersSaveBtn: "💾 Сохранить Письмо",
+            lettersEmpty: "Выберите анкету, чтобы добавить письма",
+
+            respProfileLabel: "Выберите анкету:",
+            respTabLike: "Лайки",
+            respTabWink: "Винки",
+            respPlaceholder: "Введите текст ответа...",
+            respSaveBtn: "Сохранить текст",
+            respSpeedLabel: "Скорость ответа (сек):",
+            respSpeedSub: "Время \"имитации печати\" перед отправкой",
+            respEmpty: "Выберите анкету, чтобы добавить тексты",
+
+            statsInvitesLabel: "Отправлено инвайтов",
+            statsLettersLabel: "Отправлено писем",
+
+            vipTitle: "🎯 VIP Радар",
+            vipSub: "Уведомления о входе работают всегда. Авто-отключение анкеты можно настроить для каждого мужчины отдельно.",
+            vipRulesLabel: "(Мужик ➔ Анкета):",
+            vipAddRuleBtn: "➕ Добавить мужика",
+
+            galleryTitle: "Выберите фото для письма",
+            galleryConfirmBtn: "Готово"
+        }
+    };
+
 function getSessionId() {
     let sessionId = localStorage.getItem("alphaSessionId") || generateSessionId();
     return sessionId;
@@ -789,7 +899,7 @@ async function startSendingProcess() {
 	}
 
 	if (isRunning) {
-		updatePopup(`Перерва ${breakTimeMinutes} хв...`, false, "Очікування...");
+		updatePopup(`Перерва ${breakTimeMinutes} хв...`, false, t("statusWaiting"));
 
 		const resumeTime = Date.now() + breakTimeMinutes * 60 * 1000;
 
@@ -848,116 +958,6 @@ let currentSelectedTab = "like";
 // ==========================================
 
 function injectBotUI() {
-
-    // СЛОВНИК ПЕРЕКЛАДІВ
-    const alphaDict = {
-        ua: {
-            title: "⚙ Alpha Sender Pro",
-            tabSettings: "Розсилка",
-            tabInvites: "Інвайти",
-            tabLetters: "Листи",
-            tabWinks: "Вінки/Лайки",
-            tabVip: "Повідомлення",
-            tabStats: "Статистика",
-
-            delayLabel: "Затримка між відправками (сек):",
-            phaseDelayLabel: "Пауза між Інвайтами та Листами (хв):",
-            breakTimeLabel: "Глобальна перерва між циклами (хв):",
-            inviteModeLabel: "Режим відправки інвайтів:",
-            modeBatch: "Усі разом",
-            modeLoop: "По одному на коло",
-            useSiteToggleLabel: "Інвайти/Листи з сендеру",
-            btnStart: "▶ Почати розсилку",
-            btnStop: "⏹ Зупинити",
-            statusLabel: "Статус:",
-            statusWaiting: "Очікування...",
-            profileLabel: "Анкета:",
-
-            invitesProfileLabel: "Оберіть анкету для Інвайтів:",
-            loadingProfiles: "Завантаження анкет...",
-            invitesPlaceholder: "Введіть текст вашого інвайту...",
-            invitesSaveBtn: "💾 Зберегти Інвайт",
-            invitesEmpty: "Оберіть анкету, щоб додати інвайти",
-
-            lettersProfileLabel: "Оберіть анкету для Листів:",
-            lettersPlaceholder: "Введіть текст вашого листа...",
-            lettersSaveBtn: "💾 Зберегти Лист",
-            lettersEmpty: "Оберіть анкету, щоб додати листи",
-
-            respProfileLabel: "Оберіть анкету:",
-            respTabLike: "Лайки",
-            respTabWink: "Вінки",
-            respPlaceholder: "Введіть текст відповіді...",
-            respSaveBtn: "Зберегти текст",
-            respSpeedLabel: "Швидкість відповіді (сек):",
-            respSpeedSub: "Час \"імітації друку\" перед відправкою",
-            respEmpty: "Оберіть анкету, щоб додати тексти",
-
-            statsInvitesLabel: "Надіслано інвайтів",
-            statsLettersLabel: "Надіслано листів",
-
-            vipTitle: "🎯 VIP Радар",
-            vipSub: "Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.",
-            vipRulesLabel: "(Мужик ➔ Анкета):",
-            vipAddRuleBtn: "➕ Додати мужика",
-
-            galleryTitle: "Виберіть фото для листа",
-            galleryConfirmBtn: "Готово"
-        },
-        ru: {
-            title: "⚙ Alpha Sender Pro",
-            tabSettings: "Рассылка",
-            tabInvites: "Инвайты",
-            tabLetters: "Письма",
-            tabWinks: "Винки/Лайки",
-            tabVip: "Уведомления",
-            tabStats: "Статистика",
-
-            delayLabel: "Задержка между отправками (сек):",
-            phaseDelayLabel: "Пауза между Инвайтами и Письмами (мин):",
-            breakTimeLabel: "Глобальный перерыв между циклами (мин):",
-            inviteModeLabel: "Режим отправки инвайтов:",
-            modeBatch: "Все вместе",
-            modeLoop: "По одному на круг",
-            useSiteToggleLabel: "Инвайты/Письма с сендера",
-            btnStart: "▶ Начать рассылку",
-            btnStop: "⏹ Остановить",
-            statusLabel: "Статус:",
-            statusWaiting: "Ожидание...",
-            profileLabel: "Анкета:",
-
-            invitesProfileLabel: "Выберите анкету для Инвайтов:",
-            loadingProfiles: "Загрузка анкет...",
-            invitesPlaceholder: "Введите текст вашего инвайта...",
-            invitesSaveBtn: "💾 Сохранить Инвайт",
-            invitesEmpty: "Выберите анкету, чтобы добавить инвайты",
-
-            lettersProfileLabel: "Выберите анкету для Писем:",
-            lettersPlaceholder: "Введите текст вашего письма...",
-            lettersSaveBtn: "💾 Сохранить Письмо",
-            lettersEmpty: "Выберите анкету, чтобы добавить письма",
-
-            respProfileLabel: "Выберите анкету:",
-            respTabLike: "Лайки",
-            respTabWink: "Винки",
-            respPlaceholder: "Введите текст ответа...",
-            respSaveBtn: "Сохранить текст",
-            respSpeedLabel: "Скорость ответа (сек):",
-            respSpeedSub: "Время \"имитации печати\" перед отправкой",
-            respEmpty: "Выберите анкету, чтобы добавить тексты",
-
-            statsInvitesLabel: "Отправлено инвайтов",
-            statsLettersLabel: "Отправлено писем",
-
-            vipTitle: "🎯 VIP Радар",
-            vipSub: "Уведомления о входе работают всегда. Авто-отключение анкеты можно настроить для каждого мужчины отдельно.",
-            vipRulesLabel: "(Мужик ➔ Анкета):",
-            vipAddRuleBtn: "➕ Добавить мужика",
-
-            galleryTitle: "Выберите фото для письма",
-            galleryConfirmBtn: "Готово"
-        }
-    };
 
 	if (document.getElementById("alpha-sender-overlay")) return;
 
@@ -1568,11 +1568,11 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
 
         if (rules.length === 0) {
-            vipRulesList.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block; padding: 10px 0;">Ще немає жодного правила</span>';
+            vipRulesList.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoRules") + '</span>';
             return;
         }
 
-        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">-- Оберіть анкету --</option>';
+        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">' + t("dynSelectProfile") + '</option>';
 
         rules.forEach((rule, index) => {
             const container = document.createElement("div");
@@ -1632,7 +1632,7 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             };
 
             bottomRow.appendChild(autoDisableCheckbox);
-            bottomRow.appendChild(document.createTextNode("🔌 Вимкнути анкету, якщо він зайде"));
+            bottomRow.appendChild(document.createTextNode(t("dynAutoDisable")));
 
             container.appendChild(topRow);
             container.appendChild(bottomRow);
@@ -1734,7 +1734,7 @@ async function loadProfilesForUI() {
 
 	// 1. Спочатку заповнюємо головний список
 
-	selectEl.innerHTML = '<option value="">-- Оберіть анкету --</option>';
+	selectEl.innerHTML = '<option value="">' + t("dynSelectProfile") + '</option>';
 
 	profiles.forEach((p) => {
 		const opt = document.createElement("option");
@@ -1771,7 +1771,7 @@ function renderSavedMessages() {
 	let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
 	if (saved.length === 0) {
-		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає повідомлень</span>';
+		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoMessages") + '</span>';
 
 		return;
 	}
@@ -1827,7 +1827,7 @@ function renderCustomInvites() {
 	let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
 	if (saved.length === 0) {
-		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає інвайтів</span>';
+		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoInvites") + '</span>';
 
 		return;
 	}
@@ -1939,7 +1939,7 @@ function renderCustomLetters() {
 	let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
 	if (saved.length === 0) {
-		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає листів</span>';
+		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoLetters") + '</span>';
 
 		return;
 	}
