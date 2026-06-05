@@ -5,7 +5,9 @@ class SmartSearch {
         this.modal = null;
         this.chatId = null;
         this.token = null;
-        this.allMessages = []; // Тут зберігатимемо всю історію після викачування
+        this.allMessages = [];
+        this.highlights = []; // Зберігаємо всі знайдені елементи для стрілочок
+        this.currentHighlightIndex = -1; // Поточне виділене слово
         this.init();
     }
 
@@ -13,39 +15,47 @@ class SmartSearch {
         this.modal = document.createElement("div");
         this.modal.id = "alpha-smart-search-modal";
 
+        // Робимо вікно ВЕЛИКИМ і просторим
         this.modal.style.cssText = `
-            position: fixed; top: 10%; left: 50%; transform: translateX(-50%);
-            width: 400px; height: 80vh; max-height: 700px;
+            position: fixed; top: 5vh; left: 50%; transform: translateX(-50%);
+            width: 800px; max-width: 90vw; height: 90vh;
             background: #ffffff; z-index: 9999999; display: none;
             flex-direction: column; border-radius: 12px;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.2); font-family: sans-serif;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3); font-family: sans-serif;
             border: 1px solid #e0e0e0; overflow: hidden;
         `;
 
         this.modal.innerHTML = `
-            <div style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; background: #f9f9f9;">
-                <input type="text" id="alpha-search-input" placeholder="Шукати в чаті..." style="
-                    flex-grow: 1; padding: 10px 15px; border: 1px solid #ccc;
-                    border-radius: 20px; outline: none; font-size: 14px;
+            <div style="display: flex; align-items: center; padding: 15px 20px; border-bottom: 1px solid #eee; background: #f5f6f8;">
+                <input type="text" id="alpha-search-input" placeholder="Введіть слово для пошуку..." style="
+                    flex-grow: 1; padding: 12px 20px; border: 1px solid #ccc;
+                    border-radius: 20px; outline: none; font-size: 15px;
                 ">
+
+                <div style="display: flex; gap: 5px; margin-left: 15px;">
+                    <button id="btn-search-up" style="padding: 8px 15px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 6px; font-weight: bold;">↑</button>
+                    <button id="btn-search-down" style="padding: 8px 15px; cursor: pointer; border: 1px solid #ccc; background: #fff; border-radius: 6px; font-weight: bold;">↓</button>
+                </div>
+
+                <span id="alpha-search-count" style="margin-left: 15px; font-size: 13px; color: #888;">0 / 0</span>
+
                 <span id="alpha-search-close" style="
-                    margin-left: 15px; cursor: pointer; font-size: 24px; color: #888; font-weight: bold; line-height: 1;
+                    margin-left: 20px; cursor: pointer; font-size: 28px; color: #888; font-weight: bold; line-height: 1;
                 ">&times;</span>
             </div>
 
             <div id="alpha-search-results" style="
-                flex-grow: 1; overflow-y: auto; padding: 15px; background: #fff;
-                display: flex; flex-direction: column; gap: 10px;
+                flex-grow: 1; overflow-y: auto; padding: 20px; background: #fff;
+                display: flex; flex-direction: column; gap: 12px;
             ">
-                <div style="text-align: center; color: #999; margin-top: 50px; font-size: 14px;">
-                    Введіть слово або виберіть медіа для пошуку
                 </div>
-            </div>
 
-            <div style="display: flex; padding: 10px; border-top: 1px solid #eee; background: #f9f9f9; gap: 10px; justify-content: space-between;">
-                <button id="btn-search-text" style="flex: 1; padding: 10px; cursor: pointer; border: none; background: #e3f2fd; color: #1976d2; border-radius: 8px; font-weight: bold;">Текст</button>
-                <button id="btn-search-photo" style="flex: 1; padding: 10px; cursor: pointer; border: none; background: #f3e5f5; color: #7b1fa2; border-radius: 8px; font-weight: bold;">Фото</button>
-                <button id="btn-search-video" style="flex: 1; padding: 10px; cursor: pointer; border: none; background: #e8f5e9; color: #388e3c; border-radius: 8px; font-weight: bold;">Відео</button>
+            <div style="padding: 15px; border-top: 1px solid #eee; background: #f5f6f8; text-align: center;">
+                <button id="btn-search-media" style="
+                    padding: 12px 30px; cursor: pointer; border: none;
+                    background: #1976d2; color: #fff; border-radius: 8px;
+                    font-weight: bold; font-size: 15px; transition: background 0.2s;
+                ">Шукати Контент (Фото / Відео / Аудіо)</button>
             </div>
         `;
 
@@ -54,67 +64,41 @@ class SmartSearch {
     }
 
     attachEvents() {
-        // Закриття
         this.modal.querySelector('#alpha-search-close').addEventListener('click', () => this.close());
 
-        // Клік на кнопку "Текст" (або натискання Enter в полі вводу)
-        const handleSearch = () => {
-            const query = this.modal.querySelector('#alpha-search-input').value;
-            this.startTextSearch(query);
-        };
-
-        this.modal.querySelector('#btn-search-text').addEventListener('click', handleSearch);
-        this.modal.querySelector('#alpha-search-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleSearch();
+        // Живий пошук при введенні тексту
+        this.modal.querySelector('#alpha-search-input').addEventListener('input', (e) => {
+            this.highlightText(e.target.value);
         });
 
-        // Заглушка для фото
-        this.modal.querySelector('#btn-search-photo').addEventListener('click', () => {
-            const resultsDiv = this.modal.querySelector('#alpha-search-results');
-            resultsDiv.innerHTML = `<div style="text-align:center; color:#7b1fa2;">Тут буде сітка з фотографіями...</div>`;
+        // Навігація стрілочками
+        this.modal.querySelector('#btn-search-up').addEventListener('click', () => this.navigateHighlights(-1));
+        this.modal.querySelector('#btn-search-down').addEventListener('click', () => this.navigateHighlights(1));
+
+        // Кнопка медіа (заглушка під твій operatorMedia JSON)
+        this.modal.querySelector('#btn-search-media').addEventListener('click', () => {
+            alert("Тут ми підключимо викачку через operatorMedia!");
         });
     }
 
-    // Відкриваємо вікно і ОДРАЗУ приймаємо chatId та токен від payload.js
-    open(chatId, token) {
+    // --- ЕТАП 1: ВИКАЧКА ІСТОРІЇ (Викликається кнопкою "Завантажити") ---
+    async preloadHistory(chatId, token, progressCallback) {
         this.chatId = chatId;
         this.token = token;
-        this.allMessages = []; // Скидаємо стару історію перед новим пошуком
+        this.allMessages = [];
 
-        // Очищаємо вікно до початкового стану
-        this.modal.querySelector('#alpha-search-results').innerHTML = `
-            <div style="text-align: center; color: #999; margin-top: 50px; font-size: 14px;">
-                Введіть слово або виберіть медіа для пошуку
-            </div>
-        `;
-        this.modal.querySelector('#alpha-search-input').value = "";
-
-        this.modal.style.display = "flex";
-        this.modal.querySelector('#alpha-search-input').focus();
-    }
-
-    close() {
-        this.modal.style.display = "none";
-    }
-
-    // --- ФУНКЦІЯ ЗАВАНТАЖЕННЯ ІСТОРІЇ ---
-    async fetchAllMessages() {
         const url = "https://alpha.date/api/chatList/chatHistory";
         let page = 1;
         let hasMore = true;
-        this.allMessages = [];
 
-        const resultsDiv = this.modal.querySelector('#alpha-search-results');
-        resultsDiv.innerHTML = `<div style="text-align:center; color:#1976d2; margin-top:50px;">⏳ Завантажуємо історію чату...</div>`;
-
-        while (hasMore && page <= 50) { // Запобіжник на 50 сторінок (це ~1000-2000 повідомлень)
+        while (hasMore && page <= 50) { // Запобіжник
             try {
                 const response = await fetch(url, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "Accept": "application/json",
-                        "Authorization": `Bearer ${this.token}` // Використовуємо наш збережений токен
+                        "Authorization": `Bearer ${this.token}`
                     },
                     body: JSON.stringify({ chat_id: this.chatId, page: page })
                 });
@@ -124,75 +108,132 @@ class SmartSearch {
                 if (data.status === true && data.response && data.response.length > 0) {
                     this.allMessages = this.allMessages.concat(data.response);
                     page++;
-                    resultsDiv.innerHTML = `<div style="text-align:center; color:#999; margin-top:50px;">⏳ Завантажено сторінок: ${page - 1}...</div>`;
+                    // Відправляємо відсоток в кнопку (приблизний розрахунок)
+                    progressCallback(Math.min(page * 5, 95));
                 } else {
                     hasMore = false;
                 }
             } catch (error) {
-                console.error(`❌ Помилка завантаження сторінки ${page}:`, error);
+                console.error(`Помилка сторінки ${page}:`, error);
                 hasMore = false;
             }
         }
-        return this.allMessages;
+        progressCallback(100);
+        this.renderAllMessages(); // Одразу малюємо всі повідомлення в пам'яті
     }
 
-    // --- ЛОГІКА ТЕКСТОВОГО ПОШУКУ ---
-    async startTextSearch(query) {
-        if (!query.trim()) return;
-
-        // Якщо історію ще не викачано для цього чату - викачуємо її один раз
-        if (this.allMessages.length === 0) {
-            await this.fetchAllMessages();
-        }
-
+    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ ---
+    renderAllMessages() {
         const resultsDiv = this.modal.querySelector('#alpha-search-results');
-        resultsDiv.innerHTML = ""; // Очищаємо екран завантаження
+        resultsDiv.innerHTML = ""; // Очищаємо
 
-        // Фільтруємо текстові повідомлення, які підходять під наш розумний пошук
-        // (fuzzyMatch ми підключимо сюди на наступному кроці)
-        const found = this.allMessages.filter(msg => {
-            if (!msg.message_content || msg.message_type !== "SENT_TEXT") return false;
-            return msg.message_content.toLowerCase().includes(query.toLowerCase()); // Поки звичайний пошук для тесту
-        });
+        // Перевертаємо масив, щоб старі повідомлення були зверху, як у звичайному чаті
+        const reversedMessages = [...this.allMessages].reverse();
 
-        if (found.length === 0) {
-            resultsDiv.innerHTML = `<div style="text-align:center; color:#999; margin-top:30px;">Нічого не знайдено за запитом "${query}"</div>`;
-            return;
-        }
+        reversedMessages.forEach(msg => {
+            if (!msg.message_content || msg.message_type !== "SENT_TEXT") return;
 
-        // Відображаємо знайдені повідомлення в нашому міні-чаті
-        found.forEach(msg => {
             const msgBox = document.createElement('div');
-
-            // Визначаємо сторону (анкета чи чоловік)
             const isMan = msg.is_male === 1;
 
+            // ОДНАКОВИЙ КОЛІР (Твоє побажання 3-А)
             msgBox.style.cssText = `
-                padding: 10px;
-                border-radius: 8px;
-                max-width: 80%;
-                font-size: 13px;
-                line-height: 1.4;
-                margin-bottom: 5px;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                padding: 12px 16px; border-radius: 8px; max-width: 85%;
+                font-size: 14px; line-height: 1.5;
+                background-color: #f5f6f8; border: 1px solid #e0e0e0;
                 align-self: ${isMan ? 'flex-end' : 'flex-start'};
-                background-color: ${isMan ? '#e3f2fd' : '#f5f5f5'};
-                color: ${isMan ? '#0d47a1' : '#333'};
+                color: #333; position: relative;
             `;
 
-            // Красиво форматуємо дату створення
             const date = new Date(msg.date_created).toLocaleDateString('uk-UA', {hour: '2-digit', minute:'2-digit'});
 
             msgBox.innerHTML = `
-                <div style="font-weight:bold; font-size:11px; margin-bottom:3px; color: #777;">
-                    ${isMan ? 'Клієнт' : 'Анкета'} • <span style="font-weight:normal;">${date}</span>
+                <div style="font-weight:bold; font-size:12px; margin-bottom:5px; color: #888;">
+                    ${isMan ? '👨 Клієнт' : '👩 Анкета'} <span style="font-weight:normal; margin-left:10px;">${date}</span>
                 </div>
-                <div>${msg.message_content}</div>
+                <div class="alpha-msg-text">${msg.message_content}</div>
             `;
             resultsDiv.appendChild(msgBox);
         });
+
+        // Скролимо в самий низ (до нових повідомлень)
+        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    }
+
+    // --- ЕТАП 2: ВІДКРИТТЯ ВІКНА ---
+    open() {
+        this.modal.style.display = "flex";
+        this.modal.querySelector('#alpha-search-input').focus();
+    }
+
+    close() {
+        this.modal.style.display = "none";
+    }
+
+    // --- ЛОГІКА ЖИВОГО ПОШУКУ І ПІДСВІТКИ (Твоє побажання 3-Б і 4) ---
+    highlightText(query) {
+        const resultsDiv = this.modal.querySelector('#alpha-search-results');
+        const textBlocks = resultsDiv.querySelectorAll('.alpha-msg-text');
+
+        this.highlights = [];
+        this.currentHighlightIndex = -1;
+
+        // Знімаємо старе виділення і ставимо нове
+        textBlocks.forEach(block => {
+            // Очищаємо від старих <mark>
+            let originalText = block.innerHTML.replace(/<mark[^>]*>|<\/mark>/gi, '');
+            block.innerHTML = originalText;
+
+            if (query.trim().length >= 2) {
+                const regex = new RegExp(`(${query})`, 'gi');
+                if (regex.test(originalText)) {
+                    // Заміняємо знайдений текст на синій блок
+                    block.innerHTML = originalText.replace(regex, `<mark class="alpha-highlight" style="background-color: #1976d2; color: #fff; border-radius: 3px; padding: 0 2px;">$1</mark>`);
+                }
+            }
+        });
+
+        // Збираємо всі створені елементи <mark> в масив для стрілочок
+        this.highlights = Array.from(resultsDiv.querySelectorAll('.alpha-highlight'));
+        this.updateCounter();
+
+        // Якщо щось знайшли - одразу стрибаємо до першого результату
+        if (this.highlights.length > 0) {
+            this.navigateHighlights(1);
+        }
+    }
+
+    navigateHighlights(direction) {
+        if (this.highlights.length === 0) return;
+
+        // Знімаємо червоний контур з попереднього активного слова
+        if (this.currentHighlightIndex >= 0) {
+            this.highlights[this.currentHighlightIndex].style.border = "none";
+        }
+
+        // Рухаємо індекс
+        this.currentHighlightIndex += direction;
+        if (this.currentHighlightIndex >= this.highlights.length) this.currentHighlightIndex = 0;
+        if (this.currentHighlightIndex < 0) this.currentHighlightIndex = this.highlights.length - 1;
+
+        const targetEl = this.highlights[this.currentHighlightIndex];
+
+        // Виділяємо поточне слово (щоб розуміти, де ми зараз)
+        targetEl.style.border = "2px solid #ff9800";
+
+        // Плавний скрол до цього слова!
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.updateCounter();
+    }
+
+    updateCounter() {
+        const countSpan = this.modal.querySelector('#alpha-search-count');
+        if (this.highlights.length === 0) {
+            countSpan.innerText = "0 / 0";
+        } else {
+            countSpan.innerText = `${this.currentHighlightIndex + 1} / ${this.highlights.length}`;
+        }
     }
 }
 
-// Глобальна змінна
 window.alphaSmartSearch = new SmartSearch();

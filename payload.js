@@ -1787,52 +1787,68 @@ async function loadProfilesForUI() {
 
 // --- МАЛЮЄМО КНОПКУ ПОШУКУ ТА ВІШАЄМО КЛІК ---
 function injectSearchButton() {
-    // Шукаємо шапки чатів
     const chatHeaders = document.querySelectorAll('.styles_chat_head__ao7Ds');
 
     chatHeaders.forEach(header => {
-        // Якщо лупа вже намальована - пропускаємо
         if (header.querySelector('.alpha-search-mockup')) return;
 
         const middleBlock = header.querySelector('.styles_chat_head_middle__D14pE');
         if (!middleBlock) return;
 
-        // Створюємо контейнер
         const searchContainer = document.createElement('div');
         searchContainer.className = 'alpha-search-mockup';
 
+        // Внутрішня структура з прогрес-баром (зелений фон, який буде рости)
         searchContainer.innerHTML = `
-            <img src="https://cdn-icons-png.flaticon.com/512/751/751463.png" alt="search" style="width: 13px; height: 13px; margin-right: 6px; opacity: 0.5;">
-            <span style="font-size: 13px; color: #555; opacity: 0.8;">Пошук...</span>
+            <div class="alpha-progress-fill" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #e3f2fd; border-radius: 6px; transition: width 0.3s ease; z-index: 0;"></div>
+            <img src="https://cdn-icons-png.flaticon.com/512/751/751463.png" alt="search" style="width: 13px; height: 13px; margin-right: 6px; opacity: 0.5; position: relative; z-index: 1;">
+            <span class="alpha-search-text" style="font-size: 13px; color: #555; position: relative; z-index: 1;">Завантажити історію</span>
         `;
 
         Object.assign(searchContainer.style, {
-            display: 'flex', alignItems: 'center', alignSelf: 'center',
-            margin: '0 15px', padding: '5px 8px',
-            backgroundColor: 'rgba(255, 255, 255, 0.4)', borderRadius: '6px',
+            display: 'flex', alignItems: 'center', alignSelf: 'center', position: 'relative',
+            margin: '0 15px', padding: '5px 8px', overflow: 'hidden',
+            backgroundColor: '#ffffff', borderRadius: '6px',
             border: '1px solid #e2e2e2', cursor: 'pointer', transition: 'all 0.2s ease'
         });
 
-        // ВІШАЄМО КЛІК
-        searchContainer.addEventListener('click', () => {
-            // 1. Беремо токен
-            const token = localStorage.getItem('token');
+        // Стан нашої кнопки
+        let isLoaded = false;
+        let isLoading = false;
 
-            // 2. Витягуємо chat_uid прямо з адресного рядка
-            // Шукає "/chat/" і бере весь текст після нього до наступного слеша або кінця рядка
+        searchContainer.addEventListener('click', async () => {
+            const token = localStorage.getItem('token');
             const match = window.location.href.match(/\/chat\/([a-z0-9\-]+)/);
             const currentChatId = match ? match[1] : null;
 
-            if (!currentChatId) {
-                console.warn("Не вдалося знайти ID чату в URL. Можливо, чат не відкритий.");
+            if (!currentChatId || !window.alphaSmartSearch) return;
+
+            const textSpan = searchContainer.querySelector('.alpha-search-text');
+            const progressFill = searchContainer.querySelector('.alpha-progress-fill');
+
+            // ЕТАП 2: Якщо вже завантажено, просто відкриваємо меню
+            if (isLoaded) {
+                window.alphaSmartSearch.open();
                 return;
             }
 
-            // 3. Відкриваємо вікно!
-            if (window.alphaSmartSearch) {
-                window.alphaSmartSearch.open(currentChatId, token);
-            } else {
-                console.error("Модуль SmartSearch ще не завантажився!");
+            // ЕТАП 1: Якщо ще не завантажено, починаємо викачувати
+            if (!isLoading) {
+                isLoading = true;
+                textSpan.innerText = "Завантаження...";
+
+                // Передаємо функцію зворотного зв'язку, щоб smartSearch оновлював наш прогрес-бар
+                await window.alphaSmartSearch.preloadHistory(currentChatId, token, (percent) => {
+                    progressFill.style.width = `${percent}%`;
+                });
+
+                isLoading = false;
+                isLoaded = true;
+                textSpan.innerText = "Відкрити пошук";
+                textSpan.style.color = "#1976d2";
+                textSpan.style.fontWeight = "bold";
+                progressFill.style.background = "#bbdefb"; // Робимо фон більш контрастним
+                progressFill.style.width = "100%";
             }
         });
 
@@ -1840,7 +1856,6 @@ function injectSearchButton() {
     });
 }
 
-// Запускаємо перевірку кожні 2 секунди
 setInterval(injectSearchButton, 2000);
 
 function renderSavedMessages() {
