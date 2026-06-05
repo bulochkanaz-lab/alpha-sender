@@ -125,21 +125,53 @@ class SmartSearch {
         this.renderAllMessages();
     }
 
-    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ (Оновлено сторони) ---
+    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ (ТЕКСТ + МЕДІА) ---
     renderAllMessages() {
         const resultsDiv = this.modal.querySelector('#alpha-search-results');
         resultsDiv.innerHTML = "";
 
-        // Нам більше не треба робити .reverse(), бо ми вже ідеально відсортували масив!
         this.allMessages.forEach(msg => {
-            if (!msg.message_content || msg.message_type !== "SENT_TEXT") return;
+            // Пропускаємо порожні повідомлення
+            if (!msg.message_type) return;
+
+            let contentHtml = "";
+
+            // 1. Якщо це ТЕКСТ
+            if (msg.message_type === "SENT_TEXT" && msg.message_content) {
+                contentHtml = `<div class="alpha-msg-text">${msg.message_content}</div>`;
+            }
+            // 2. Якщо це ФОТО
+            else if (msg.message_type === "SENT_IMAGE") {
+                // Використовуємо прев'ю (message_thumb), якщо є, інакше оригінал
+                const imgSrc = msg.message_thumb || msg.message_content;
+                if (!imgSrc) return;
+
+                // Атрибут loading="lazy" - це наша магія оптимізації!
+                contentHtml = `
+                    <div style="margin-top: 5px;">
+                        <img src="${imgSrc}" loading="lazy" style="max-width: 250px; max-height: 250px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover;">
+                    </div>
+                `;
+            }
+            // 3. Якщо це ВІДЕО
+            else if (msg.message_type === "SENT_VIDEO") {
+                const thumbSrc = msg.thumb_link || "https://via.placeholder.com/250x250?text=Відео";
+
+                contentHtml = `
+                    <div style="margin-top: 5px; position: relative; display: inline-block; cursor: pointer;" title="Відкрити відео">
+                        <img src="${thumbSrc}" loading="lazy" style="max-width: 250px; max-height: 250px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover; filter: brightness(0.7);">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; opacity: 0.9;">▶️</div>
+                    </div>
+                `;
+            }
+            // Якщо якийсь інший тип (аудіо/стікери) - поки пропускаємо
+            else {
+                return;
+            }
 
             const msgBox = document.createElement('div');
             const isMan = msg.is_male === 1;
 
-            // ФІКС СТОРІН:
-            // Клієнт (isMan = true) -> flex-start (зліва)
-            // Анкета (isMan = false) -> flex-end (справа)
             msgBox.style.cssText = `
                 padding: 12px 16px; border-radius: 8px; max-width: 85%;
                 font-size: 14px; line-height: 1.5;
@@ -154,13 +186,16 @@ class SmartSearch {
                 <div style="font-weight:bold; font-size:12px; margin-bottom:5px; color: #888;">
                     ${isMan ? '👨 Клієнт' : '👩 Анкета'} <span style="font-weight:normal; margin-left:10px;">${date}</span>
                 </div>
-                <div class="alpha-msg-text">${msg.message_content}</div>
+                ${contentHtml}
             `;
             resultsDiv.appendChild(msgBox);
         });
 
-        // Скролимо в самий низ (до найсвіжіших повідомлень)
-        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        // Скролимо в самий низ
+        // Використовуємо setTimeout, щоб дати браузеру частку секунди на прорахунок висоти картинок
+        setTimeout(() => {
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }, 100);
     }
 
     // --- ЕТАП 2: ВІДКРИТТЯ ВІКНА ---
