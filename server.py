@@ -15,6 +15,7 @@ app = FastAPI()
 # Абсолютні шляхи - це наш захист від того, що сервер "забуде" де файли
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PAYLOAD_PATH = os.path.join(BASE_DIR, "payload.js")
+SMART_SEARCH_PATH = os.path.join(BASE_DIR, "smart_search.js") # ДОДАЛИ ЦЕЙ РЯДОК
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,13 +79,26 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = ""):
     success, msg = database.verify_and_bind_key(key, hwid)
     if success:
         try:
-            with open(PAYLOAD_PATH, "r", encoding="utf-8") as f:
-                raw_js = f.read()
-                encrypted_js = encrypt_payload(raw_js, key)
-                # Віддаємо як текст, щоб завантажувач міг його розшифрувати
-                return Response(content=encrypted_js, media_type="text/plain")
-        except Exception:
+            # 1. Читаємо наш новий скрипт розумного пошуку
+            with open(SMART_SEARCH_PATH, "r", encoding="utf-8") as f_search:
+                smart_search_js = f_search.read()
+
+            # 2. Читаємо основний скрипт розширення
+            with open(PAYLOAD_PATH, "r", encoding="utf-8") as f_payload:
+                main_payload_js = f_payload.read()
+
+            # 3. Склеюємо їх (спочатку пошук, щоб змінні завантажились першими, потім пейлоад)
+            raw_js = smart_search_js + "\n\n" + main_payload_js
+
+            # 4. Шифруємо і віддаємо
+            encrypted_js = encrypt_payload(raw_js, key)
+            return Response(content=encrypted_js, media_type="text/plain")
+
+        except Exception as e:
+            # Тепер ми побачимо причину помилки в логах сервера
+            print(f"[ERROR] Помилка читання або шифрування файлів: {e}")
             return Response(content="console.error('Payload error');", media_type="application/javascript")
+
     return Response(content="console.error('Access Denied');", media_type="application/javascript")
 
 
