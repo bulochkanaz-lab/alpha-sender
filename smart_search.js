@@ -81,7 +81,7 @@ class SmartSearch {
         });
     }
 
-    // --- ЕТАП 1: ВИКАЧКА ІСТОРІЇ (Викликається кнопкою "Завантажити") ---
+    // --- ЕТАП 1: ВИКАЧКА ІСТОРІЇ (Оновлено з сортуванням) ---
     async preloadHistory(chatId, token, progressCallback) {
         this.chatId = chatId;
         this.token = token;
@@ -91,7 +91,7 @@ class SmartSearch {
         let page = 1;
         let hasMore = true;
 
-        while (hasMore && page <= 50) { // Запобіжник
+        while (hasMore && page <= 50) {
             try {
                 const response = await fetch(url, {
                     method: "POST",
@@ -108,7 +108,6 @@ class SmartSearch {
                 if (data.status === true && data.response && data.response.length > 0) {
                     this.allMessages = this.allMessages.concat(data.response);
                     page++;
-                    // Відправляємо відсоток в кнопку (приблизний розрахунок)
                     progressCallback(Math.min(page * 5, 95));
                 } else {
                     hasMore = false;
@@ -119,29 +118,33 @@ class SmartSearch {
             }
         }
         progressCallback(100);
-        this.renderAllMessages(); // Одразу малюємо всі повідомлення в пам'яті
+
+        // ГОЛОВНИЙ ФІКС: Сортуємо ВСІ повідомлення за датою (від найстарішого до найновішого)
+        this.allMessages.sort((a, b) => new Date(a.date_created) - new Date(b.date_created));
+
+        this.renderAllMessages();
     }
 
-    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ ---
+    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ (Оновлено сторони) ---
     renderAllMessages() {
         const resultsDiv = this.modal.querySelector('#alpha-search-results');
-        resultsDiv.innerHTML = ""; // Очищаємо
+        resultsDiv.innerHTML = "";
 
-        // Перевертаємо масив, щоб старі повідомлення були зверху, як у звичайному чаті
-        const reversedMessages = [...this.allMessages].reverse();
-
-        reversedMessages.forEach(msg => {
+        // Нам більше не треба робити .reverse(), бо ми вже ідеально відсортували масив!
+        this.allMessages.forEach(msg => {
             if (!msg.message_content || msg.message_type !== "SENT_TEXT") return;
 
             const msgBox = document.createElement('div');
             const isMan = msg.is_male === 1;
 
-            // ОДНАКОВИЙ КОЛІР (Твоє побажання 3-А)
+            // ФІКС СТОРІН:
+            // Клієнт (isMan = true) -> flex-start (зліва)
+            // Анкета (isMan = false) -> flex-end (справа)
             msgBox.style.cssText = `
                 padding: 12px 16px; border-radius: 8px; max-width: 85%;
                 font-size: 14px; line-height: 1.5;
                 background-color: #f5f6f8; border: 1px solid #e0e0e0;
-                align-self: ${isMan ? 'flex-end' : 'flex-start'};
+                align-self: ${isMan ? 'flex-start' : 'flex-end'};
                 color: #333; position: relative;
             `;
 
@@ -156,7 +159,7 @@ class SmartSearch {
             resultsDiv.appendChild(msgBox);
         });
 
-        // Скролимо в самий низ (до нових повідомлень)
+        // Скролимо в самий низ (до найсвіжіших повідомлень)
         resultsDiv.scrollTop = resultsDiv.scrollHeight;
     }
 
