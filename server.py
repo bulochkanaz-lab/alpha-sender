@@ -1,5 +1,6 @@
 import sqlite3
 import database
+import database_fs
 import os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import hashlib
@@ -32,13 +33,29 @@ class AuthRequest(BaseModel):
     hwid: str = ""  # ДОДАНО HWID
     profiles: list = []
 
+class AuthRequest(BaseModel):
+    access_key: str = ""
+    session_id: str = "default_sess"
+    hwid: str = ""
+    profiles: list = []
+    team: str = "alpha" # ДОДАЛИ
+
+class HeartbeatRequest(BaseModel):
+    access_key: str = ""
+    hwid: str = ""
+    profiles: list = []
+    team: str = "alpha" # ДОДАЛИ
+
 
 @app.post("/auth")
 async def authenticate(request: AuthRequest):
     key = request.access_key.replace('"', '').strip()
     hwid = request.hwid.strip()
 
-    success, message = database.verify_and_bind_key(key, hwid)
+    # ВИБИРАЄМО БАЗУ:
+    db = database_fs if request.team == "fs" else database
+
+    success, message = db.verify_and_bind_key(key, hwid)
     if success:
         return {"status": "success", "message": message}
     return {"status": "error", "message": message}
@@ -52,17 +69,16 @@ class HeartbeatRequest(BaseModel):
 
 @app.post("/heartbeat")
 async def heartbeat(request: HeartbeatRequest):
-    # ДОДАЙ ЦЕЙ РЯДОК:
-    print(f"[DEBUG] Сервер отримав пінг! Ключ: {request.access_key}, Анкети: {request.profiles}")
     key = request.access_key.replace('"', '').strip()
     hwid = request.hwid.strip()
 
-    # Перевіряємо, чи ключ валідний і чи не змінився HWID
-    success, message = database.verify_and_bind_key(key, hwid)
+    # ВИБИРАЄМО БАЗУ:
+    db = database_fs if request.team == "fs" else database
+
+    success, message = db.verify_and_bind_key(key, hwid)
 
     if success:
-        # ЗАПИСУЄМО АНКЕТИ В БАЗУ ДЛЯ ТЕЛЕГРАМ БОТА
-        database.update_profiles(key, request.profiles)
+        db.update_profiles(key, request.profiles)
         return {"status": "success"}
 
     if message == "Ключ заблоковано":
