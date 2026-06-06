@@ -1018,7 +1018,7 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 	modal.innerHTML = `
 <div style="background: #f5f8fa; padding: 15px 20px; border-bottom: 1px solid #e1e8ed; display: flex; justify-content: space-between; align-items: center;">
     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-    <span style="font-size: 11px; color: #999; font-style: italic; opacity: 0.8;">by Bulochka_NAZ</span>
+    <span style="font-size: 11px; color: #999; font-style: italic; opacity: 0.8;">Fire Snakes</span>
     <div style="display: flex; align-items: center; gap: 15px;">
         <div style="display: flex; gap: 10px; font-size: 18px; user-select: none;">
             <span id="langUaBtn" style="cursor: pointer; opacity: 1; transition: 0.2s;" title="Українська">🇺🇦</span>
