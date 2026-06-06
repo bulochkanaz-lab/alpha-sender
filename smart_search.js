@@ -66,18 +66,25 @@ class SmartSearch {
     attachEvents() {
         this.modal.querySelector('#alpha-search-close').addEventListener('click', () => this.close());
 
-        // Живий пошук при введенні тексту
+        // Живий пошук при введенні тексту (якщо ми в галереї, повертаємось у чат)
         this.modal.querySelector('#alpha-search-input').addEventListener('input', (e) => {
+            if (this.isGalleryOpen) {
+                this.renderAllMessages();
+            }
             this.highlightText(e.target.value);
         });
 
-        // Навігація стрілочками
         this.modal.querySelector('#btn-search-up').addEventListener('click', () => this.navigateHighlights(-1));
         this.modal.querySelector('#btn-search-down').addEventListener('click', () => this.navigateHighlights(1));
 
-        // Кнопка медіа (заглушка під твій operatorMedia JSON)
-        this.modal.querySelector('#btn-search-media').addEventListener('click', () => {
-            alert("Тут ми підключимо викачку через operatorMedia!");
+        // КНОПКА МЕДІА - Перемикач між Чатом та Галереєю
+        const mediaBtn = this.modal.querySelector('#btn-search-media');
+        mediaBtn.addEventListener('click', () => {
+            if (this.isGalleryOpen) {
+                this.renderAllMessages(); // Повертаємось у чат
+            } else {
+                this.openGallery(); // Відкриваємо галерею
+            }
         });
     }
 
@@ -125,51 +132,48 @@ class SmartSearch {
         this.renderAllMessages();
     }
 
-    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ (ТЕКСТ + МЕДІА) ---
+    // --- МАЛЮЄМО ВСІ ПОВІДОМЛЕННЯ (Оновлено для підтримки скролу з галереї) ---
     renderAllMessages() {
+        this.isGalleryOpen = false;
+        const mediaBtn = this.modal.querySelector('#btn-search-media');
+        mediaBtn.innerText = "Шукати Контент (Фото / Відео / Аудіо)";
+        mediaBtn.style.background = "#1976d2";
+
         const resultsDiv = this.modal.querySelector('#alpha-search-results');
         resultsDiv.innerHTML = "";
 
-        this.allMessages.forEach(msg => {
-            // Пропускаємо порожні повідомлення
+        this.allMessages.forEach((msg, index) => {
             if (!msg.message_type) return;
 
             let contentHtml = "";
 
-            // 1. Якщо це ТЕКСТ
             if (msg.message_type === "SENT_TEXT" && msg.message_content) {
                 contentHtml = `<div class="alpha-msg-text">${msg.message_content}</div>`;
             }
-            // 2. Якщо це ФОТО
             else if (msg.message_type === "SENT_IMAGE") {
-                // Використовуємо прев'ю (message_thumb), якщо є, інакше оригінал
                 const imgSrc = msg.message_thumb || msg.message_content;
                 if (!imgSrc) return;
-
-                // Атрибут loading="lazy" - це наша магія оптимізації!
                 contentHtml = `
                     <div style="margin-top: 5px;">
                         <img src="${imgSrc}" loading="lazy" style="max-width: 250px; max-height: 250px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover;">
                     </div>
                 `;
             }
-            // 3. Якщо це ВІДЕО
             else if (msg.message_type === "SENT_VIDEO") {
                 const thumbSrc = msg.thumb_link || "https://via.placeholder.com/250x250?text=Відео";
-
                 contentHtml = `
-                    <div style="margin-top: 5px; position: relative; display: inline-block; cursor: pointer;" title="Відкрити відео">
+                    <div style="margin-top: 5px; position: relative; display: inline-block; cursor: pointer;">
                         <img src="${thumbSrc}" loading="lazy" style="max-width: 250px; max-height: 250px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover; filter: brightness(0.7);">
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; opacity: 0.9;">▶️</div>
                     </div>
                 `;
-            }
-            // Якщо якийсь інший тип (аудіо/стікери) - поки пропускаємо
-            else {
+            } else {
                 return;
             }
 
             const msgBox = document.createElement('div');
+            // ДОДАЄМО УНІКАЛЬНИЙ ID для кожного повідомлення
+            msgBox.id = `alpha-msg-${index}`;
             const isMan = msg.is_male === 1;
 
             msgBox.style.cssText = `
@@ -177,7 +181,7 @@ class SmartSearch {
                 font-size: 14px; line-height: 1.5;
                 background-color: #f5f6f8; border: 1px solid #e0e0e0;
                 align-self: ${isMan ? 'flex-start' : 'flex-end'};
-                color: #333; position: relative;
+                color: #333; position: relative; transition: all 0.3s ease;
             `;
 
             const date = new Date(msg.date_created).toLocaleDateString('uk-UA', {hour: '2-digit', minute:'2-digit'});
@@ -191,11 +195,86 @@ class SmartSearch {
             resultsDiv.appendChild(msgBox);
         });
 
-        // Скролимо в самий низ
-        // Використовуємо setTimeout, щоб дати браузеру частку секунди на прорахунок висоти картинок
         setTimeout(() => {
             resultsDiv.scrollTop = resultsDiv.scrollHeight;
         }, 100);
+    }
+
+    // --- НОВА ФУНКЦІЯ: ГАЛЕРЕЯ МЕДІА ---
+    openGallery() {
+        this.isGalleryOpen = true;
+        const mediaBtn = this.modal.querySelector('#btn-search-media');
+        mediaBtn.innerText = "⬅ Повернутися до чату";
+        mediaBtn.style.background = "#757575"; // Міняємо колір кнопки, щоб візуально відділити режим
+
+        const resultsDiv = this.modal.querySelector('#alpha-search-results');
+        resultsDiv.innerHTML = ""; // Очищаємо чат
+
+        // Фільтруємо ТІЛЬКИ фото і відео
+        const mediaMsgs = this.allMessages.map((msg, index) => ({msg, index})).filter(item =>
+            item.msg.message_type === "SENT_IMAGE" || item.msg.message_type === "SENT_VIDEO"
+        );
+
+        if (mediaMsgs.length === 0) {
+            resultsDiv.innerHTML = `<div style="text-align:center; color:#999; margin-top:50px; font-size: 15px;">У цьому чаті ще не надсилали фото чи відео.</div>`;
+            return;
+        }
+
+        // Створюємо сітку
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            padding: 5px;
+        `;
+
+        mediaMsgs.forEach(item => {
+            const isVideo = item.msg.message_type === "SENT_VIDEO";
+            const thumbSrc = isVideo ? (item.msg.thumb_link || "https://via.placeholder.com/250x250?text=Відео") : (item.msg.message_thumb || item.msg.message_content);
+
+            const thumbDiv = document.createElement('div');
+            thumbDiv.style.cssText = `
+                position: relative; cursor: pointer; border-radius: 8px; overflow: hidden;
+                border: 2px solid transparent; transition: all 0.2s; aspect-ratio: 1;
+                background: #eee;
+            `;
+
+            thumbDiv.onmouseenter = () => { thumbDiv.style.border = "2px solid #1976d2"; thumbDiv.style.transform = "scale(1.02)"; };
+            thumbDiv.onmouseleave = () => { thumbDiv.style.border = "2px solid transparent"; thumbDiv.style.transform = "scale(1)"; };
+
+            thumbDiv.innerHTML = `
+                <img src="${thumbSrc}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover; ${isVideo ? 'filter: brightness(0.7);' : ''}">
+                ${isVideo ? '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; opacity: 0.9;">▶️</div>' : ''}
+            `;
+
+            // НАЙКРУТІША ФІЧА: Клік по картинці повертає в чат і скролить до неї
+            thumbDiv.onclick = () => {
+                this.renderAllMessages(); // Малюємо чат
+
+                // Чекаємо, поки DOM відрендериться
+                setTimeout(() => {
+                    const targetBlock = this.modal.querySelector(`#alpha-msg-${item.index}`);
+                    if (targetBlock) {
+                        targetBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        // Робимо красиву синю підсвітку-спалах для знайденого повідомлення
+                        targetBlock.style.boxShadow = "0 0 20px rgba(25, 118, 210, 0.4)";
+                        targetBlock.style.border = "1px solid #1976d2";
+
+                        // Знімаємо підсвітку через 2 секунди
+                        setTimeout(() => {
+                            targetBlock.style.boxShadow = "none";
+                            targetBlock.style.border = "1px solid #e0e0e0";
+                        }, 2000);
+                    }
+                }, 100);
+            };
+
+            grid.appendChild(thumbDiv);
+        });
+
+        resultsDiv.appendChild(grid);
     }
 
     // --- ЕТАП 2: ВІДКРИТТЯ ВІКНА ---
