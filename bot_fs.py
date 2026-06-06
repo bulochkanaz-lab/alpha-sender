@@ -14,7 +14,7 @@ import database_fs as database
 # Просто вставляєш сюди токен, який дав BotFather для нового бота
 BOT_TOKEN = "8708522521:AAGQ_q8_qx2hRkMLcukO79_W3CCfGMYV3js"
 
-ADMIN_IDS = [7898484797]
+ADMIN_IDS = [7898484797, 8502175321]
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
