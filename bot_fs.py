@@ -11,18 +11,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 import database_fs as database
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-token_path = os.path.join(BASE_DIR, "token.txt")
+# Просто вставляєш сюди токен, який дав BotFather для нового бота
+BOT_TOKEN = "8708522521:AAGQ_q8_qx2hRkMLcukO79_W3CCfGMYV3js"
 
-# Перевіряємо, чи існує файл token.txt
-if os.path.exists(token_path):
-    with open(token_path, "r", encoding="utf-8") as f:
-        BOT_TOKEN = f.read().strip()
-else:
-    # Якщо файлу немає, використовуємо твій старий бойовий токен
-    BOT_TOKEN = "8708522521:AAGQ_q8_qx2hRkMLcukO79_W3CCfGMYV3js"
-
-ADMIN_IDS = [7898484797, 5844872531, 249944251]
+ADMIN_IDS = [7898484797]
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
