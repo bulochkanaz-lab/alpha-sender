@@ -71,26 +71,31 @@ async def heartbeat(request: HeartbeatRequest):
     return {"status": "error", "message": message}
 
 
+# Додаємо параметр team зі стандартним значенням "alpha"
 @app.get("/get_payload")
-async def get_payload(key: str = "", session_id: str = "", hwid: str = ""):
+async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team: str = "alpha"):
     key = key.replace('"', '').strip()
     hwid = hwid.strip()
 
     success, msg = database.verify_and_bind_key(key, hwid)
     if success:
         try:
-            # 1. Читаємо наш новий скрипт розумного пошуку
+            # Визначаємо, який файл брати залежно від команди
+            if team == "fs":
+                current_payload_path = os.path.join(BASE_DIR, "payload-fs.js")
+            else:
+                current_payload_path = os.path.join(BASE_DIR, "payload.js")
+
+            # Читаємо smart_search.js (він спільний для всіх)
             with open(SMART_SEARCH_PATH, "r", encoding="utf-8") as f_search:
                 smart_search_js = f_search.read()
 
-            # 2. Читаємо основний скрипт розширення
-            with open(PAYLOAD_PATH, "r", encoding="utf-8") as f_payload:
+            # Читаємо потрібний payload
+            with open(current_payload_path, "r", encoding="utf-8") as f_payload:
                 main_payload_js = f_payload.read()
 
-            # 3. Склеюємо їх (спочатку пошук, щоб змінні завантажились першими, потім пейлоад)
             raw_js = smart_search_js + "\n\n" + main_payload_js
 
-            # 4. Шифруємо і віддаємо
             encrypted_js = encrypt_payload(raw_js, key)
             return Response(content=encrypted_js, media_type="text/plain")
 
