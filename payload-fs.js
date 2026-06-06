@@ -1117,27 +1117,46 @@ box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflo
 </div>
 
 <div id="tabContentWinks" style="display: none;">
-<div style="margin-bottom: 15px;">
-<label data-lang="respProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету:</label>
-<select id="respProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-<option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-</select>
-</div>
-<div id="respTabsArea" style="display: none; flex-direction: column;">
-<div style="display: flex; border-bottom: 1px solid #eee; margin-bottom: 10px;">
-<div id="respTabLike" data-lang="respTabLike" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #1976d2; border-bottom: 2px solid #1976d2; font-weight: bold; font-size: 13px;">Лайки</div>
-<div id="respTabWink" data-lang="respTabWink" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; font-weight: bold; font-size: 13px;">Вінки</div>
-</div>
-<textarea id="respMessageInput" data-lang="respPlaceholder" placeholder="Введіть текст відповіді..." style="width: 100%; height: 70px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px;"></textarea>
-<button id="respSaveBtn" data-lang="respSaveBtn" style="padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">Зберегти текст</button>
-<div id="respSavedList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; max-height: 150px; overflow-y: auto;"></div>
-<div style="border-top: 1px solid #eee; padding-top: 15px;">
-<label data-lang="respSpeedLabel" style="font-size: 12px; color: #666; font-weight: 600;">Швидкість відповіді (сек):</label>
-<input type="number" id="respSpeedInput" value="3" min="0" max="10" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-<small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Час "імітації друку" перед відправкою</small>
-</div>
-</div>
-<div id="respEmptyState" data-lang="respEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати тексти</div>
+    <div style="margin-bottom: 15px;">
+        <label data-lang="respProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету:</label>
+        <select id="respProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
+            <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
+        </select>
+    </div>
+
+    <div id="respTabsArea" style="display: none; flex-direction: column;">
+        <div style="display: flex; border-bottom: 1px solid #eee; margin-bottom: 10px;">
+            <div id="respTabLike" data-lang="respTabLike" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #1976d2; border-bottom: 2px solid #1976d2; font-weight: bold; font-size: 13px;">Лайки</div>
+            <div id="respTabWink" data-lang="respTabWink" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; font-weight: bold; font-size: 13px;">Вінки</div>
+        </div>
+
+        <!-- 🔥 НОВИЙ БЛОК: Вибір конкретної вінки (прихований за замовчуванням, показується тільки на вкладці Вінки) -->
+        <div id="respWinkTypeContainer" style="display: none; margin-bottom: 10px;">
+            <label style="font-size: 12px; font-weight: bold; color: #666;">На яку фразу відповідаємо?</label>
+            <select id="respWinkPhraseSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px; font-size: 12px;">
+                <option value="default">✨ Стандартна (На будь-яку іншу вінку)</option>
+                <option value="I would like to know more about you!">I would like to know more about you!</option>
+                <option value="Tell me more about yourself">Tell me more about yourself</option>
+                <option value="How is your day going?">How is your day going?</option>
+                <option value="What are you up to?">What are you up to?</option>
+                <option value="Don't you mind talking a bit?">Don't you mind talking a bit?</option>
+            </select>
+        </div>
+        <!-- ========================================== -->
+
+        <textarea id="respMessageInput" data-lang="respPlaceholder" placeholder="Введіть текст відповіді..." style="width: 100%; height: 70px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px;"></textarea>
+        <button id="respSaveBtn" data-lang="respSaveBtn" style="padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">Зберегти текст</button>
+
+        <div id="respSavedList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; max-height: 150px; overflow-y: auto;"></div>
+
+        <div style="border-top: 1px solid #eee; padding-top: 15px;">
+            <label data-lang="respSpeedLabel" style="font-size: 12px; color: #666; font-weight: 600;">Швидкість відповіді (сек):</label>
+            <input type="number" id="respSpeedInput" value="3" min="0" max="10" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
+            <small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Час "імітації друку" перед відправкою</small>
+        </div>
+    </div>
+
+    <div id="respEmptyState" data-lang="respEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати тексти</div>
 </div>
 
 <div id="tabContentStats" style="display: none;">
@@ -1305,87 +1324,170 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
 
 	document.getElementById("confirmGalleryBtn").onclick = () => (galleryModal.style.display = "none");
 
-	// 4. Старий код Вінки/Лайки та Розсилки (залишається без змін)
+	// ==========================================
+// 4. ОНОВЛЕНИЙ КОД: Вінки/Лайки та Кастомні відповіді
+// ==========================================
 
-	const tabLike = document.getElementById("respTabLike");
+const tabLike = document.getElementById("respTabLike");
+const tabWink = document.getElementById("respTabWink");
+const winkTypeContainer = document.getElementById("respWinkTypeContainer");
+const winkPhraseSelect = document.getElementById("respWinkPhraseSelect");
 
-	const tabWink = document.getElementById("respTabWink");
+tabLike.onclick = () => {
+    currentSelectedTab = "like";
 
-	tabLike.onclick = () => {
-		currentSelectedTab = "like";
+    tabLike.style.color = "#1976d2";
+    tabLike.style.borderBottomColor = "#1976d2";
+    tabWink.style.color = "#666";
+    tabWink.style.borderBottomColor = "transparent";
 
-		tabLike.style.color = "#1976d2";
-		tabLike.style.borderBottomColor = "#1976d2";
+    // Ховаємо вибір конкретної фрази, бо це лайки
+    if (winkTypeContainer) winkTypeContainer.style.display = "none";
 
-		tabWink.style.color = "#666";
-		tabWink.style.borderBottomColor = "transparent";
+    renderSavedMessages();
+};
 
-		renderSavedMessages();
-	};
+tabWink.onclick = () => {
+    currentSelectedTab = "wink";
 
-	tabWink.onclick = () => {
-		currentSelectedTab = "wink";
+    tabWink.style.color = "#1976d2";
+    tabWink.style.borderBottomColor = "#1976d2";
+    tabLike.style.color = "#666";
+    tabLike.style.borderBottomColor = "transparent";
 
-		tabWink.style.color = "#1976d2";
-		tabWink.style.borderBottomColor = "#1976d2";
+    // Показуємо вибір конкретної фрази для вінок
+    if (winkTypeContainer) winkTypeContainer.style.display = "block";
 
-		tabLike.style.color = "#666";
-		tabLike.style.borderBottomColor = "transparent";
+    renderSavedMessages();
+};
 
-		renderSavedMessages();
-	};
+// Оновлюємо список відповідей, якщо перемкнули фразу у випадаючому списку
+if (winkPhraseSelect) {
+    winkPhraseSelect.addEventListener("change", () => {
+        renderSavedMessages();
+    });
+}
 
-	document.getElementById("respProfileSelect").addEventListener("change", (e) => {
-		currentSelectedProfile = e.target.value;
+document.getElementById("respProfileSelect").addEventListener("change", (e) => {
+    currentSelectedProfile = e.target.value;
 
-		if (currentSelectedProfile) {
-			document.getElementById("respTabsArea").style.display = "flex";
+    if (currentSelectedProfile) {
+       document.getElementById("respTabsArea").style.display = "flex";
+       document.getElementById("respEmptyState").style.display = "none";
+       renderSavedMessages();
+    } else {
+       document.getElementById("respTabsArea").style.display = "none";
+       document.getElementById("respEmptyState").style.display = "block";
+    }
+});
 
-			document.getElementById("respEmptyState").style.display = "none";
+// --- Збереження тексту Вінки/Лайки ---
+document.getElementById("respSaveBtn").onclick = () => {
+    const text = document.getElementById("respMessageInput").value.trim();
 
-			renderSavedMessages();
-		} else {
-			document.getElementById("respTabsArea").style.display = "none";
+    if (!text || !currentSelectedProfile) return;
 
-			document.getElementById("respEmptyState").style.display = "block";
-		}
-	});
+    // Перевіряємо, чи це кастомна вінка
+    if (currentSelectedTab === "wink" && winkPhraseSelect && winkPhraseSelect.value !== "default") {
+        const phrase = winkPhraseSelect.value;
+        const key = `resp_${currentSelectedProfile}_wink_custom`;
 
-	// --- Збереження тексту Вінки/Лайки ---
+        // Дістаємо об'єкт (словник) замість масиву
+        let savedObj = JSON.parse(localStorage.getItem(key) || "{}");
+        if (!savedObj[phrase]) savedObj[phrase] = []; // Створюємо масив для цієї фрази, якщо його ще нема
 
-	document.getElementById("respSaveBtn").onclick = () => {
-		const text = document.getElementById("respMessageInput").value.trim();
+        savedObj[phrase].push(text);
+        localStorage.setItem(key, JSON.stringify(savedObj));
 
-		if (!text || !currentSelectedProfile) return;
+    } else {
+        // Зберігаємо ЛАЙК або СТАНДАРТНУ вінку (як звичайний масив)
+        const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+        let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
-		const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+        saved.push(text);
+        localStorage.setItem(key, JSON.stringify(saved));
+    }
 
-		let saved = JSON.parse(localStorage.getItem(key) || "[]");
+    document.getElementById("respMessageInput").value = "";
+    renderSavedMessages();
+};
 
-		saved.push(text);
+// --- ВІДМАЛЬОВКА ТА ВИДАЛЕННЯ ЗБЕРЕЖЕНИХ ПОВІДОМЛЕНЬ ---
+function renderSavedMessages() {
+    const list = document.getElementById("respSavedList");
+    if (!list) return;
+    list.innerHTML = "";
 
-		localStorage.setItem(key, JSON.stringify(saved));
+    if (!currentSelectedProfile) return;
 
-		document.getElementById("respMessageInput").value = "";
+    let texts = [];
+    let isCustomWink = false;
+    let selectedPhrase = "";
+    let storageKey = "";
 
-		if (typeof renderSavedMessages === "function") renderSavedMessages();
-	};
+    if (currentSelectedTab === "wink" && winkPhraseSelect && winkPhraseSelect.value !== "default") {
+        // Завантажуємо кастомні вінки
+        isCustomWink = true;
+        selectedPhrase = winkPhraseSelect.value;
+        storageKey = `resp_${currentSelectedProfile}_wink_custom`;
+        const customObj = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        texts = customObj[selectedPhrase] || [];
+    } else {
+        // Завантажуємо лайки або стандартні вінки
+        storageKey = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+        texts = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    }
 
-	// --- Збереження швидкості відповіді ---
+    if (texts.length === 0) {
+        list.innerHTML = `<div style="text-align:center; color:#999; font-size:12px; margin-top:10px;">Ще немає збережених відповідей</div>`;
+        return;
+    }
 
-	const speedInput = document.getElementById("respSpeedInput");
+    texts.forEach((text, index) => {
+        const itemDiv = document.createElement("div");
+        itemDiv.style.cssText = "display: flex; justify-content: space-between; background: #f9f9f9; padding: 8px; border-radius: 4px; border: 1px solid #eee; font-size: 13px; align-items: center;";
 
-	if (speedInput) {
-		speedInput.addEventListener("input", (e) => {
-			localStorage.setItem("alphaBotReplySpeed", e.target.value);
-		});
+        const textSpan = document.createElement("span");
+        textSpan.textContent = text;
+        textSpan.style.flex = "1";
+        textSpan.style.marginRight = "10px";
 
-		// Відновлюємо швидкість з пам'яті при відкритті
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "❌";
+        delBtn.style.cssText = "background: none; border: none; cursor: pointer; font-size: 12px; opacity: 0.7;";
 
-		const savedSpeed = localStorage.getItem("alphaBotReplySpeed");
+        // Логіка видалення
+        delBtn.onclick = () => {
+            if (isCustomWink) {
+                const obj = JSON.parse(localStorage.getItem(storageKey) || "{}");
+                if (obj[selectedPhrase]) {
+                    obj[selectedPhrase].splice(index, 1);
+                    localStorage.setItem(storageKey, JSON.stringify(obj));
+                }
+            } else {
+                const arr = JSON.parse(localStorage.getItem(storageKey) || "[]");
+                arr.splice(index, 1);
+                localStorage.setItem(storageKey, JSON.stringify(arr));
+            }
+            renderSavedMessages();
+        };
 
-		if (savedSpeed) speedInput.value = savedSpeed;
-	}
+        itemDiv.appendChild(textSpan);
+        itemDiv.appendChild(delBtn);
+        list.appendChild(itemDiv);
+    });
+}
+
+// --- Збереження швидкості відповіді ---
+const speedInput = document.getElementById("respSpeedInput");
+if (speedInput) {
+    speedInput.addEventListener("input", (e) => {
+       localStorage.setItem("alphaBotReplySpeed", e.target.value);
+    });
+
+    const savedSpeed = localStorage.getItem("alphaBotReplySpeed");
+    if (savedSpeed) speedInput.value = savedSpeed;
+}
 
 	// --- Логіка вибору анкети для ІНВАЙТІВ ---
 
@@ -2391,7 +2493,7 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        if (!isRunning) return;
 
        // ==========================================
-       // АВТОВІДПОВІДАЧ (Лайки / Вінки)
+       // РОЗУМНИЙ АВТОВІДПОВІДАЧ (Лайки / Кастомні Вінки)
        // ==========================================
        const womanId = payload.external_id;
        let manId = null;
@@ -2404,44 +2506,75 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        if (!manId || !womanId) return;
 
-       if (payload.action === "liked") {
-          await handleAutoReply(womanId, manId, "like");
-       } else if (payload.action === "message" && payload.message_object && payload.message_object.message_type === "SENT_WINK") {
-          await handleAutoReply(womanId, manId, "wink");
+       // Витягуємо тип та сам текст повідомлення
+       const msgType = (payload.message_object && payload.message_object.message_type)
+                    || (payload.notification_object && payload.notification_object.message_type);
+
+       const msgContent = (payload.message_object && payload.message_object.message_content)
+                       || (payload.notification_object && payload.notification_object.message_content)
+                       || "";
+
+       const winkTypes = ["SENT_WINK"];
+       const likeTypes = ["liked"];
+
+       const isWink = (payload.action === "message" && winkTypes.includes(msgType));
+       const isLike = (likeTypes.includes(payload.action) || (payload.action === "message" && likeTypes.includes(msgType)));
+
+       if (isLike) {
+          await handleAutoReply(womanId, manId, "like", "");
+       } else if (isWink) {
+          // Передаємо конкретний текст вінки у функцію (прибираємо зайві пробіли)
+          await handleAutoReply(womanId, manId, "wink", msgContent.trim());
        }
+
     } catch (err) {
        // Ігноруємо невалідний JSON
     }
 });
 
-// 🔥 Глобальна пам'ять для захисту від дублів автовідповідача
+// 🔥 Глобальна пам'ять для захисту від дублів
 const autoReplyLocks = new Set();
 
-async function handleAutoReply(profileId, manId, type) {
-    // 1. Перевіряємо, чи ми вже не відповідаємо цьому чоловікові (захист від Race Condition)
+async function handleAutoReply(profileId, manId, type, exactText = "") {
     const lockKey = `${profileId}_${manId}_${type}`;
     if (autoReplyLocks.has(lockKey)) return;
 
-    // 2. Ставимо "замок" на цього чоловіка
     autoReplyLocks.add(lockKey);
-
-    // Знімаємо замок через 60 секунд (якщо він справді лайкне ще раз через хвилину, ми відповімо)
     setTimeout(() => autoReplyLocks.delete(lockKey), 60000);
 
-    const key = `resp_${profileId}_${type}`;
-    const savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
+    let savedTexts = [];
 
+    // 1. Спроба знайти КАСТОМНУ відповідь під конкретний текст вінки
+    if (type === "wink" && exactText !== "") {
+        try {
+            // Очікуємо, що в localStorage лежить об'єкт (словник) із фразами
+            const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
+
+            // Якщо мужик прислав "How is your day going?", перевіряємо, чи є для цього масив відповідей
+            if (customWinks[exactText] && customWinks[exactText].length > 0) {
+                savedTexts = customWinks[exactText];
+            }
+        } catch(e) {}
+    }
+
+    // 2. Якщо кастомної відповіді не знайшлось (або це лайк), беремо СТАНДАРТНУ
+    if (savedTexts.length === 0) {
+        const key = `resp_${profileId}_${type}`;
+        savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
+    }
+
+    // Якщо взагалі нічого немає — ігноруємо
     if (savedTexts.length === 0) return;
 
     const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
-
-    // Беремо швидкість з налаштувань, за замовчуванням 3 сек (додаємо трохи рандому для людяності)
     const speedSec = parseInt(localStorage.getItem("alphaBotReplySpeed") || "3");
     const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
 
     await new Promise((resolve) => setTimeout(resolve, delayMs));
     await sendAutoMessage(profileId, manId, randomText);
 }
+
+// Функція sendAutoMessage залишається без змін...
 
 async function sendAutoMessage(profileId, manId, text) {
 	let token = localStorage.getItem("token");
