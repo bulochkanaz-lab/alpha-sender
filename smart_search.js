@@ -201,7 +201,7 @@ class SmartSearch {
 
             msgBox.innerHTML = `
                 <div style="font-weight:bold; font-size:12px; margin-bottom:5px; color: #888;">
-                    ${isMan ? '👨 Клієнт' : '👩 Анкета'} <span style="font-weight:normal; margin-left:10px;">${date}</span>
+                    ${isMan ? '👨 Мужик' : '👩 Анкета'} <span style="font-weight:normal; margin-left:10px;">${date}</span>
                 </div>
                 ${contentHtml}
             `;
