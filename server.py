@@ -30,21 +30,15 @@ app.add_middleware(
 class AuthRequest(BaseModel):
     access_key: str = ""
     session_id: str = "default_sess"
-    hwid: str = ""  # ДОДАНО HWID
-    profiles: list = []
-
-class AuthRequest(BaseModel):
-    access_key: str = ""
-    session_id: str = "default_sess"
     hwid: str = ""
     profiles: list = []
-    team: str = "alpha" # ДОДАЛИ
+    team: str = "alpha"
 
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
     hwid: str = ""
     profiles: list = []
-    team: str = "alpha" # ДОДАЛИ
+    team: str = "alpha"
 
 
 @app.post("/auth")
@@ -59,12 +53,6 @@ async def authenticate(request: AuthRequest):
     if success:
         return {"status": "success", "message": message}
     return {"status": "error", "message": message}
-
-
-class HeartbeatRequest(BaseModel):
-    access_key: str = ""
-    hwid: str = ""
-    profiles: list = []
 
 
 @app.post("/heartbeat")
@@ -93,7 +81,10 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
     key = key.replace('"', '').strip()
     hwid = hwid.strip()
 
-    success, msg = database.verify_and_bind_key(key, hwid)
+    # ТУТ ТЕЖ ТРЕБА ВИБРАТИ БАЗУ! (Ось де ховалася помилка цілісності)
+    db = database_fs if team == "fs" else database
+
+    success, msg = db.verify_and_bind_key(key, hwid)
     if success:
         try:
             # Визначаємо, який файл брати залежно від команди
@@ -116,7 +107,6 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
             return Response(content=encrypted_js, media_type="text/plain")
 
         except Exception as e:
-            # Тепер ми побачимо причину помилки в логах сервера
             print(f"[ERROR] Помилка читання або шифрування файлів: {e}")
             return Response(content="console.error('Payload error');", media_type="application/javascript")
 
