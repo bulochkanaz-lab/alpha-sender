@@ -1200,7 +1200,7 @@ function injectBotUI() {
                         <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати листи</div>
                     </div>
 
-                    <div id="tabContentWinks" style="display: none; display: flex; flex-direction: column; height: 100%;">
+                    <div id="tabContentWinks" style="display: none; flex-direction: column; height: 100%;">
                         <select id="respProfileSelect" style="display: none;"></select>
                         <div id="respTabsArea" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
                             <div class="alpha-subtabs" style="margin-bottom: 0;">
@@ -1299,7 +1299,15 @@ function injectBotUI() {
        });
        activeTabBtn.classList.add("active");
        const activeTab = tabs.find((t) => t.btn === activeTabBtn);
-       if (activeTab) activeTab.content.style.display = "block";
+
+       if (activeTab) {
+           // 🔥 Фікс: Для вінок повертаємо flex, для інших - стандартний block
+           if (activeTab.content.id === "tabContentWinks") {
+               activeTab.content.style.display = "flex";
+           } else {
+               activeTab.content.style.display = "block";
+           }
+       }
     }
 
     tabs[0].btn.onclick = () => switchMainTab(tabs[0].btn);
