@@ -1062,7 +1062,7 @@ function injectBotUI() {
 
                 <div class="alpha-nav">
                     <div id="tabBtnSettings" data-lang="tabSettings" class="alpha-nav-btn active">🚀 Розсилка</div>
-                    <div id="tabBtnInvites" data-lang="tabInvites" class="alpha-nav-btn" style="display: none;">📩 Інвайтики</div>
+                    <div id="tabBtnInvites" data-lang="tabInvites" class="alpha-nav-btn" style="display: none;">📩 Інвайти</div>
                     <div id="tabBtnLetters" data-lang="tabLetters" class="alpha-nav-btn" style="display: none;">📝 Листи</div>
                     <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
                     <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">🚨 VIP Радар</div>
@@ -1329,6 +1329,271 @@ function injectBotUI() {
             if(typeof renderSavedMessages === "function") renderSavedMessages();
         };
     }
+
+    // ==========================================
+    // ВІДНОВЛЕНІ ОБРОБНИКИ ПОДІЙ (ЯКІ БУЛИ ПРОПУЩЕНІ)
+    // ==========================================
+
+    // --- Логіка галереї (Відкрити/Закрити) ---
+    const galleryBtn = document.getElementById("lettersGalleryBtn");
+    if(galleryBtn) galleryBtn.onclick = () => (galleryModal.style.display = "flex");
+    const closeGal = document.getElementById("closeGalleryBtn");
+    if(closeGal) closeGal.onclick = () => (galleryModal.style.display = "none");
+    const confGal = document.getElementById("confirmGalleryBtn");
+    if(confGal) confGal.onclick = () => (galleryModal.style.display = "none");
+
+    // --- Логіка Вінки/Лайки ---
+    const respProfSel = document.getElementById("respProfileSelect");
+    if (respProfSel) {
+        respProfSel.addEventListener("change", (e) => {
+            currentSelectedProfile = e.target.value;
+            if (currentSelectedProfile) {
+                document.getElementById("respTabsArea").style.display = "flex";
+                document.getElementById("respEmptyState").style.display = "none";
+                if(typeof renderSavedMessages === "function") renderSavedMessages();
+            } else {
+                document.getElementById("respTabsArea").style.display = "none";
+                document.getElementById("respEmptyState").style.display = "block";
+            }
+        });
+    }
+
+    const winkPhraseSel = document.getElementById("respWinkPhraseSelect");
+    if (winkPhraseSel) {
+        winkPhraseSel.addEventListener("change", () => {
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
+        });
+    }
+
+    const respSave = document.getElementById("respSaveBtn");
+    if(respSave) {
+        respSave.onclick = () => {
+            const text = document.getElementById("respMessageInput").value.trim();
+            if (!text || !currentSelectedProfile) return;
+
+            if (currentSelectedTab === "wink" && winkPhraseSel && winkPhraseSel.value !== "default") {
+                const phrase = winkPhraseSel.value;
+                const key = `resp_${currentSelectedProfile}_wink_custom`;
+                let savedObj = JSON.parse(localStorage.getItem(key) || "{}");
+                if (!savedObj[phrase]) savedObj[phrase] = [];
+                savedObj[phrase].push(text);
+                localStorage.setItem(key, JSON.stringify(savedObj));
+            } else {
+                const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+                let saved = JSON.parse(localStorage.getItem(key) || "[]");
+                saved.push(text);
+                localStorage.setItem(key, JSON.stringify(saved));
+            }
+            document.getElementById("respMessageInput").value = "";
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
+        };
+    }
+
+    const speedInput = document.getElementById("respSpeedInput");
+    if (speedInput) {
+        speedInput.addEventListener("input", (e) => localStorage.setItem("alphaBotReplySpeed", e.target.value));
+        const savedSpeed = localStorage.getItem("alphaBotReplySpeed");
+        if (savedSpeed) speedInput.value = savedSpeed;
+    }
+
+    // --- Логіка ІНВАЙТІВ ---
+    const invProfSel = document.getElementById("invitesProfileSelect");
+    if (invProfSel) {
+        invProfSel.addEventListener("change", (e) => {
+            if (e.target.value) {
+                document.getElementById("invitesWorkArea").style.display = "flex";
+                document.getElementById("invitesEmptyState").style.display = "none";
+                if(typeof renderCustomInvites === "function") renderCustomInvites();
+            } else {
+                document.getElementById("invitesWorkArea").style.display = "none";
+                document.getElementById("invitesEmptyState").style.display = "block";
+            }
+        });
+    }
+
+    const invSave = document.getElementById("invitesSaveBtn");
+    if (invSave) {
+        invSave.onclick = () => {
+            const text = document.getElementById("invitesMessageInput").value.trim();
+            const profileId = document.getElementById("invitesProfileSelect").value;
+            if (!text || !profileId) return;
+            const key = `alpha_invites_${profileId}`;
+            let saved = JSON.parse(localStorage.getItem(key) || "[]");
+            saved.push({ message_content: text, message_type: "SENT_TEXT" });
+            localStorage.setItem(key, JSON.stringify(saved));
+            document.getElementById("invitesMessageInput").value = "";
+            if(typeof renderCustomInvites === "function") renderCustomInvites();
+        };
+    }
+
+    // --- Логіка ЛИСТІВ ---
+    const letProfSel = document.getElementById("lettersProfileSelect");
+    if(letProfSel) {
+        letProfSel.addEventListener("change", async (e) => {
+            const profileId = e.target.value;
+            if (profileId) {
+                document.getElementById("lettersWorkArea").style.display = "flex";
+                document.getElementById("lettersEmptyState").style.display = "none";
+                const galleryGrid = document.getElementById("galleryGrid");
+                galleryGrid.innerHTML = '<span style="color: #666; font-size: 12px; grid-column: 1 / -1; text-align: center;">Завантаження фото...</span>';
+                let token = localStorage.getItem("token");
+                if (token) {
+                    token = token.replace(/^"|"$/g, "");
+                    const imageMap = await getProfileGallery(token, profileId);
+                    galleryGrid.innerHTML = "";
+                    window.selectedCustomImages = [];
+                    document.getElementById("lettersGalleryBtn").innerHTML = "📷";
+                    if (Object.keys(imageMap).length === 0) {
+                        galleryGrid.innerHTML = '<span style="color: #999; font-size: 12px; grid-column: 1 / -1; text-align: center;">У цієї анкети немає фото.</span>';
+                    } else {
+                        for (const [link, id] of Object.entries(imageMap)) {
+                            const img = document.createElement("img");
+                            img.src = link;
+                            img.dataset.id = id;
+                            img.style.cssText = `width: 100%; height: 80px; object-fit: cover; border-radius: 5px; cursor: pointer; border: 3px solid transparent; transition: .2s; box-sizing: border-box;`;
+                            img.onclick = () => {
+                                const idx = window.selectedCustomImages.findIndex((imgObj) => imgObj.id === id);
+                                if (idx > -1) {
+                                    window.selectedCustomImages.splice(idx, 1);
+                                    img.style.borderColor = "transparent";
+                                    img.style.opacity = "1";
+                                } else {
+                                    window.selectedCustomImages.push({ id: id, link: link });
+                                    img.style.borderColor = "#4caf50";
+                                    img.style.opacity = "0.8";
+                                }
+                                const btn = document.getElementById("lettersGalleryBtn");
+                                const count = window.selectedCustomImages.length;
+                                btn.style.position = "relative";
+                                btn.innerHTML = count > 0 ? `📷<span style="position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${count}</span>` : "📷";
+                            };
+                            galleryGrid.appendChild(img);
+                        }
+                    }
+                    if(typeof renderCustomLetters === "function") renderCustomLetters();
+                }
+            } else {
+                document.getElementById("lettersWorkArea").style.display = "none";
+                document.getElementById("lettersEmptyState").style.display = "block";
+            }
+        });
+    }
+
+    const letSave = document.getElementById("lettersSaveBtn");
+    if(letSave) {
+        letSave.onclick = () => {
+            const text = document.getElementById("lettersMessageInput").value.trim();
+            const profileId = document.getElementById("lettersProfileSelect").value;
+            if (!text || !profileId) return;
+            const key = `alpha_letters_${profileId}`;
+            let saved = JSON.parse(localStorage.getItem(key) || "[]");
+            const attachments = window.selectedCustomImages ? [...window.selectedCustomImages] : [];
+            saved.push({ message_content: text, message_type: "SENT_TEXT", attachments: attachments });
+            localStorage.setItem(key, JSON.stringify(saved));
+            document.getElementById("lettersMessageInput").value = "";
+            window.selectedCustomImages = [];
+            document.getElementById("lettersGalleryBtn").innerHTML = "📷";
+            const galleryGrid = document.getElementById("galleryGrid");
+            if (galleryGrid) {
+                const imgs = galleryGrid.getElementsByTagName("img");
+                for (let img of imgs) {
+                    img.style.borderColor = "transparent";
+                    img.style.opacity = "1";
+                }
+            }
+            if (typeof renderCustomLetters === "function") renderCustomLetters();
+        };
+    }
+
+    // --- Логіка VIP РАДАРУ ---
+    const vipAddBtn = document.getElementById("vipAddRuleBtn");
+    if (vipAddBtn) {
+        vipAddBtn.onclick = () => {
+            let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+            rules.push({ vip_id: "", profile_id: "", auto_disable: false });
+            localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            if(typeof window.renderVipRules === "function") window.renderVipRules();
+        };
+    }
+
+    window.renderVipRules = function() {
+        const vipRulesList = document.getElementById("vipRulesList");
+        if(!vipRulesList) return;
+        vipRulesList.innerHTML = "";
+        let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+
+        if (rules.length === 0) {
+            vipRulesList.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoRules") + '</span>';
+            return;
+        }
+
+        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">' + t("dynSelectProfile") + '</option>';
+
+        rules.forEach((rule, index) => {
+            const container = document.createElement("div");
+            container.style.cssText = `display: flex; flex-direction: column; gap: 8px; background: #f9f9f9; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px;`;
+
+            const topRow = document.createElement("div");
+            topRow.style.cssText = `display: flex; gap: 10px; align-items: center;`;
+
+            const inputVip = document.createElement("input");
+            inputVip.type = "text";
+            inputVip.placeholder = "ID мужика";
+            inputVip.value = rule.vip_id || "";
+            inputVip.className = "alpha-input";
+            inputVip.style.cssText = `width: 90px; padding: 6px; font-size: 12px;`;
+            inputVip.oninput = (e) => {
+                rules[index].vip_id = e.target.value.trim();
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            const arrow = document.createElement("span");
+            arrow.innerHTML = "➔";
+            arrow.style.color = "#999";
+
+            const selectProfile = document.createElement("select");
+            selectProfile.innerHTML = profileOptionsHtml;
+            selectProfile.value = rule.profile_id || "";
+            selectProfile.className = "alpha-select";
+            selectProfile.style.cssText = `flex: 1; padding: 6px; font-size: 12px;`;
+            selectProfile.onchange = (e) => {
+                rules[index].profile_id = e.target.value;
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            const delBtn = document.createElement("span");
+            delBtn.innerHTML = "❌";
+            delBtn.style.cssText = `cursor: pointer; font-size: 14px; margin-left: 5px;`;
+            delBtn.onclick = () => {
+                rules.splice(index, 1);
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+                window.renderVipRules();
+            };
+
+            topRow.appendChild(inputVip);
+            topRow.appendChild(arrow);
+            topRow.appendChild(selectProfile);
+            topRow.appendChild(delBtn);
+
+            const bottomRow = document.createElement("label");
+            bottomRow.style.cssText = `display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; cursor: pointer;`;
+
+            const autoDisableCheckbox = document.createElement("input");
+            autoDisableCheckbox.type = "checkbox";
+            autoDisableCheckbox.checked = rule.auto_disable === true;
+            autoDisableCheckbox.onchange = (e) => {
+                rules[index].auto_disable = e.target.checked;
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            bottomRow.appendChild(autoDisableCheckbox);
+            bottomRow.appendChild(document.createTextNode(t("dynAutoDisable")));
+
+            container.appendChild(topRow);
+            container.appendChild(bottomRow);
+            vipRulesList.appendChild(container);
+        });
+    };
 
     langUaBtn.onclick = () => applyTranslations("ua");
     langRuBtn.onclick = () => applyTranslations("ru");
