@@ -1595,6 +1595,30 @@ function injectBotUI() {
         });
     };
 
+    // ==========================================
+    // ЛОГІКА МУЛЬТИМОВНОСТІ
+    // ==========================================
+    const langUaBtn = document.getElementById("langUaBtn");
+    const langRuBtn = document.getElementById("langRuBtn");
+
+    function applyTranslations(lang) {
+        localStorage.setItem("alphaLang", lang);
+
+        langUaBtn.style.opacity = lang === "ua" ? "1" : "0.4";
+        langRuBtn.style.opacity = lang === "ru" ? "1" : "0.4";
+
+        document.querySelectorAll("[data-lang]").forEach(el => {
+            const key = el.getAttribute("data-lang");
+            if (alphaDict[lang] && alphaDict[lang][key]) {
+                if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+                    el.placeholder = alphaDict[lang][key];
+                } else {
+                    el.innerText = alphaDict[lang][key];
+                }
+            }
+        });
+    }
+
     langUaBtn.onclick = () => applyTranslations("ua");
     langRuBtn.onclick = () => applyTranslations("ru");
 
