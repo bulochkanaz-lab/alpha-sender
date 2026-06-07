@@ -380,9 +380,7 @@ async function isDuplicateInHistory(token, chatUid, textToCheck) {
 }
 
 // ==========================================
-
 // АНТИ-СПАМ: Швидке читання останніх повідомлень
-
 // ==========================================
 
 async function getRecentHistoryTexts(token, chatUid) {
@@ -1058,6 +1056,17 @@ function injectBotUI() {
         .alpha-gs-item:hover { background: #f5f8fa; border-left-color: #1976d2; }
         .alpha-gs-item.active { background: #e3f2fd; border-left-color: #1976d2; }
         .alpha-gs-item-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #e1e8ed; }
+
+        /* Двопанельний режим Вінок (Master-Detail) */
+        .alpha-md-container { display: flex; flex: 1; overflow: hidden; border: 1px solid #e1e8ed; border-radius: 8px; margin-top: 15px; }
+        .alpha-wink-sidebar { width: 230px; background: #fafafa; border-right: 1px solid #e1e8ed; display: none; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        .alpha-wink-content { flex: 1; display: flex; flex-direction: column; padding: 15px; background: #fff; overflow-y: auto; }
+        .alpha-wp-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer; border-bottom: 1px solid #e1e8ed; transition: 0.2s; }
+        .alpha-wp-item:hover { background: #f0f4f8; }
+        .alpha-wp-item.active { background: #e3f2fd; border-left: 4px solid #1976d2; padding-left: 8px; }
+        .alpha-wp-text { font-size: 12px; color: #333; line-height: 1.4; flex: 1; margin-right: 10px; }
+        .alpha-wp-badge { font-size: 10px; font-weight: bold; background: #e1e8ed; color: #666; padding: 3px 7px; border-radius: 12px; }
+        .alpha-wp-badge.has-items { background: #4caf50; color: white; }
     `;
 
     const styleEl = document.createElement("style");
@@ -1181,40 +1190,34 @@ function injectBotUI() {
                         <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати листи</div>
                     </div>
 
-                    <div id="tabContentWinks" style="display: none;">
+                    <div id="tabContentWinks" style="display: none; display: flex; flex-direction: column; height: 100%;">
                         <select id="respProfileSelect" style="display: none;"></select>
-                        <div id="respTabsArea" style="display: none; flex-direction: column;">
-                            <div class="alpha-subtabs">
+                        <div id="respTabsArea" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
+                            <div class="alpha-subtabs" style="margin-bottom: 0;">
                                 <div id="respTabLike" data-lang="respTabLike" class="alpha-subtab active">Лайки</div>
                                 <div id="respTabWink" data-lang="respTabWink" class="alpha-subtab">Вінки</div>
                             </div>
 
-                            <div class="alpha-row">
-                                <div class="alpha-col" style="flex: 2;">
-                                    <div id="respWinkTypeContainer" style="display: none; margin-bottom: 15px;">
-                                        <label class="alpha-label">На яку фразу відповідаємо?</label>
-                                        <select id="respWinkPhraseSelect" class="alpha-select">
-                                            <option value="default">✨ Стандартна (На будь-яку іншу вінку)</option>
-                                            <option value="I would like to know more about you!">I would like to know more about you!</option>
-                                            <option value="Tell me more about yourself">Tell me more about yourself</option>
-                                            <option value="How is your day going?">How is your day going?</option>
-                                            <option value="What are you up to?">What are you up to?</option>
-                                            <option value="Don't you mind talking a bit?">Don't you mind talking a bit?</option>
-                                        </select>
+                            <div class="alpha-md-container">
+                                <div class="alpha-wink-sidebar" id="winkSidebar">
                                     </div>
-                                    <textarea id="respMessageInput" data-lang="respPlaceholder" class="alpha-textarea" placeholder="Введіть текст відповіді..."></textarea>
-                                </div>
-                                <div class="alpha-col" style="flex: 1; border-left: 1px solid #eee; padding-left: 20px;">
-                                    <label data-lang="respSpeedLabel" class="alpha-label">Швидкість відповіді (сек):</label>
-                                    <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="10">
-                                    <small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Імітація друку</small>
 
-                                    <button id="respSaveBtn" data-lang="respSaveBtn" class="alpha-btn-success" style="margin-top: auto;">Зберегти</button>
+                                <div class="alpha-wink-content">
+                                    <div class="alpha-row" style="margin-bottom: 15px;">
+                                        <div class="alpha-col" style="flex: 2;">
+                                            <textarea id="respMessageInput" data-lang="respPlaceholder" class="alpha-textarea" placeholder="Введіть текст відповіді..." style="height: 95px;"></textarea>
+                                        </div>
+                                        <div class="alpha-col" style="flex: 1; border-left: 1px solid #eee; padding-left: 15px;">
+                                            <label data-lang="respSpeedLabel" class="alpha-label">Швидкість (сек):</label>
+                                            <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="10">
+                                            <button id="respSaveBtn" data-lang="respSaveBtn" class="alpha-btn-success" style="margin-top: auto;">Зберегти текст</button>
+                                        </div>
+                                    </div>
+
+                                    <div style="font-weight: bold; margin: 10px 0; font-size: 13px; color: #555;" id="respListTitle">Збережені лайки:</div>
+                                    <div id="respSavedList" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding-right: 5px;"></div>
                                 </div>
                             </div>
-
-                            <div style="font-weight: bold; margin: 20px 0 10px; font-size: 13px; color: #555;">Збережені відповіді:</div>
-                            <div id="respSavedList" style="display: flex; flex-direction: column; max-height: 250px; overflow-y: auto;"></div>
                         </div>
                         <div id="respEmptyState" data-lang="respEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати тексти</div>
                     </div>
@@ -1367,7 +1370,74 @@ function injectBotUI() {
     const confGal = document.getElementById("confirmGalleryBtn");
     if(confGal) confGal.onclick = () => (galleryModal.style.display = "none");
 
-    // --- Логіка Вінки/Лайки ---
+    // --- Логіка Вінки/Лайки (Master-Detail) ---
+    const winkPhrases = [
+        { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
+        { id: "Send a wink 😉", text: "Send a wink 😉" },
+        { id: "I would like to know more about you!", text: "I would like to know more about you!" },
+        { id: "Tell me more about yourself", text: "Tell me more about yourself" },
+        { id: "How is your day going?", text: "How is your day going?" },
+        { id: "What are you up to?", text: "What are you up to?" },
+        { id: "Don't you mind talking a bit?", text: "Don't you mind talking a bit?" }
+    ];
+    let currentWinkPhrase = "default";
+
+    // Функція малювання бокової панелі з бейджами
+    window.renderWinkSidebar = function() {
+        const sidebar = document.getElementById("winkSidebar");
+        if(!sidebar) return;
+        sidebar.innerHTML = "";
+
+        if(!currentSelectedProfile) return;
+
+        const customKey = `resp_${currentSelectedProfile}_wink_custom`;
+        const defKey = `resp_${currentSelectedProfile}_wink`;
+        const customWinks = JSON.parse(localStorage.getItem(customKey) || "{}");
+        const defWinks = JSON.parse(localStorage.getItem(defKey) || "[]");
+
+        winkPhrases.forEach(wp => {
+            const count = wp.id === "default" ? defWinks.length : (customWinks[wp.id] ? customWinks[wp.id].length : 0);
+
+            const item = document.createElement("div");
+            item.className = `alpha-wp-item ${currentWinkPhrase === wp.id ? 'active' : ''}`;
+            item.innerHTML = `
+                <div class="alpha-wp-text">${wp.text}</div>
+                <div class="alpha-wp-badge ${count > 0 ? 'has-items' : ''}">${count}</div>
+            `;
+            item.onclick = () => {
+                currentWinkPhrase = wp.id;
+                window.renderWinkSidebar(); // Оновлюємо підсвітку
+                renderSavedMessages();      // Оновлюємо тексти справа
+            };
+            sidebar.appendChild(item);
+        });
+    };
+
+    // Перемикання вкладок
+    const tabLike = document.getElementById("respTabLike");
+    const tabWink = document.getElementById("respTabWink");
+    const winkSidebar = document.getElementById("winkSidebar");
+
+    if(tabLike && tabWink) {
+        tabLike.onclick = () => {
+            currentSelectedTab = "like";
+            tabLike.classList.add("active");
+            tabWink.classList.remove("active");
+            winkSidebar.style.display = "none"; // Ховаємо фрази
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
+        };
+
+        tabWink.onclick = () => {
+            currentSelectedTab = "wink";
+            currentWinkPhrase = "default"; // Скидаємо на стандартну при переході
+            tabWink.classList.add("active");
+            tabLike.classList.remove("active");
+            winkSidebar.style.display = "flex"; // Показуємо фрази
+            window.renderWinkSidebar();
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
+        };
+    }
+
     const respProfSel = document.getElementById("respProfileSelect");
     if (respProfSel) {
         respProfSel.addEventListener("change", (e) => {
@@ -1375,6 +1445,7 @@ function injectBotUI() {
             if (currentSelectedProfile) {
                 document.getElementById("respTabsArea").style.display = "flex";
                 document.getElementById("respEmptyState").style.display = "none";
+                if(currentSelectedTab === "wink") window.renderWinkSidebar();
                 if(typeof renderSavedMessages === "function") renderSavedMessages();
             } else {
                 document.getElementById("respTabsArea").style.display = "none";
@@ -1383,25 +1454,18 @@ function injectBotUI() {
         });
     }
 
-    const winkPhraseSel = document.getElementById("respWinkPhraseSelect");
-    if (winkPhraseSel) {
-        winkPhraseSel.addEventListener("change", () => {
-            if(typeof renderSavedMessages === "function") renderSavedMessages();
-        });
-    }
-
+    // Збереження тексту
     const respSave = document.getElementById("respSaveBtn");
     if(respSave) {
         respSave.onclick = () => {
             const text = document.getElementById("respMessageInput").value.trim();
             if (!text || !currentSelectedProfile) return;
 
-            if (currentSelectedTab === "wink" && winkPhraseSel && winkPhraseSel.value !== "default") {
-                const phrase = winkPhraseSel.value;
+            if (currentSelectedTab === "wink" && currentWinkPhrase !== "default") {
                 const key = `resp_${currentSelectedProfile}_wink_custom`;
                 let savedObj = JSON.parse(localStorage.getItem(key) || "{}");
-                if (!savedObj[phrase]) savedObj[phrase] = [];
-                savedObj[phrase].push(text);
+                if (!savedObj[currentWinkPhrase]) savedObj[currentWinkPhrase] = [];
+                savedObj[currentWinkPhrase].push(text);
                 localStorage.setItem(key, JSON.stringify(savedObj));
             } else {
                 const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
@@ -1409,16 +1473,11 @@ function injectBotUI() {
                 saved.push(text);
                 localStorage.setItem(key, JSON.stringify(saved));
             }
+
             document.getElementById("respMessageInput").value = "";
+            if(currentSelectedTab === "wink") window.renderWinkSidebar();
             if(typeof renderSavedMessages === "function") renderSavedMessages();
         };
-    }
-
-    const speedInput = document.getElementById("respSpeedInput");
-    if (speedInput) {
-        speedInput.addEventListener("input", (e) => localStorage.setItem("alphaBotReplySpeed", e.target.value));
-        const savedSpeed = localStorage.getItem("alphaBotReplySpeed");
-        if (savedSpeed) speedInput.value = savedSpeed;
     }
 
     // --- Логіка ІНВАЙТІВ ---
@@ -1895,56 +1954,68 @@ function injectSearchButton() {
 
 setInterval(injectSearchButton, 2000);
 
+// Заміни початок функції renderSavedMessages на це:
 function renderSavedMessages() {
-	if (!currentSelectedProfile) return;
+    if (!currentSelectedProfile) return;
+    const listEl = document.getElementById("respSavedList");
+    if(!listEl) return;
+    listEl.innerHTML = "";
 
-	const listEl = document.getElementById("respSavedList");
+    let saved = [];
+    let isCustomWink = false;
+    let storageKey = "";
 
-	listEl.innerHTML = "";
+    if (currentSelectedTab === "wink" && currentWinkPhrase !== "default") {
+        isCustomWink = true;
+        storageKey = `resp_${currentSelectedProfile}_wink_custom`;
+        const customObj = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        saved = customObj[currentWinkPhrase] || [];
+        document.getElementById("respListTitle").innerText = `Відповіді на: ${currentWinkPhrase}`;
+    } else {
+        storageKey = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+        saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        document.getElementById("respListTitle").innerText = currentSelectedTab === "like" ? "Збережені відповіді на Лайки:" : "Стандартні відповіді (Вінки):";
+    }
 
-	const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+    if (saved.length === 0) {
+       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block; margin-top: 10px;">Ще немає відповідей</span>';
+       return;
+    }
 
-	let saved = JSON.parse(localStorage.getItem(key) || "[]");
+    saved.forEach((text, index) => {
+       const item = document.createElement("div");
+       item.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px 12px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;`;
 
-	if (saved.length === 0) {
-		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoMessages") + '</span>';
+       const textSpan = document.createElement("span");
+       textSpan.innerText = text;
+       textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
 
-		return;
-	}
+       const delBtn = document.createElement("span");
+       delBtn.innerHTML = "❌";
+       delBtn.style.cssText = `cursor: pointer; font-size: 12px; margin-left: 10px; opacity: 0.7; transition: 0.2s;`;
 
-	saved.forEach((text, index) => {
-		const item = document.createElement("div");
+       delBtn.onclick = () => {
+          if (isCustomWink) {
+              const obj = JSON.parse(localStorage.getItem(storageKey) || "{}");
+              if (obj[currentWinkPhrase]) {
+                  obj[currentWinkPhrase].splice(index, 1);
+                  localStorage.setItem(storageKey, JSON.stringify(obj));
+              }
+          } else {
+              const arr = JSON.parse(localStorage.getItem(storageKey) || "[]");
+              arr.splice(index, 1);
+              localStorage.setItem(storageKey, JSON.stringify(arr));
+          }
+          if(currentSelectedTab === "wink") window.renderWinkSidebar();
+          renderSavedMessages();
+       };
 
-		item.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
+       item.appendChild(textSpan);
+       item.appendChild(delBtn);
+       listEl.appendChild(item);
+    });
 
-		const textSpan = document.createElement("span");
-
-		textSpan.innerText = text;
-
-		textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
-
-		const delBtn = document.createElement("span");
-
-		delBtn.innerHTML = "&times;";
-
-		delBtn.style.cssText = `color: #d32f2f; cursor: pointer; font-size: 18px; font-weight: bold; margin-left: 10px; line-height: 1;`;
-
-		delBtn.onclick = () => {
-			saved.splice(index, 1);
-
-			localStorage.setItem(key, JSON.stringify(saved));
-
-			renderSavedMessages();
-		};
-
-		item.appendChild(textSpan);
-
-		item.appendChild(delBtn);
-
-		listEl.appendChild(item);
-	});
-
-	updateProfileColors();
+    if(typeof updateProfileColors === "function") updateProfileColors();
 }
 
 // --- ВІДОБРАЖЕННЯ КАСТОМНИХ ІНВАЙТІВ ---
