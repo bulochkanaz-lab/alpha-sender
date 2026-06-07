@@ -1335,29 +1335,6 @@ function injectBotUI() {
        updateToggleVisuals(isChecked);
     };
 
-    // 3. Внутрішні таби Лайки/Вінки
-    const tabLike = document.getElementById("respTabLike");
-    const tabWink = document.getElementById("respTabWink");
-    const winkTypeContainer = document.getElementById("respWinkTypeContainer");
-
-    if(tabLike && tabWink) {
-        tabLike.onclick = () => {
-            if(typeof currentSelectedTab !== "undefined") currentSelectedTab = "like";
-            tabLike.classList.add("active");
-            tabWink.classList.remove("active");
-            if (winkTypeContainer) winkTypeContainer.style.display = "none";
-            if(typeof renderSavedMessages === "function") renderSavedMessages();
-        };
-
-        tabWink.onclick = () => {
-            if(typeof currentSelectedTab !== "undefined") currentSelectedTab = "wink";
-            tabWink.classList.add("active");
-            tabLike.classList.remove("active");
-            if (winkTypeContainer) winkTypeContainer.style.display = "block";
-            if(typeof renderSavedMessages === "function") renderSavedMessages();
-        };
-    }
-
     // ==========================================
     // ВІДНОВЛЕНІ ОБРОБНИКИ ПОДІЙ (ЯКІ БУЛИ ПРОПУЩЕНІ)
     // ==========================================
