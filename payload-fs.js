@@ -978,271 +978,288 @@ let currentSelectedProfile = null;
 let currentSelectedTab = "like";
 
 // ==========================================
-
-// ВІЗУАЛЬНИЙ ІНТЕРФЕЙС ТА ІНТЕГРАЦІЯ В МЕНЮ
-
+// ВІЗУАЛЬНИЙ ІНТЕРФЕЙС ТА ІНТЕГРАЦІЯ В МЕНЮ (ОНОВЛЕНИЙ DASHBOARD)
 // ==========================================
-
 function injectBotUI() {
+    if (document.getElementById("alpha-sender-overlay")) return;
 
-	if (document.getElementById("alpha-sender-overlay")) return;
+    // 1. ІНЖЕКТИМО CSS
+    const styles = `
+        #alpha-sender-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); z-index: 999999; display: none; align-items: center; justify-content: center; font-family: 'Segoe UI', Tahoma, sans-serif; }
 
-	const overlay = document.createElement("div");
+        /* Головне вікно */
+        .alpha-modal { width: 85vw; max-width: 1100px; height: 85vh; background: #ffffff; border-radius: 12px; display: flex; overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.3); }
 
-	overlay.id = "alpha-sender-overlay";
+        /* Бокове меню (Sidebar) */
+        .alpha-sidebar { width: 240px; background: #f8f9fa; border-right: 1px solid #e1e8ed; display: flex; flex-direction: column; flex-shrink: 0; }
+        .alpha-sidebar-header { padding: 20px; border-bottom: 1px solid #e1e8ed; }
+        .alpha-lang-switch { display: flex; gap: 12px; margin-top: 15px; font-size: 18px; user-select: none; }
+        .alpha-nav { display: flex; flex-direction: column; padding: 15px 0; overflow-y: auto; flex-grow: 1; }
+        .alpha-nav-btn { padding: 14px 20px; cursor: pointer; color: #555; font-weight: 600; font-size: 14px; display: flex; align-items: center; border-left: 4px solid transparent; transition: 0.2s; }
+        .alpha-nav-btn:hover { background: #eef2f5; }
+        .alpha-nav-btn.active { background: #e3f2fd; color: #1976d2; border-left-color: #1976d2; }
 
-	overlay.style.cssText = `
+        /* Робоча область */
+        .alpha-content { flex: 1; display: flex; flex-direction: column; background: #ffffff; position: relative; overflow: hidden; }
+        .alpha-topbar { padding: 15px 25px; border-bottom: 1px solid #e1e8ed; display: flex; justify-content: space-between; align-items: center; background: #fff; z-index: 10; }
+        .alpha-status-badges { display: flex; gap: 15px; font-size: 13px; background: #f5f8fa; padding: 8px 15px; border-radius: 6px; border: 1px solid #e1e8ed; }
+        .alpha-close { cursor: pointer; font-size: 26px; color: #999; line-height: 1; font-weight: bold; transition: 0.2s; }
+        .alpha-close:hover { color: #333; }
 
-position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        /* Контент вкладок */
+        .alpha-tab-area { padding: 25px; overflow-y: auto; flex: 1; }
 
-background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(4px);
+        /* Форми та інпути */
+        .alpha-row { display: flex; gap: 20px; margin-bottom: 20px; }
+        .alpha-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .alpha-label { font-size: 12px; color: #666; font-weight: bold; }
+        .alpha-input, .alpha-select, .alpha-textarea { width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; box-sizing: border-box; outline: none; transition: 0.2s; font-family: inherit; }
+        .alpha-input:focus, .alpha-select:focus, .alpha-textarea:focus { border-color: #1976d2; box-shadow: 0 0 0 3px rgba(25,118,210,0.1); }
+        .alpha-textarea { height: 120px; resize: vertical; }
 
-z-index: 999999; display: none; align-items: center; justify-content: center;
+        /* Кнопки */
+        .alpha-btn-primary { width: 100%; padding: 14px; background: #1976d2; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .alpha-btn-primary:hover { background: #1565c0; }
+        .alpha-btn-danger { width: 100%; padding: 14px; background: #d32f2f; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .alpha-btn-success { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
 
-`;
+        /* Тогл (Перемикач) */
+        .alpha-toggle-wrapper { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e8ed; margin-bottom: 20px; }
+        .alpha-toggle-track { position: relative; width: 44px; height: 24px; flex-shrink: 0; background-color: #ccc; border-radius: 24px; transition: .3s; }
+        .alpha-toggle-knob { position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .alpha-toggle-track.active { background-color: #4caf50; }
+        .alpha-toggle-track.active .alpha-toggle-knob { left: 23px; }
 
-	const modal = document.createElement("div");
+        /* Внутрішні таби (Лайки/Вінки) */
+        .alpha-subtabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .alpha-subtab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; font-size: 13px; color: #666; transition: 0.2s; }
+        .alpha-subtab.active { color: #1976d2; border-bottom: 2px solid #1976d2; margin-bottom: -2px; }
 
-	modal.style.cssText = `
+        /* Списки збереженого */
+        .alpha-list-item { display: flex; justify-content: space-between; align-items: flex-start; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 8px; font-size: 13px; }
+    `;
 
-background: #ffffff; border-radius: 12px; display: flex; flex-direction: column;
+    const styleEl = document.createElement("style");
+    styleEl.id = "alpha-core-styles";
+    styleEl.textContent = styles;
+    document.head.appendChild(styleEl);
 
-color: #333333; width: 500px; /* РОЗШИРЕНО ДО 500px */
+    // 2. СТВОРЮЄМО КАРКАС
+    const overlay = document.createElement("div");
+    overlay.id = "alpha-sender-overlay";
 
-font-family: 'Segoe UI', Tahoma, sans-serif; position: relative;
+    overlay.innerHTML = `
+        <div class="alpha-modal">
+            <div class="alpha-sidebar">
+                <div class="alpha-sidebar-header">
+                    <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
+                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Fire Snakes</div>
+                    <div class="alpha-lang-switch">
+                        <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
+                        <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
+                    </div>
+                </div>
 
-box-shadow: 0 10px 30px rgba(0,100,200,0.15); border: 1px solid #e1e8ed; overflow: hidden;
+                <div class="alpha-nav">
+                    <div id="tabBtnSettings" data-lang="tabSettings" class="alpha-nav-btn active">🚀 Розсилка</div>
+                    <div id="tabBtnInvites" data-lang="tabInvites" class="alpha-nav-btn" style="display: none;">📩 Інвайти</div>
+                    <div id="tabBtnLetters" data-lang="tabLetters" class="alpha-nav-btn" style="display: none;">📝 Листи</div>
+                    <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
+                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">🚨 VIP Радар</div>
+                    <div id="tabBtnStats" data-lang="tabStats" class="alpha-nav-btn">📊 Статистика</div>
+                </div>
+            </div>
 
-`;
+            <div class="alpha-content">
+                <div class="alpha-topbar">
+                    <div class="alpha-status-badges">
+                        <div><span data-lang="statusLabel">Статус:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666; font-weight: bold;">Очікування...</span></div>
+                        <div style="width: 1px; background: #ccc; margin: 0 10px;"></div>
+                        <div><span data-lang="profileLabel">Анкета:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
+                    </div>
+                    <span id="uiCloseBtn" class="alpha-close">&times;</span>
+                </div>
 
-	modal.innerHTML = `
-<div style="background: #f5f8fa; padding: 15px 20px; border-bottom: 1px solid #e1e8ed; display: flex; justify-content: space-between; align-items: center;">
-    <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-    <span style="font-size: 11px; color: #999; font-style: italic; opacity: 0.8;">Fire Snakes</span>
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <div style="display: flex; gap: 10px; font-size: 18px; user-select: none;">
-            <span id="langUaBtn" style="cursor: pointer; opacity: 1; transition: 0.2s;" title="Українська">🇺🇦</span>
-            <span id="langRuBtn" style="cursor: pointer; opacity: 0.4; transition: 0.2s;" title="Русский">🇷🇺</span>
+                <div class="alpha-tab-area">
+
+                    <div id="tabContentSettings">
+                        <label class="alpha-toggle-wrapper">
+                            <div><div data-lang="useSiteToggleLabel" style="font-size: 14px; font-weight: bold; color: #333;">Інвайти/Листи з сендеру</div></div>
+                            <div id="uiToggleTrack" class="alpha-toggle-track active">
+                                <input type="checkbox" id="uiUseSiteToggle" checked style="display: none;">
+                                <div id="uiToggleKnob" class="alpha-toggle-knob"></div>
+                            </div>
+                        </label>
+
+                        <div class="alpha-row">
+                            <div class="alpha-col">
+                                <label data-lang="delayLabel" class="alpha-label">Затримка відправок (сек):</label>
+                                <input type="number" id="uiDelay" class="alpha-input" value="4" min="1">
+                            </div>
+                            <div class="alpha-col">
+                                <label data-lang="phaseDelayLabel" class="alpha-label">Пауза Інвайти/Листи (хв):</label>
+                                <input type="number" id="uiPhaseDelay" class="alpha-input" value="2" min="0">
+                            </div>
+                            <div class="alpha-col">
+                                <label data-lang="breakTimeLabel" class="alpha-label">Глобальна перерва (хв):</label>
+                                <input type="number" id="uiBreakTime" class="alpha-input" value="10" min="5" max="60">
+                            </div>
+                        </div>
+
+                        <div class="alpha-col" style="margin-bottom: 25px;">
+                            <label data-lang="inviteModeLabel" class="alpha-label">Режим відправки інвайтів:</label>
+                            <select id="uiInviteMode" class="alpha-select">
+                                <option value="batch" data-lang="modeBatch">Усі разом</option>
+                                <option value="loop" data-lang="modeLoop">По одному на коло</option>
+                            </select>
+                        </div>
+
+                        <button id="uiStartBtn" data-lang="btnStart" class="alpha-btn-primary">▶ Почати розсилку</button>
+                        <button id="uiStopBtn" data-lang="btnStop" class="alpha-btn-danger" style="display: none;">⏹ Зупинити</button>
+                    </div>
+
+                    <div id="tabContentInvites" style="display: none;">
+                        <div class="alpha-col" style="margin-bottom: 20px;">
+                            <label data-lang="invitesProfileLabel" class="alpha-label">Оберіть анкету:</label>
+                            <select id="invitesProfileSelect" class="alpha-select">
+                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
+                            </select>
+                        </div>
+                        <div id="invitesWorkArea" style="display: none; flex-direction: column;">
+                            <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
+                            <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="margin-bottom: 20px;">💾 Зберегти Інвайт</button>
+                            <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати інвайти</div>
+                    </div>
+
+                    <div id="tabContentLetters" style="display: none;">
+                        <div class="alpha-col" style="margin-bottom: 20px;">
+                            <label data-lang="lettersProfileLabel" class="alpha-label">Оберіть анкету:</label>
+                            <select id="lettersProfileSelect" class="alpha-select">
+                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
+                            </select>
+                        </div>
+                        <div id="lettersWorkArea" style="display: none; flex-direction: column;">
+                            <textarea id="lettersMessageInput" data-lang="lettersPlaceholder" class="alpha-textarea" placeholder="Текст листа..." style="margin-bottom: 15px;"></textarea>
+                            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                                <button id="lettersGalleryBtn" style="width: 50px; border-radius: 6px; border: 1px solid #ccc; background: #f8f9fa; cursor: pointer; font-size: 20px; transition: .2s;">📷</button>
+                                <button id="lettersSaveBtn" data-lang="lettersSaveBtn" class="alpha-btn-success">💾 Зберегти Лист</button>
+                            </div>
+                            <div id="lettersSavedList" style="display: flex; flex-direction: column; max-height: 300px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати листи</div>
+                    </div>
+
+                    <div id="tabContentWinks" style="display: none;">
+                        <div class="alpha-col" style="margin-bottom: 20px;">
+                            <label data-lang="respProfileLabel" class="alpha-label">Оберіть анкету:</label>
+                            <select id="respProfileSelect" class="alpha-select">
+                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
+                            </select>
+                        </div>
+                        <div id="respTabsArea" style="display: none; flex-direction: column;">
+                            <div class="alpha-subtabs">
+                                <div id="respTabLike" data-lang="respTabLike" class="alpha-subtab active">Лайки</div>
+                                <div id="respTabWink" data-lang="respTabWink" class="alpha-subtab">Вінки</div>
+                            </div>
+
+                            <div class="alpha-row">
+                                <div class="alpha-col" style="flex: 2;">
+                                    <div id="respWinkTypeContainer" style="display: none; margin-bottom: 15px;">
+                                        <label class="alpha-label">На яку фразу відповідаємо?</label>
+                                        <select id="respWinkPhraseSelect" class="alpha-select">
+                                            <option value="default">✨ Стандартна (На будь-яку іншу вінку)</option>
+                                            <option value="I would like to know more about you!">I would like to know more about you!</option>
+                                            <option value="Tell me more about yourself">Tell me more about yourself</option>
+                                            <option value="How is your day going?">How is your day going?</option>
+                                            <option value="What are you up to?">What are you up to?</option>
+                                            <option value="Don't you mind talking a bit?">Don't you mind talking a bit?</option>
+                                        </select>
+                                    </div>
+                                    <textarea id="respMessageInput" data-lang="respPlaceholder" class="alpha-textarea" placeholder="Введіть текст відповіді..."></textarea>
+                                </div>
+                                <div class="alpha-col" style="flex: 1; border-left: 1px solid #eee; padding-left: 20px;">
+                                    <label data-lang="respSpeedLabel" class="alpha-label">Швидкість відповіді (сек):</label>
+                                    <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="10">
+                                    <small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Імітація друку</small>
+
+                                    <button id="respSaveBtn" data-lang="respSaveBtn" class="alpha-btn-success" style="margin-top: auto;">Зберегти</button>
+                                </div>
+                            </div>
+
+                            <div style="font-weight: bold; margin: 20px 0 10px; font-size: 13px; color: #555;">Збережені відповіді:</div>
+                            <div id="respSavedList" style="display: flex; flex-direction: column; max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="respEmptyState" data-lang="respEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати тексти</div>
+                    </div>
+
+                    <div id="tabContentVip" style="display: none;">
+                        <div style="padding: 20px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 25px;">
+                            <div data-lang="vipTitle" style="font-size: 15px; font-weight: bold; color: #e65100;">🚨 VIP Сповіщення</div>
+                            <div data-lang="vipSub" style="font-size: 13px; color: #666; margin-top: 5px;">Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.</div>
+                        </div>
+                        <div id="vipRulesArea" style="display: flex; flex-direction: column;">
+                            <div data-lang="vipRulesLabel" style="font-size: 13px; font-weight: bold; color: #666; margin-bottom: 10px;">Налаштовані правила (Мужик ➔ Анкета):</div>
+                            <div id="vipRulesList" style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 10px;"></div>
+                            <button id="vipAddRuleBtn" data-lang="vipAddRuleBtn" style="padding: 14px; background: #f0f4f8; color: #1976d2; border: 1px dashed #1976d2; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.2s;">➕ Додати мужика</button>
+                        </div>
+                    </div>
+
+                    <div id="tabContentStats" style="display: none;">
+                        <div class="alpha-row">
+                            <div class="alpha-col" style="background: #fff3e0; padding: 25px; border-radius: 8px; border: 1px solid #ffe0b2; text-align: center;">
+                                <div data-lang="statsInvitesLabel" style="font-size: 13px; color: #e65100; font-weight: bold; text-transform: uppercase;">Надіслано інвайтів</div>
+                                <div id="uiStatsInvites" style="font-size: 36px; font-weight: bold; color: #f57c00; margin-top: 10px;">0</div>
+                            </div>
+                            <div class="alpha-col" style="background: #e8f5e9; padding: 25px; border-radius: 8px; border: 1px solid #c8e6c9; text-align: center;">
+                                <div data-lang="statsLettersLabel" style="font-size: 13px; color: #1b5e20; font-weight: bold; text-transform: uppercase;">Надіслано листів</div>
+                                <div id="uiStatsLetters" style="font-size: 36px; font-weight: bold; color: #2e7d32; margin-top: 10px;">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
-        <span id="uiCloseBtn" style="cursor: pointer; font-size: 24px; color: #999; line-height: 1; font-weight: bold;">&times;</span>
-    </div>
-</div>
+    `;
 
-<div style="display: flex; border-bottom: 1px solid #e1e8ed; background: #fff;">
-<div id="tabBtnSettings" data-lang="tabSettings" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #1976d2; border-bottom: 2px solid #1976d2; font-size: 11px;">Розсилка</div>
-<div id="tabBtnInvites" data-lang="tabInvites" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px; display: none;">Інвайти</div>
-<div id="tabBtnLetters" data-lang="tabLetters" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px; display: none;">Листи</div>
-<div id="tabBtnWinks" data-lang="tabWinks" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Вінки/Лайки</div>
-<div id="tabBtnVip" data-lang="tabVip" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Повідомлення</div>
-<div id="tabBtnStats" data-lang="tabStats" style="flex: 1; text-align: center; padding: 12px 0px; cursor: pointer; font-weight: bold; color: #666; border-bottom: 2px solid transparent; font-size: 11px;">Статистика</div>
-</div>
-
-<div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
-
-<div id="tabContentSettings">
-<div style="margin-bottom: 12px;">
-<label data-lang="delayLabel" style="font-size: 12px; color: #666; font-weight: 600;">Затримка між відправками (сек):</label>
-<input type="number" id="uiDelay" value="4" min="1" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-</div>
-<div style="margin-bottom: 12px;">
-<label data-lang="phaseDelayLabel" style="font-size: 12px; color: #666; font-weight: 600;">Пауза між Інвайтами та Листами (хв):</label>
-<input type="number" id="uiPhaseDelay" value="2" min="0" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-</div>
-<div style="margin-bottom: 15px;">
-<label data-lang="breakTimeLabel" style="font-size: 12px; color: #666; font-weight: 600;">Глобальна перерва між циклами (хв):</label>
-<input type="number" id="uiBreakTime" value="10" min="5" max="60" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-</div>
-
-<div style="margin-bottom: 15px;">
-<label data-lang="inviteModeLabel" style="font-size: 12px; color: #666; font-weight: 600;">Режим відправки інвайтів:</label>
-<select id="uiInviteMode" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-<option value="batch" data-lang="modeBatch">Усі разом</option>
-<option value="loop" data-lang="modeLoop">По одному на коло</option>
-</select>
-</div>
-
-<div style="margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-<label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e8ed;">
-<div>
-<div data-lang="useSiteToggleLabel" style="font-size: 13px; font-weight: bold; color: #333;">Інвайти/Листи з сендеру</div>
-</div>
-<div style="position: relative; width: 44px; height: 24px; flex-shrink: 0;">
-<input type="checkbox" id="uiUseSiteToggle" checked style="opacity: 0; width: 0; height: 0; position: absolute;">
-<span id="uiToggleBg" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #4caf50; border-radius: 24px; transition: .3s;"></span>
-<span id="uiToggleKnob" style="position: absolute; height: 18px; width: 18px; left: 23px; bottom: 3px; background-color: white; border-radius: 50%; transition: .3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
-</div>
-</label>
-</div>
-
-<button id="uiStartBtn" data-lang="btnStart" style="width: 100%; padding: 12px; background: #1976d2; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; margin-bottom: 10px;">▶ Почати розсилку</button>
-<button id="uiStopBtn" data-lang="btnStop" style="width: 100%; padding: 12px; background: #d32f2f; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; display: none; margin-bottom: 10px;">⏹ Зупинити</button>
-
-<div style="padding: 10px; background: #f5f8fa; border-radius: 5px; font-size: 13px; border: 1px solid #e1e8ed;">
-<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span data-lang="statusLabel">Статус:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666;">Очікування...</span></div>
-<div style="display: flex; justify-content: space-between;"><span data-lang="profileLabel">Анкета:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
-</div>
-</div>
-
-<div id="tabContentInvites" style="display: none;">
-<div style="margin-bottom: 15px;">
-<label data-lang="invitesProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету для Інвайтів:</label>
-<select id="invitesProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-<option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-</select>
-</div>
-<div id="invitesWorkArea" style="display: none; flex-direction: column;">
-<textarea id="invitesMessageInput" data-lang="invitesPlaceholder" placeholder="Введіть текст вашого інвайту..." style="width: 100%; height: 80px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px; font-size: 13px;"></textarea>
-<button id="invitesSaveBtn" data-lang="invitesSaveBtn" style="width: 100%; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">💾 Зберегти Інвайт</button>
-<div id="invitesSavedList" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;"></div>
-</div>
-<div id="invitesEmptyState" data-lang="invitesEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати інвайти</div>
-</div>
-
-<div id="tabContentLetters" style="display: none;">
-<div style="margin-bottom: 15px;">
-<label data-lang="lettersProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету для Листів:</label>
-<select id="lettersProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-<option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-</select>
-</div>
-<div id="lettersWorkArea" style="display: none; flex-direction: column;">
-<textarea id="lettersMessageInput" data-lang="lettersPlaceholder" placeholder="Введіть текст вашого листа..." style="width: 100%; height: 80px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px; font-size: 13px;"></textarea>
-<div style="display: flex; gap: 10px; margin-bottom: 15px;">
-<button id="lettersGalleryBtn" style="width: 45px; height: 45px; background: #f0f4f8; border: 1px solid #cdd5df; border-radius: 8px; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: .2s;">📷</button>
-<button id="lettersSaveBtn" data-lang="lettersSaveBtn" style="flex: 1; height: 45px; background: #4caf50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer;">💾 Зберегти Лист</button>
-</div>
-<div id="lettersSavedList" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto;"></div>
-</div>
-<div id="lettersEmptyState" data-lang="lettersEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати листи</div>
-</div>
-
-<div id="tabContentWinks" style="display: none;">
-    <div style="margin-bottom: 15px;">
-        <label data-lang="respProfileLabel" style="font-size: 12px; font-weight: bold; color: #666;">Оберіть анкету:</label>
-        <select id="respProfileSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px;">
-            <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-        </select>
-    </div>
-
-    <div id="respTabsArea" style="display: none; flex-direction: column;">
-        <div style="display: flex; border-bottom: 1px solid #eee; margin-bottom: 10px;">
-            <div id="respTabLike" data-lang="respTabLike" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #1976d2; border-bottom: 2px solid #1976d2; font-weight: bold; font-size: 13px;">Лайки</div>
-            <div id="respTabWink" data-lang="respTabWink" style="flex: 1; text-align: center; padding: 8px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; font-weight: bold; font-size: 13px;">Вінки</div>
+    // Створюємо приховану Галерею (як і було)
+    const galleryModal = document.createElement("div");
+    galleryModal.id = "alpha-gallery-modal";
+    galleryModal.style.cssText = `position: fixed; top: 5%; left: 5%; width: 90vw; height: 90vh; background: rgba(255,255,255,0.98); z-index: 9999999; display: none; flex-direction: column; padding: 25px; box-sizing: border-box; border-radius: 12px; box-shadow: 0 15px 50px rgba(0,0,0,0.3);`;
+    galleryModal.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h4 data-lang="galleryTitle" style="margin: 0; color: #1976d2; font-size: 22px;">Виберіть фото для листа</h4>
+            <span id="closeGalleryBtn" style="cursor: pointer; font-size: 36px; color: #999; line-height: 1;">&times;</span>
         </div>
+        <div id="galleryGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; overflow-y: auto; flex-grow: 1; margin-bottom: 20px; align-content: start;"></div>
+        <button id="confirmGalleryBtn" data-lang="galleryConfirmBtn" class="alpha-btn-success" style="font-size: 16px; padding: 15px;">Готово</button>
+    `;
 
-        <!-- 🔥 НОВИЙ БЛОК: Вибір конкретної вінки (прихований за замовчуванням, показується тільки на вкладці Вінки) -->
-        <div id="respWinkTypeContainer" style="display: none; margin-bottom: 10px;">
-            <label style="font-size: 12px; font-weight: bold; color: #666;">На яку фразу відповідаємо?</label>
-            <select id="respWinkPhraseSelect" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; margin-top: 4px; font-size: 12px;">
-                <option value="default">✨ Стандартна (На будь-яку іншу вінку)</option>
-                <option value="I would like to know more about you!">I would like to know more about you!</option>
-                <option value="Tell me more about yourself">Tell me more about yourself</option>
-                <option value="How is your day going?">How is your day going?</option>
-                <option value="What are you up to?">What are you up to?</option>
-                <option value="Don't you mind talking a bit?">Don't you mind talking a bit?</option>
-            </select>
-        </div>
-        <!-- ========================================== -->
+    overlay.appendChild(galleryModal);
+    document.body.appendChild(overlay);
 
-        <textarea id="respMessageInput" data-lang="respPlaceholder" placeholder="Введіть текст відповіді..." style="width: 100%; height: 70px; box-sizing: border-box; padding: 10px; border-radius: 5px; border: 1px solid #ccc; resize: none; margin-bottom: 10px;"></textarea>
-        <button id="respSaveBtn" data-lang="respSaveBtn" style="padding: 10px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px;">Зберегти текст</button>
+    // ==========================================
+    // ЛОГІКА JAVASCRIPT ДЛЯ ІНТЕРФЕЙСУ
+    // ==========================================
 
-        <div id="respSavedList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; max-height: 150px; overflow-y: auto;"></div>
-
-        <div style="border-top: 1px solid #eee; padding-top: 15px;">
-            <label data-lang="respSpeedLabel" style="font-size: 12px; color: #666; font-weight: 600;">Швидкість відповіді (сек):</label>
-            <input type="number" id="respSpeedInput" value="3" min="0" max="10" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-top: 4px;">
-            <small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Час "імітації друку" перед відправкою</small>
-        </div>
-    </div>
-
-    <div id="respEmptyState" data-lang="respEmpty" style="padding: 20px; text-align: center; color: #999; font-size: 13px;">Оберіть анкету, щоб додати тексти</div>
-</div>
-
-<div id="tabContentStats" style="display: none;">
-<div style="padding: 15px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffe0b2; text-align: center; margin-bottom: 12px;">
-<div data-lang="statsInvitesLabel" style="font-size: 12px; color: #e65100; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Надіслано інвайтів</div>
-<div id="uiStatsInvites" style="font-size: 28px; font-weight: bold; color: #f57c00;">0</div>
-</div>
-<div style="padding: 15px; background: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9; text-align: center;">
-<div data-lang="statsLettersLabel" style="font-size: 12px; color: #1b5e20; font-weight: 600; text-transform: uppercase; margin-bottom: 5px;">Надіслано листів</div>
-<div id="uiStatsLetters" style="font-size: 28px; font-weight: bold; color: #2e7d32;">0</div>
-</div>
-</div>
-
-<div id="tabContentVip" style="display: none;">
-    <div style="padding: 15px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; margin-bottom: 15px;">
-        <div data-lang="vipTitle" style="font-size: 14px; font-weight: bold; color: #e65100;">уведомления</div>
-        <div data-lang="vipSub" style="font-size: 12px; color: #666; margin-top: 5px;">Сповіщення про вхід працюють завжди. Авто-вимкнення анкети можна налаштувати для кожного мужика окремо.</div>
-    </div>
-    <div id="vipRulesArea" style="display: flex; flex-direction: column; gap: 10px;">
-        <div data-lang="vipRulesLabel" style="font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px;">(Мужик ➔ Анкета):</div>
-        <div id="vipRulesList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 5px;"></div>
-        <button id="vipAddRuleBtn" data-lang="vipAddRuleBtn" style="padding: 12px; background: #f0f4f8; color: #1976d2; border: 1px dashed #1976d2; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 13px; transition: 0.2s;">➕ Додати мужика</button>
-    </div>
-</div>
-</div>
-`;
-
-	// --- Створюємо приховану Галерею ---
-
-	const galleryModal = document.createElement("div");
-
-	galleryModal.id = "alpha-gallery-modal";
-
-	galleryModal.style.cssText = `
-
-position: fixed; top: 5%; left: 5%; width: 90vw; height: 90vh;
-
-background: rgba(255,255,255,0.98); z-index: 9999999; display: none;
-
-flex-direction: column; padding: 20px; box-sizing: border-box;
-
-border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-
-`;
-
-	galleryModal.innerHTML = `
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-<h4 data-lang="galleryTitle" style="margin: 0; color: #1976d2; font-size: 20px;">Виберіть фото для листа</h4>
-<span id="closeGalleryBtn" style="cursor: pointer; font-size: 32px; color: #999; font-weight: bold; line-height: 1;">&times;</span>
-</div>
-<div id="galleryGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; overflow-y: auto; flex-grow: 1; margin-bottom: 15px;">
-</div>
-<button id="confirmGalleryBtn" data-lang="galleryConfirmBtn" style="padding: 15px; background: #4caf50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">Готово</button>
-`;
-
-	// ДОДАЄМО В OVERLAY, А НЕ В MODAL!
-
-	overlay.appendChild(galleryModal);
-
-	overlay.appendChild(modal);
-
-	document.body.appendChild(overlay);
-
-	// ==========================================
-
-	// ЛОГІКА JAVASCRIPT ДЛЯ ІНТЕРФЕЙСУ
-
-	// ==========================================
-
-	// 1. Логіка вкладок ГОЛОВНОГО меню
-
-	const tabs = [
+    // 1. Оновлена логіка вкладок (тепер працює через класи)
+    const tabs = [
        { btn: document.getElementById("tabBtnSettings"), content: document.getElementById("tabContentSettings") },
        { btn: document.getElementById("tabBtnInvites"), content: document.getElementById("tabContentInvites") },
        { btn: document.getElementById("tabBtnLetters"), content: document.getElementById("tabContentLetters") },
        { btn: document.getElementById("tabBtnWinks"), content: document.getElementById("tabContentWinks") },
-       { btn: document.getElementById("tabBtnVip"), content: document.getElementById("tabContentVip") }, // ДОДАНО
+       { btn: document.getElementById("tabBtnVip"), content: document.getElementById("tabContentVip") },
        { btn: document.getElementById("tabBtnStats"), content: document.getElementById("tabContentStats") }
     ];
 
     function switchMainTab(activeTabBtn) {
        tabs.forEach((tab) => {
-          tab.btn.style.color = "#666"; tab.btn.style.borderBottomColor = "transparent";
+          tab.btn.classList.remove("active");
           tab.content.style.display = "none";
        });
-       activeTabBtn.style.color = "#1976d2"; activeTabBtn.style.borderBottomColor = "#1976d2";
+       activeTabBtn.classList.add("active");
        const activeTab = tabs.find((t) => t.btn === activeTabBtn);
        if (activeTab) activeTab.content.style.display = "block";
     }
@@ -1250,549 +1267,67 @@ border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
     tabs[0].btn.onclick = () => switchMainTab(tabs[0].btn);
     tabs[1].btn.onclick = () => switchMainTab(tabs[1].btn);
     tabs[2].btn.onclick = () => switchMainTab(tabs[2].btn);
-    tabs[3].btn.onclick = () => { switchMainTab(tabs[3].btn); loadProfilesForUI(); };
-    // Обробник нової вкладки:
-    // Обробник нової вкладки (ЗМІНЕНО: додано async та await)
+    tabs[3].btn.onclick = () => { switchMainTab(tabs[3].btn); if(typeof loadProfilesForUI === "function") loadProfilesForUI(); };
     tabs[4].btn.onclick = async () => {
         switchMainTab(tabs[4].btn);
-        await loadProfilesForUI(); // Спочатку чекаємо анкети з сервера
-        window.renderVipRules();   // БЕЗПЕЧНИЙ ВИКЛИК
+        if(typeof loadProfilesForUI === "function") await loadProfilesForUI();
+        if(typeof window.renderVipRules === "function") window.renderVipRules();
     };
     tabs[5].btn.onclick = () => switchMainTab(tabs[5].btn);
 
-	// 2. Логіка ПОВЗУНКА (Тумблера)
+    // 2. Оновлена логіка ПОВЗУНКА (Тумблера)
+    const toggleInput = document.getElementById("uiUseSiteToggle");
+    const toggleTrack = document.getElementById("uiToggleTrack");
 
-	const toggleInput = document.getElementById("uiUseSiteToggle");
-
-	const toggleBg = document.getElementById("uiToggleBg");
-
-	const toggleKnob = document.getElementById("uiToggleKnob");
-
-	const toggleTitle = document.getElementById("toggleTextTitle");
-
-	const toggleSub = document.getElementById("toggleTextSub");
-
-	function updateToggleVisuals(isSite) {
-		if (isSite) {
-			toggleBg.style.backgroundColor = "#4caf50";
-
-			toggleKnob.style.left = "23px";
-
-			tabs[1].btn.style.display = "none"; // Ховаємо Інвайти
-
-			tabs[2].btn.style.display = "none"; // Ховаємо Листи
-
-			if (tabs[1].content.style.display === "block" || tabs[2].content.style.display === "block") {
-				switchMainTab(tabs[0].btn);
-			}
-		} else {
-			toggleBg.style.backgroundColor = "#ccc";
-
-			toggleKnob.style.left = "3px";
-
-			tabs[1].btn.style.display = "block"; // Показуємо Інвайти
-
-			tabs[2].btn.style.display = "block"; // Показуємо Листи
-
-			if (typeof loadProfilesForUI === "function") loadProfilesForUI();
-		}
-	}
-
-	// Відновлюємо стан з пам'яті
-
-	const savedUseSite = localStorage.getItem("alphaUseSiteTemplates");
-
-	if (savedUseSite === "false") {
-		toggleInput.checked = false;
-
-		updateToggleVisuals(false);
-	}
-
-	toggleInput.onchange = (e) => {
-		const isChecked = e.target.checked;
-
-		localStorage.setItem("alphaUseSiteTemplates", isChecked);
-
-		updateToggleVisuals(isChecked);
-	};
-
-	// 3. Логіка галереї (Відкрити/Закрити)
-
-	document.getElementById("lettersGalleryBtn").onclick = () => (galleryModal.style.display = "flex");
-
-	document.getElementById("closeGalleryBtn").onclick = () => (galleryModal.style.display = "none");
-
-	document.getElementById("confirmGalleryBtn").onclick = () => (galleryModal.style.display = "none");
-
-	// ==========================================
-// 4. ОНОВЛЕНИЙ КОД: Вінки/Лайки та Кастомні відповіді
-// ==========================================
-
-const tabLike = document.getElementById("respTabLike");
-const tabWink = document.getElementById("respTabWink");
-const winkTypeContainer = document.getElementById("respWinkTypeContainer");
-const winkPhraseSelect = document.getElementById("respWinkPhraseSelect");
-
-tabLike.onclick = () => {
-    currentSelectedTab = "like";
-
-    tabLike.style.color = "#1976d2";
-    tabLike.style.borderBottomColor = "#1976d2";
-    tabWink.style.color = "#666";
-    tabWink.style.borderBottomColor = "transparent";
-
-    // Ховаємо вибір конкретної фрази, бо це лайки
-    if (winkTypeContainer) winkTypeContainer.style.display = "none";
-
-    renderSavedMessages();
-};
-
-tabWink.onclick = () => {
-    currentSelectedTab = "wink";
-
-    tabWink.style.color = "#1976d2";
-    tabWink.style.borderBottomColor = "#1976d2";
-    tabLike.style.color = "#666";
-    tabLike.style.borderBottomColor = "transparent";
-
-    // Показуємо вибір конкретної фрази для вінок
-    if (winkTypeContainer) winkTypeContainer.style.display = "block";
-
-    renderSavedMessages();
-};
-
-// Оновлюємо список відповідей, якщо перемкнули фразу у випадаючому списку
-if (winkPhraseSelect) {
-    winkPhraseSelect.addEventListener("change", () => {
-        renderSavedMessages();
-    });
-}
-
-document.getElementById("respProfileSelect").addEventListener("change", (e) => {
-    currentSelectedProfile = e.target.value;
-
-    if (currentSelectedProfile) {
-       document.getElementById("respTabsArea").style.display = "flex";
-       document.getElementById("respEmptyState").style.display = "none";
-       renderSavedMessages();
-    } else {
-       document.getElementById("respTabsArea").style.display = "none";
-       document.getElementById("respEmptyState").style.display = "block";
-    }
-});
-
-// --- Збереження тексту Вінки/Лайки ---
-document.getElementById("respSaveBtn").onclick = () => {
-    const text = document.getElementById("respMessageInput").value.trim();
-
-    if (!text || !currentSelectedProfile) return;
-
-    // Перевіряємо, чи це кастомна вінка
-    if (currentSelectedTab === "wink" && winkPhraseSelect && winkPhraseSelect.value !== "default") {
-        const phrase = winkPhraseSelect.value;
-        const key = `resp_${currentSelectedProfile}_wink_custom`;
-
-        // Дістаємо об'єкт (словник) замість масиву
-        let savedObj = JSON.parse(localStorage.getItem(key) || "{}");
-        if (!savedObj[phrase]) savedObj[phrase] = []; // Створюємо масив для цієї фрази, якщо його ще нема
-
-        savedObj[phrase].push(text);
-        localStorage.setItem(key, JSON.stringify(savedObj));
-
-    } else {
-        // Зберігаємо ЛАЙК або СТАНДАРТНУ вінку (як звичайний масив)
-        const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
-        let saved = JSON.parse(localStorage.getItem(key) || "[]");
-
-        saved.push(text);
-        localStorage.setItem(key, JSON.stringify(saved));
+    function updateToggleVisuals(isSite) {
+       if (isSite) {
+          toggleTrack.classList.add("active");
+          tabs[1].btn.style.display = "none";
+          tabs[2].btn.style.display = "none";
+          if (tabs[1].content.style.display === "block" || tabs[2].content.style.display === "block") {
+             switchMainTab(tabs[0].btn);
+          }
+       } else {
+          toggleTrack.classList.remove("active");
+          tabs[1].btn.style.display = "flex"; // Важливо: flex для сайдбару
+          tabs[2].btn.style.display = "flex";
+          if (typeof loadProfilesForUI === "function") loadProfilesForUI();
+       }
     }
 
-    document.getElementById("respMessageInput").value = "";
-    renderSavedMessages();
-};
-
-// --- ВІДМАЛЬОВКА ТА ВИДАЛЕННЯ ЗБЕРЕЖЕНИХ ПОВІДОМЛЕНЬ ---
-function renderSavedMessages() {
-    const list = document.getElementById("respSavedList");
-    if (!list) return;
-    list.innerHTML = "";
-
-    if (!currentSelectedProfile) return;
-
-    let texts = [];
-    let isCustomWink = false;
-    let selectedPhrase = "";
-    let storageKey = "";
-
-    if (currentSelectedTab === "wink" && winkPhraseSelect && winkPhraseSelect.value !== "default") {
-        // Завантажуємо кастомні вінки
-        isCustomWink = true;
-        selectedPhrase = winkPhraseSelect.value;
-        storageKey = `resp_${currentSelectedProfile}_wink_custom`;
-        const customObj = JSON.parse(localStorage.getItem(storageKey) || "{}");
-        texts = customObj[selectedPhrase] || [];
-    } else {
-        // Завантажуємо лайки або стандартні вінки
-        storageKey = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
-        texts = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    const savedUseSite = localStorage.getItem("alphaUseSiteTemplates");
+    if (savedUseSite === "false") {
+       toggleInput.checked = false;
+       updateToggleVisuals(false);
     }
 
-    if (texts.length === 0) {
-        list.innerHTML = `<div style="text-align:center; color:#999; font-size:12px; margin-top:10px;">Ще немає збережених відповідей</div>`;
-        return;
-    }
+    toggleInput.onchange = (e) => {
+       const isChecked = e.target.checked;
+       localStorage.setItem("alphaUseSiteTemplates", isChecked);
+       updateToggleVisuals(isChecked);
+    };
 
-    texts.forEach((text, index) => {
-        const itemDiv = document.createElement("div");
-        itemDiv.style.cssText = "display: flex; justify-content: space-between; background: #f9f9f9; padding: 8px; border-radius: 4px; border: 1px solid #eee; font-size: 13px; align-items: center;";
+    // 3. Внутрішні таби Лайки/Вінки
+    const tabLike = document.getElementById("respTabLike");
+    const tabWink = document.getElementById("respTabWink");
+    const winkTypeContainer = document.getElementById("respWinkTypeContainer");
 
-        const textSpan = document.createElement("span");
-        textSpan.textContent = text;
-        textSpan.style.flex = "1";
-        textSpan.style.marginRight = "10px";
-
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "❌";
-        delBtn.style.cssText = "background: none; border: none; cursor: pointer; font-size: 12px; opacity: 0.7;";
-
-        // Логіка видалення
-        delBtn.onclick = () => {
-            if (isCustomWink) {
-                const obj = JSON.parse(localStorage.getItem(storageKey) || "{}");
-                if (obj[selectedPhrase]) {
-                    obj[selectedPhrase].splice(index, 1);
-                    localStorage.setItem(storageKey, JSON.stringify(obj));
-                }
-            } else {
-                const arr = JSON.parse(localStorage.getItem(storageKey) || "[]");
-                arr.splice(index, 1);
-                localStorage.setItem(storageKey, JSON.stringify(arr));
-            }
-            renderSavedMessages();
+    if(tabLike && tabWink) {
+        tabLike.onclick = () => {
+            if(typeof currentSelectedTab !== "undefined") currentSelectedTab = "like";
+            tabLike.classList.add("active");
+            tabWink.classList.remove("active");
+            if (winkTypeContainer) winkTypeContainer.style.display = "none";
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
         };
 
-        itemDiv.appendChild(textSpan);
-        itemDiv.appendChild(delBtn);
-        list.appendChild(itemDiv);
-    });
-}
-
-// --- Збереження швидкості відповіді ---
-const speedInput = document.getElementById("respSpeedInput");
-if (speedInput) {
-    speedInput.addEventListener("input", (e) => {
-       localStorage.setItem("alphaBotReplySpeed", e.target.value);
-    });
-
-    const savedSpeed = localStorage.getItem("alphaBotReplySpeed");
-    if (savedSpeed) speedInput.value = savedSpeed;
-}
-
-	// --- Логіка вибору анкети для ІНВАЙТІВ ---
-
-	document.getElementById("invitesProfileSelect").addEventListener("change", (e) => {
-		if (e.target.value) {
-			document.getElementById("invitesWorkArea").style.display = "flex";
-
-			document.getElementById("invitesEmptyState").style.display = "none";
-
-			// ОСЬ ЦЕЙ КРОК 3: Малюємо збережені інвайти при виборі анкети!
-
-			renderCustomInvites();
-		} else {
-			document.getElementById("invitesWorkArea").style.display = "none";
-
-			document.getElementById("invitesEmptyState").style.display = "block";
-		}
-	});
-
-	// --- Логіка вибору анкети для ЛИСТІВ ---
-
-	document.getElementById("lettersProfileSelect").addEventListener("change", async (e) => {
-		// ДОДАНО: async
-
-		const profileId = e.target.value;
-
-		if (profileId) {
-			document.getElementById("lettersWorkArea").style.display = "flex";
-
-			document.getElementById("lettersEmptyState").style.display = "none";
-
-			// ==========================================
-
-			// МАГІЯ ГАЛЕРЕЇ: Завантажуємо фото анкети
-
-			// ==========================================
-
-			const galleryGrid = document.getElementById("galleryGrid");
-
-			galleryGrid.innerHTML = '<span style="color: #666; font-size: 12px; grid-column: 1 / -1; text-align: center;">Завантаження фото...</span>';
-
-			let token = localStorage.getItem("token");
-
-			if (token) {
-				token = token.replace(/^"|"$/g, "");
-
-				// Викликаємо нашу готову функцію, яка парсить сайт!
-
-				const imageMap = await getProfileGallery(token, profileId);
-
-				galleryGrid.innerHTML = ""; // Очищаємо напис "Завантаження..."
-
-				window.selectedCustomImages = []; // Масив для вибраних фоток
-
-				document.getElementById("lettersGalleryBtn").innerHTML = "📷"; // Скидаємо кнопку
-
-				if (Object.keys(imageMap).length === 0) {
-					galleryGrid.innerHTML = '<span style="color: #999; font-size: 12px; grid-column: 1 / -1; text-align: center;">У цієї анкети немає фото.</span>';
-				} else {
-					// Малюємо кожну фотографію у сітці
-
-					for (const [link, id] of Object.entries(imageMap)) {
-						const img = document.createElement("img");
-
-						img.src = link;
-
-						img.dataset.id = id;
-
-						img.style.cssText = `width: 100%; height: 80px; object-fit: cover; border-radius: 5px; cursor: pointer; border: 3px solid transparent; transition: .2s; box-sizing: border-box;`;
-
-						// Логіка кліку по фотографії (Виділення)
-
-						img.onclick = () => {
-							const idx = window.selectedCustomImages.findIndex((imgObj) => imgObj.id === id);
-
-							if (idx > -1) {
-								// Знімаємо виділення
-
-								window.selectedCustomImages.splice(idx, 1);
-
-								img.style.borderColor = "transparent";
-
-								img.style.opacity = "1";
-							} else {
-								// Додаємо виділення
-
-								window.selectedCustomImages.push({ id: id, link: link });
-
-								img.style.borderColor = "#4caf50"; // Зелена рамка
-
-								img.style.opacity = "0.8";
-							}
-
-							// Оновлюємо іконку кнопки 📷 (малюємо червоний кружечок з цифрою)
-
-							const btn = document.getElementById("lettersGalleryBtn");
-
-							const count = window.selectedCustomImages.length;
-
-							btn.style.position = "relative";
-
-							btn.innerHTML =
-								count > 0
-									? `📷<span style="position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${count}</span>`
-									: "📷";
-						};
-
-						galleryGrid.appendChild(img);
-					}
-				}
-
-				renderCustomLetters();
-			}
-		} else {
-			document.getElementById("lettersWorkArea").style.display = "none";
-
-			document.getElementById("lettersEmptyState").style.display = "block";
-		}
-	});
-
-	// ==========================================
-
-	// ЗБЕРЕЖЕННЯ КАСТОМНИХ ІНВАЙТІВ ТА ЛИСТІВ
-
-	// ==========================================
-
-	document.getElementById("invitesSaveBtn").onclick = () => {
-		const text = document.getElementById("invitesMessageInput").value.trim();
-
-		const profileId = document.getElementById("invitesProfileSelect").value;
-
-		if (!text || !profileId) return;
-
-		const key = `alpha_invites_${profileId}`;
-
-		let saved = JSON.parse(localStorage.getItem(key) || "[]");
-
-		// Зберігаємо у такому ж форматі, як віддає сайт
-
-		saved.push({ message_content: text, message_type: "SENT_TEXT" });
-
-		localStorage.setItem(key, JSON.stringify(saved));
-
-		document.getElementById("invitesMessageInput").value = "";
-
-		if (typeof renderCustomInvites === "function") renderCustomInvites();
-	};
-
-	document.getElementById("lettersSaveBtn").onclick = () => {
-		const text = document.getElementById("lettersMessageInput").value.trim();
-
-		const profileId = document.getElementById("lettersProfileSelect").value;
-
-		if (!text || !profileId) return;
-
-		const key = `alpha_letters_${profileId}`;
-
-		let saved = JSON.parse(localStorage.getItem(key) || "[]");
-
-		// Беремо фотки, які ми виділили зеленою рамкою
-
-		const attachments = window.selectedCustomImages ? [...window.selectedCustomImages] : [];
-
-		// Зберігаємо лист разом з фотографіями
-
-		saved.push({ message_content: text, message_type: "SENT_TEXT", attachments: attachments });
-
-		localStorage.setItem(key, JSON.stringify(saved));
-
-		// Очищаємо поле та скидаємо галерею
-
-		document.getElementById("lettersMessageInput").value = "";
-
-		window.selectedCustomImages = [];
-
-		document.getElementById("lettersGalleryBtn").innerHTML = "📷";
-
-		const galleryGrid = document.getElementById("galleryGrid");
-
-		if (galleryGrid) {
-			const imgs = galleryGrid.getElementsByTagName("img");
-
-			for (let img of imgs) {
-				img.style.borderColor = "transparent";
-
-				img.style.opacity = "1";
-			}
-		}
-
-		if (typeof renderCustomLetters === "function") renderCustomLetters();
-	};
-
-	// ==========================================
-    // ЛОГІКА VIP РАДАРУ (ПУЛЬТ) - ЧИСТИЙ ВАРІАНТ
-    // ==========================================
-    const vipRulesList = document.getElementById("vipRulesList");
-
-    document.getElementById("vipAddRuleBtn").onclick = () => {
-        let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
-        rules.push({ vip_id: "", profile_id: "", auto_disable: false });
-        localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-        window.renderVipRules();
-    };
-
-    window.renderVipRules = function() {
-        vipRulesList.innerHTML = "";
-        let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
-
-        if (rules.length === 0) {
-            vipRulesList.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoRules") + '</span>';
-            return;
-        }
-
-        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">' + t("dynSelectProfile") + '</option>';
-
-        rules.forEach((rule, index) => {
-            const container = document.createElement("div");
-            container.style.cssText = `display: flex; flex-direction: column; gap: 8px; background: #f9f9f9; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px;`;
-
-            // Верхній ряд: ID -> Анкета -> Видалити
-            const topRow = document.createElement("div");
-            topRow.style.cssText = `display: flex; gap: 10px; align-items: center;`;
-
-            const inputVip = document.createElement("input");
-            inputVip.type = "text";
-            inputVip.placeholder = "ID мужика";
-            inputVip.value = rule.vip_id || "";
-            inputVip.style.cssText = `width: 90px; padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
-            inputVip.oninput = (e) => {
-                rules[index].vip_id = e.target.value.trim();
-                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-            };
-
-            const arrow = document.createElement("span");
-            arrow.innerHTML = "➔";
-            arrow.style.color = "#999";
-
-            const selectProfile = document.createElement("select");
-            selectProfile.innerHTML = profileOptionsHtml;
-            selectProfile.value = rule.profile_id || "";
-            selectProfile.style.cssText = `flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px;`;
-            selectProfile.onchange = (e) => {
-                rules[index].profile_id = e.target.value;
-                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-            };
-
-            const delBtn = document.createElement("span");
-            delBtn.innerHTML = "❌";
-            delBtn.style.cssText = `cursor: pointer; font-size: 14px; margin-left: 5px;`;
-            delBtn.onclick = () => {
-                rules.splice(index, 1);
-                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-                window.renderVipRules();
-            };
-
-            topRow.appendChild(inputVip);
-            topRow.appendChild(arrow);
-            topRow.appendChild(selectProfile);
-            topRow.appendChild(delBtn);
-
-            // Нижній ряд: Чекбокс авто-вимкнення
-            const bottomRow = document.createElement("label");
-            bottomRow.style.cssText = `display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; cursor: pointer;`;
-
-            const autoDisableCheckbox = document.createElement("input");
-            autoDisableCheckbox.type = "checkbox";
-            autoDisableCheckbox.checked = rule.auto_disable === true;
-            autoDisableCheckbox.onchange = (e) => {
-                rules[index].auto_disable = e.target.checked;
-                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-            };
-
-            bottomRow.appendChild(autoDisableCheckbox);
-            bottomRow.appendChild(document.createTextNode(t("dynAutoDisable")));
-
-            container.appendChild(topRow);
-            container.appendChild(bottomRow);
-            vipRulesList.appendChild(container);
-        });
-    };
-
-    // ==========================================
-    // ЛОГІКА МУЛЬТИМОВНОСТІ
-    // ==========================================
-    const langUaBtn = document.getElementById("langUaBtn");
-    const langRuBtn = document.getElementById("langRuBtn");
-
-    function applyTranslations(lang) {
-        localStorage.setItem("alphaLang", lang); // Зберігаємо вибір
-
-        // Виділяємо активний прапорець (інший робимо напівпрозорим)
-        langUaBtn.style.opacity = lang === "ua" ? "1" : "0.4";
-        langRuBtn.style.opacity = lang === "ru" ? "1" : "0.4";
-
-        // Пробігаємося по всіх елементах з міткою data-lang
-        document.querySelectorAll("[data-lang]").forEach(el => {
-            const key = el.getAttribute("data-lang");
-            if (alphaDict[lang] && alphaDict[lang][key]) {
-                if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
-                    el.placeholder = alphaDict[lang][key];
-                } else {
-                    el.innerText = alphaDict[lang][key];
-                }
-            }
-        });
+        tabWink.onclick = () => {
+            if(typeof currentSelectedTab !== "undefined") currentSelectedTab = "wink";
+            tabWink.classList.add("active");
+            tabLike.classList.remove("active");
+            if (winkTypeContainer) winkTypeContainer.style.display = "block";
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
+        };
     }
 
     langUaBtn.onclick = () => applyTranslations("ua");
