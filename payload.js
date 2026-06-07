@@ -966,14 +966,23 @@ function startWaitCountdown(resumeTime) {
 }
 
 // ==========================================
-
 // ЗМІННІ ДЛЯ АВТОВІДПОВІДАЧА
-
 // ==========================================
 
 let currentSelectedProfile = null;
-
 let currentSelectedTab = "like";
+
+// Винесли сюди, щоб усі функції "бачили" ці дані
+let currentWinkPhrase = "default";
+const winkPhrases = [
+    { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
+    { id: "Send a wink 😉", text: "Send a wink 😉" },
+    { id: "I would like to know more about you!", text: "I would like to know more about you!" },
+    { id: "Tell me more about yourself", text: "Tell me more about yourself" },
+    { id: "How is your day going?", text: "How is your day going?" },
+    { id: "What are you up to?", text: "What are you up to?" },
+    { id: "Don't you mind talking a bit?", text: "Don't you mind talking a bit?" }
+];
 
 // ==========================================
 // ВІЗУАЛЬНИЙ ІНТЕРФЕЙС ТА ІНТЕГРАЦІЯ В МЕНЮ (ОНОВЛЕНИЙ DASHBOARD)
@@ -1348,16 +1357,6 @@ function injectBotUI() {
     if(confGal) confGal.onclick = () => (galleryModal.style.display = "none");
 
     // --- Логіка Вінки/Лайки (Master-Detail) ---
-    const winkPhrases = [
-        { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
-        { id: "Send a wink 😉", text: "Send a wink 😉" },
-        { id: "I would like to know more about you!", text: "I would like to know more about you!" },
-        { id: "Tell me more about yourself", text: "Tell me more about yourself" },
-        { id: "How is your day going?", text: "How is your day going?" },
-        { id: "What are you up to?", text: "What are you up to?" },
-        { id: "Don't you mind talking a bit?", text: "Don't you mind talking a bit?" }
-    ];
-    let currentWinkPhrase = "default";
 
     // Функція малювання бокової панелі з бейджами
     window.renderWinkSidebar = function() {
