@@ -196,7 +196,8 @@ async function getAllProfiles(token) {
             headers: getHeaders(token),
         });
         const data = await response.json();
-        return Array.isArray(data) ? data.filter((p) => p.online === 1) : [];
+        // Повертаємо всі анкети без фільтрації
+        return Array.isArray(data) ? data : [];
     } catch (error) {
         return [];
     }
@@ -1762,7 +1763,7 @@ async function loadProfilesForUI() {
         }
     });
 
-    // 2. Будуємо КРАСИВИЙ список з фотографіями
+    // 2. Будуємо КРАСИВИЙ список з фотографіями та статусом Онлайн/Офлайн
     profiles.forEach(p => {
         const item = document.createElement("div");
         item.className = "alpha-gs-item";
@@ -1772,11 +1773,20 @@ async function loadProfilesForUI() {
         const photoUrl = p.photo_link || "https://via.placeholder.com/40";
         const ageText = p.age ? `(${p.age} р.)` : "";
 
+        // Визначаємо статус
+        const isOnline = p.online === 1;
+        const statusColor = isOnline ? "#4caf50" : "#999"; // Зелений або Сірий
+        const statusText = isOnline ? "Онлайн" : "Офлайн";
+        const opacity = isOnline ? "1" : "0.6"; // Офлайн анкети робимо напівпрозорими
+
         item.innerHTML = `
-            <img src="${photoUrl}" class="alpha-gs-item-img">
-            <div class="alpha-gs-info">
+            <div style="position: relative; flex-shrink: 0;">
+                <img src="${photoUrl}" class="alpha-gs-item-img" style="opacity: ${opacity};">
+                <span style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: ${statusColor}; border: 2px solid #fff; border-radius: 50%;"></span>
+            </div>
+            <div class="alpha-gs-info" style="opacity: ${opacity};">
                 <div class="alpha-gs-name">${p.name} <span style="color:#aaa; font-size:11px; font-weight:normal;">${ageText}</span></div>
-                <div class="alpha-gs-id">ID: ${p.external_id}</div>
+                <div class="alpha-gs-id">ID: ${p.external_id} <span style="color:${statusColor}; font-weight:bold; margin-left:5px; font-size: 10px;">• ${statusText}</span></div>
             </div>
         `;
 
@@ -1795,11 +1805,11 @@ async function loadProfilesForUI() {
             document.querySelectorAll(".alpha-gs-item").forEach(i => i.classList.remove("active"));
             item.classList.add("active");
 
-            // 🔥 МАГІЯ: Програмно перемикаємо всі старі приховані селектори і викликаємо їхню логіку!
+            // Програмно перемикаємо всі старі приховані селектори
             [respSel, invSel, letSel].forEach(sel => {
                 if(sel && sel.value !== String(p.external_id)) {
                     sel.value = p.external_id;
-                    sel.dispatchEvent(new Event("change")); // Тригерить всі твої renderCustomInvites і т.д.
+                    sel.dispatchEvent(new Event("change"));
                 }
             });
         };
