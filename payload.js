@@ -1664,6 +1664,36 @@ function injectBotUI() {
         });
     };
 
+    // --- ГЛОБАЛЬНИЙ СЕЛЕКТОР АНКЕТ: Анімація відкриття ---
+    const gsBtn = document.getElementById("alphaGsBtn");
+    if (gsBtn) {
+        gsBtn.onclick = () => {
+            const dp = document.getElementById("alphaGsDropdown");
+            const arr = document.getElementById("alphaGsArrow");
+            const searchInput = document.getElementById("alphaGsSearchInput");
+            if (dp.style.display === "flex") {
+                dp.style.display = "none";
+                arr.style.transform = "rotate(0deg)";
+            } else {
+                dp.style.display = "flex";
+                arr.style.transform = "rotate(180deg)";
+                if (searchInput) searchInput.focus();
+            }
+        };
+    }
+
+    document.addEventListener("click", (e) => {
+        const selectorBlock = document.getElementById("alphaGlobalSelector");
+        if (selectorBlock && !selectorBlock.contains(e.target)) {
+            const dp = document.getElementById("alphaGsDropdown");
+            const arr = document.getElementById("alphaGsArrow");
+            if (dp && dp.style.display === "flex") {
+                dp.style.display = "none";
+                if(arr) arr.style.transform = "rotate(0deg)";
+            }
+        }
+    });
+
     // ==========================================
     // ЛОГІКА МУЛЬТИМОВНОСТІ
     // ==========================================
@@ -1702,39 +1732,27 @@ function injectBotUI() {
 		isRunning = true;
 
 		const delay = parseInt(document.getElementById("uiDelay").value);
-
 		const phaseDelay = parseInt(document.getElementById("uiPhaseDelay").value);
-
 		const breakTime = parseInt(document.getElementById("uiBreakTime").value);
-
 		const inviteMode = document.getElementById("uiInviteMode") ? document.getElementById("uiInviteMode").value : "batch";
-
 		localStorage.setItem("alphaBotSettings", JSON.stringify({ delay, phaseDelay, breakTime, inviteMode }));
-
 		localStorage.setItem("alphaBotState", "running");
-
 		document.getElementById("uiStartBtn").style.display = "none";
-
 		document.getElementById("uiStopBtn").style.display = "block";
-
 		updatePopup("Запуск...", false);
-
 		startSendingProcess();
 	};
 
 	document.getElementById("uiStopBtn").onclick = () => {
 		isRunning = false;
-
 		clearInterval(botLoopTimer);
-
 		localStorage.setItem("alphaBotState", "stopped");
-
 		updatePopup("Зупинено", true, "-");
 	};
 
 	checkBotMemory();
-
 	loadDailyStats();
+	loadProfilesForUI();
 }
 
 // ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ АВТОВІДПОВІДАЧА
@@ -1840,36 +1858,6 @@ async function loadProfilesForUI() {
             });
         };
     }
-
-    // 4. Відкриття/Закриття випадаючого списку
-    const btn = document.getElementById("alphaGsBtn");
-    if (btn) {
-        btn.onclick = () => {
-            const dp = document.getElementById("alphaGsDropdown");
-            const arr = document.getElementById("alphaGsArrow");
-            if (dp.style.display === "flex") {
-                dp.style.display = "none";
-                arr.style.transform = "rotate(0deg)";
-            } else {
-                dp.style.display = "flex";
-                arr.style.transform = "rotate(180deg)";
-                if (searchInput) searchInput.focus();
-            }
-        };
-    }
-
-    // 5. Закриття при кліку поза списком
-    document.addEventListener("click", (e) => {
-        const selectorBlock = document.getElementById("alphaGlobalSelector");
-        if (selectorBlock && !selectorBlock.contains(e.target)) {
-            const dp = document.getElementById("alphaGsDropdown");
-            const arr = document.getElementById("alphaGsArrow");
-            if (dp && dp.style.display === "flex") {
-                dp.style.display = "none";
-                arr.style.transform = "rotate(0deg)";
-            }
-        }
-    });
 
     window.profilesLoadedForUI = true;
     if (typeof updateProfileColors === "function") updateProfileColors();
