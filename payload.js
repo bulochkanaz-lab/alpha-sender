@@ -1159,23 +1159,17 @@ function injectBotUI() {
                     </div>
 
                     <div id="tabContentInvites" style="display: none;">
-                            <label data-lang="invitesProfileLabel" class="alpha-label">Оберіть анкету:</label>
-                            <select id="invitesProfileSelect" class="alpha-select">
-                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                            </select>
+                        <select id="invitesProfileSelect" style="display: none;"></select>
                         <div id="invitesWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
                             <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="margin-bottom: 20px;">💾 Зберегти Інвайт</button>
                             <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
                         </div>
-                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати інвайти</div>
+                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати інвайти</div>
                     </div>
 
                     <div id="tabContentLetters" style="display: none;">
-                            <label data-lang="lettersProfileLabel" class="alpha-label">Оберіть анкету:</label>
-                            <select id="lettersProfileSelect" class="alpha-select">
-                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                            </select>
+                        <select id="lettersProfileSelect" style="display: none;"></select>
                         <div id="lettersWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="lettersMessageInput" data-lang="lettersPlaceholder" class="alpha-textarea" placeholder="Текст листа..." style="margin-bottom: 15px;"></textarea>
                             <div style="display: flex; gap: 15px; margin-bottom: 20px;">
@@ -1184,14 +1178,11 @@ function injectBotUI() {
                             </div>
                             <div id="lettersSavedList" style="display: flex; flex-direction: column; max-height: 300px; overflow-y: auto;"></div>
                         </div>
-                        <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати листи</div>
+                        <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати листи</div>
                     </div>
 
                     <div id="tabContentWinks" style="display: none;">
-                            <label data-lang="respProfileLabel" class="alpha-label">Оберіть анкету:</label>
-                            <select id="respProfileSelect" class="alpha-select">
-                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                        </div>
+                        <select id="respProfileSelect" style="display: none;"></select>
                         <div id="respTabsArea" style="display: none; flex-direction: column;">
                             <div class="alpha-subtabs">
                                 <div id="respTabLike" data-lang="respTabLike" class="alpha-subtab active">Лайки</div>
@@ -1225,7 +1216,7 @@ function injectBotUI() {
                             <div style="font-weight: bold; margin: 20px 0 10px; font-size: 13px; color: #555;">Збережені відповіді:</div>
                             <div id="respSavedList" style="display: flex; flex-direction: column; max-height: 250px; overflow-y: auto;"></div>
                         </div>
-                        <div id="respEmptyState" data-lang="respEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати тексти</div>
+                        <div id="respEmptyState" data-lang="respEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати тексти</div>
                     </div>
 
                     <div id="tabContentVip" style="display: none;">
