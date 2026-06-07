@@ -1037,6 +1037,27 @@ function injectBotUI() {
 
         /* Списки збереженого */
         .alpha-list-item { display: flex; justify-content: space-between; align-items: flex-start; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 8px; font-size: 13px; }
+
+        /* Глобальний селектор анкет */
+        .alpha-global-selector { position: relative; width: 280px; user-select: none; }
+        .alpha-gs-btn { display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: #f8f9fa; border: 1px solid #cdd5df; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .alpha-gs-btn:hover { background: #fff; border-color: #1976d2; }
+        .alpha-gs-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: #e1e8ed; flex-shrink: 0; border: 1px solid #ccc; }
+        .alpha-gs-info { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .alpha-gs-name { font-size: 14px; font-weight: bold; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+        .alpha-gs-id { font-size: 11px; color: #888; margin-top: 2px; }
+        .alpha-gs-arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
+
+        /* Випадаюче меню селектора */
+        .alpha-gs-dropdown { position: absolute; top: 100%; left: 0; width: 100%; margin-top: 8px; background: #fff; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); border: 1px solid #e1e8ed; z-index: 9999; display: none; flex-direction: column; max-height: 450px; overflow: hidden; }
+        .alpha-gs-search { padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; }
+        .alpha-gs-search input { width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; transition: 0.2s; }
+        .alpha-gs-search input:focus { border-color: #1976d2; box-shadow: 0 0 0 3px rgba(25,118,210,0.1); }
+        .alpha-gs-list { overflow-y: auto; flex: 1; padding: 5px 0; }
+        .alpha-gs-item { display: flex; align-items: center; gap: 12px; padding: 10px 15px; cursor: pointer; transition: 0.15s; border-left: 3px solid transparent; }
+        .alpha-gs-item:hover { background: #f5f8fa; border-left-color: #1976d2; }
+        .alpha-gs-item.active { background: #e3f2fd; border-left-color: #1976d2; }
+        .alpha-gs-item-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #e1e8ed; }
     `;
 
     const styleEl = document.createElement("style");
@@ -1072,10 +1093,29 @@ function injectBotUI() {
 
             <div class="alpha-content">
                 <div class="alpha-topbar">
+                    <div class="alpha-global-selector" id="alphaGlobalSelector">
+                        <div class="alpha-gs-btn" id="alphaGsBtn">
+                            <img src="https://via.placeholder.com/40" class="alpha-gs-avatar" id="alphaGsAvatar">
+                            <div class="alpha-gs-info">
+                                <div class="alpha-gs-name" id="alphaGsName">Оберіть анкету</div>
+                                <div class="alpha-gs-id" id="alphaGsId">Для налаштування текстів</div>
+                            </div>
+                            <div class="alpha-gs-arrow" id="alphaGsArrow">▼</div>
+                        </div>
+
+                        <div class="alpha-gs-dropdown" id="alphaGsDropdown">
+                            <div class="alpha-gs-search">
+                                <input type="text" id="alphaGsSearchInput" placeholder="Пошук за ім'ям або ID...">
+                            </div>
+                            <div class="alpha-gs-list" id="alphaGsList">
+                                </div>
+                        </div>
+                    </div>
+
                     <div class="alpha-status-badges">
-                        <div><span data-lang="statusLabel">Статус:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666; font-weight: bold;">Очікування...</span></div>
+                        <div><span data-lang="statusLabel">Бот:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666; font-weight: bold;">Очікування...</span></div>
                         <div style="width: 1px; background: #ccc; margin: 0 10px;"></div>
-                        <div><span data-lang="profileLabel">Анкета:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
+                        <div><span>В роботі:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
                     </div>
                     <span id="uiCloseBtn" class="alpha-close">&times;</span>
                 </div>
@@ -1119,12 +1159,10 @@ function injectBotUI() {
                     </div>
 
                     <div id="tabContentInvites" style="display: none;">
-                        <div class="alpha-col" style="margin-bottom: 20px;">
                             <label data-lang="invitesProfileLabel" class="alpha-label">Оберіть анкету:</label>
                             <select id="invitesProfileSelect" class="alpha-select">
                                 <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
                             </select>
-                        </div>
                         <div id="invitesWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
                             <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="margin-bottom: 20px;">💾 Зберегти Інвайт</button>
@@ -1134,12 +1172,10 @@ function injectBotUI() {
                     </div>
 
                     <div id="tabContentLetters" style="display: none;">
-                        <div class="alpha-col" style="margin-bottom: 20px;">
                             <label data-lang="lettersProfileLabel" class="alpha-label">Оберіть анкету:</label>
                             <select id="lettersProfileSelect" class="alpha-select">
                                 <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
                             </select>
-                        </div>
                         <div id="lettersWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="lettersMessageInput" data-lang="lettersPlaceholder" class="alpha-textarea" placeholder="Текст листа..." style="margin-bottom: 15px;"></textarea>
                             <div style="display: flex; gap: 15px; margin-bottom: 20px;">
@@ -1152,11 +1188,9 @@ function injectBotUI() {
                     </div>
 
                     <div id="tabContentWinks" style="display: none;">
-                        <div class="alpha-col" style="margin-bottom: 20px;">
                             <label data-lang="respProfileLabel" class="alpha-label">Оберіть анкету:</label>
                             <select id="respProfileSelect" class="alpha-select">
                                 <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                            </select>
                         </div>
                         <div id="respTabsArea" style="display: none; flex-direction: column;">
                             <div class="alpha-subtabs">
@@ -1671,45 +1705,130 @@ function injectBotUI() {
 // ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ АВТОВІДПОВІДАЧА
 
 async function loadProfilesForUI() {
-	const selectEl = document.getElementById("respProfileSelect");
+    if (window.profilesLoadedForUI) return; // Завантажуємо лише один раз
 
-	if (selectEl.options.length > 1) return; // Вже завантажено
+    let token = localStorage.getItem("token");
+    if (!token) return;
+    token = token.replace(/^"|"$/g, "");
 
-	let token = localStorage.getItem("token");
+    const profiles = await getAllProfiles(token);
 
-	if (!token) return;
+    const listEl = document.getElementById("alphaGsList");
+    const searchInput = document.getElementById("alphaGsSearchInput");
+    if (!listEl) return;
 
-	token = token.replace(/^"|"$/g, "");
+    listEl.innerHTML = "";
 
-	selectEl.innerHTML = '<option value="">Завантаження...</option>';
+    // 1. Заповнюємо невидимі оригінальні селектори (для підкапотної логіки)
+    const respSel = document.getElementById("respProfileSelect");
+    const invSel = document.getElementById("invitesProfileSelect");
+    const letSel = document.getElementById("lettersProfileSelect");
 
-	const profiles = await getAllProfiles(token); // Беремо анкети з сервера
+    [respSel, invSel, letSel].forEach(sel => {
+        if(sel) {
+            sel.innerHTML = '<option value="">--</option>';
+            profiles.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.external_id;
+                opt.innerText = p.name;
+                sel.appendChild(opt);
+            });
+        }
+    });
 
-	// 1. Спочатку заповнюємо головний список
+    // 2. Будуємо КРАСИВИЙ список з фотографіями
+    profiles.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "alpha-gs-item";
+        item.dataset.id = String(p.external_id);
+        item.dataset.name = p.name.toLowerCase();
 
-	selectEl.innerHTML = '<option value="">' + t("dynSelectProfile") + '</option>';
+        const photoUrl = p.photo_link || "https://via.placeholder.com/40";
+        const ageText = p.age ? `(${p.age} р.)` : "";
 
-	profiles.forEach((p) => {
-		const opt = document.createElement("option");
+        item.innerHTML = `
+            <img src="${photoUrl}" class="alpha-gs-item-img">
+            <div class="alpha-gs-info">
+                <div class="alpha-gs-name">${p.name} <span style="color:#aaa; font-size:11px; font-weight:normal;">${ageText}</span></div>
+                <div class="alpha-gs-id">ID: ${p.external_id}</div>
+            </div>
+        `;
 
-		opt.value = p.external_id;
+        // ЛОГІКА КЛІКУ ПО АНКЕТІ
+        item.onclick = () => {
+            // Оновлюємо візуал Головної Кнопки
+            document.getElementById("alphaGsAvatar").src = photoUrl;
+            document.getElementById("alphaGsName").innerText = p.name;
+            document.getElementById("alphaGsId").innerText = `ID: ${p.external_id}`;
 
-		opt.innerText = `${p.name} (${p.external_id})`;
+            // Ховаємо меню
+            document.getElementById("alphaGsDropdown").style.display = "none";
+            document.getElementById("alphaGsArrow").style.transform = "rotate(0deg)";
 
-		selectEl.appendChild(opt);
-	});
+            // Підсвічуємо активну
+            document.querySelectorAll(".alpha-gs-item").forEach(i => i.classList.remove("active"));
+            item.classList.add("active");
 
-	// 2. І тільки ТЕПЕР, коли він повний, копіюємо його в інші вкладки!
+            // 🔥 МАГІЯ: Програмно перемикаємо всі старі приховані селектори і викликаємо їхню логіку!
+            [respSel, invSel, letSel].forEach(sel => {
+                if(sel && sel.value !== String(p.external_id)) {
+                    sel.value = p.external_id;
+                    sel.dispatchEvent(new Event("change")); // Тригерить всі твої renderCustomInvites і т.д.
+                }
+            });
+        };
 
-	const invitesSelect = document.getElementById("invitesProfileSelect");
+        listEl.appendChild(item);
+    });
 
-	if (invitesSelect) invitesSelect.innerHTML = selectEl.innerHTML;
+    // 3. Логіка Пошуку (Фільтрація на льоту)
+    if (searchInput) {
+        searchInput.oninput = (e) => {
+            const val = e.target.value.toLowerCase().trim();
+            document.querySelectorAll(".alpha-gs-item").forEach(item => {
+                const name = item.dataset.name;
+                const id = item.dataset.id;
+                if (name.includes(val) || id.includes(val)) {
+                    item.style.display = "flex";
+                } else {
+                    item.style.display = "none";
+                }
+            });
+        };
+    }
 
-	const lettersSelect = document.getElementById("lettersProfileSelect");
+    // 4. Відкриття/Закриття випадаючого списку
+    const btn = document.getElementById("alphaGsBtn");
+    if (btn) {
+        btn.onclick = () => {
+            const dp = document.getElementById("alphaGsDropdown");
+            const arr = document.getElementById("alphaGsArrow");
+            if (dp.style.display === "flex") {
+                dp.style.display = "none";
+                arr.style.transform = "rotate(0deg)";
+            } else {
+                dp.style.display = "flex";
+                arr.style.transform = "rotate(180deg)";
+                if (searchInput) searchInput.focus();
+            }
+        };
+    }
 
-	if (lettersSelect) lettersSelect.innerHTML = selectEl.innerHTML;
+    // 5. Закриття при кліку поза списком
+    document.addEventListener("click", (e) => {
+        const selectorBlock = document.getElementById("alphaGlobalSelector");
+        if (selectorBlock && !selectorBlock.contains(e.target)) {
+            const dp = document.getElementById("alphaGsDropdown");
+            const arr = document.getElementById("alphaGsArrow");
+            if (dp && dp.style.display === "flex") {
+                dp.style.display = "none";
+                arr.style.transform = "rotate(0deg)";
+            }
+        }
+    });
 
-	updateProfileColors();
+    window.profilesLoadedForUI = true;
+    if (typeof updateProfileColors === "function") updateProfileColors();
 }
 
 // --- МАЛЮЄМО КНОПКУ ПОШУКУ ТА ВІШАЄМО КЛІК ---
