@@ -537,21 +537,24 @@ async function disableProfile(profileId) {
     }
 }
 
-async function sendInvite(token, profileId, recipientId, template) {
-    // 🔥 КРОК 1: "СТУК У ДВЕРІ" (Імітуємо відкриття чату)
-    try {
-        await fetch("https://alpha.date/api/virtual-gift/group/all", {
-            method: "POST",
-            headers: getHeaders(token),
-            body: JSON.stringify({ recipient_id: Number(recipientId) })
-        });
-        // Даємо серверу 300 мілісекунд, щоб він встиг створити чат у базі
-        await new Promise(res => setTimeout(res, 300));
-    } catch (e) {
-        // Ігноруємо помилки стуку, головне що ми спробували
+async function sendInvite(token, profileId, recipientId, template, chatUid) {
+    // 🔥 КРОК 1: "СТУК У ДВЕРІ" - Будимо чат через запит історії!
+    if (chatUid) {
+        try {
+            await fetch("https://alpha.date/api/chatList/chatHistory", {
+                method: "POST",
+                headers: getHeaders(token),
+                body: JSON.stringify({ chat_id: chatUid, page: 1 })
+            });
+            // Даємо серверу 200 мілісекунд, щоб він встиг "відкрити" кімнату в базі
+            await new Promise(res => setTimeout(res, 200));
+        } catch (e) {
+            console.warn(`⚠️ Не вдалося постукати в історію для мужика ${recipientId}`);
+        }
     }
 
-    // 🔥 КРОК 2: ВІДПРАВКА ІНВАЙТУ (Вже в існуючий чат)
+    // 🔥 КРОК 2: ВІДПРАВКА ПОВІДОМЛЕННЯ
+    // (Робимо точно як рідний сайт: без поля chat_uid)
     const bodyData = {
        sender_id: Number(profileId),
        recipient_id: Number(recipientId),
