@@ -275,6 +275,8 @@ async function collectAllMen(token, profileId) {
     let page = 1;
     let hasMore = true;
 
+    console.log(`\n🕵️‍♂️ --- РАДАР ЗАПУЩЕНО ДЛЯ АНКЕТИ: ${profileId} ---`);
+
     while (hasMore && isRunning) {
         updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
 
@@ -284,7 +286,7 @@ async function collectAllMen(token, profileId) {
             page: page,
             freeze: true,
             limits: null,
-            ONLINE_STATUS: 1,
+            ONLINE_STATUS: null, // 🔥 Змінили з 1 на null, щоб побачити АБСОЛЮТНО ВСІХ у Шансі
             SEARCH: "",
             CHAT_TYPE: "CHANCE",
             showHidden: 0,
@@ -301,36 +303,36 @@ async function collectAllMen(token, profileId) {
             const data = await response.json();
             const list = data.response || [];
 
-            // Якщо сайт повернув порожній масив - ми дійшли до кінця списку
+            console.log(`📄 Сторінка ${page}: Сайт віддав ${list.length} людей.`);
+
             if (list.length === 0) {
+                console.log("🛑 Список порожній, зупиняємо пошук по цій анкеті.");
                 hasMore = false;
                 break;
             }
 
-            // 🔥 ПРОСТО БЕРЕМО ВСІХ! Без зайвих перевірок і блокувань.
-            // Сайт сам знає, кого показувати в "Шансі".
             list.forEach((item) => {
-                const manId = item.male_id;
+                // Пробуємо різні варіанти, раптом сайт для якихось юзерів ховає ID
+                const manId = item.male_id || item.opponent_external_id || item.opponent_id;
                 const chatUid = item.chat_uid;
 
-                // Якщо ID існує і ми його ще не записали - додаємо в базу
-                if (manId && !allClients.some((c) => c.id === manId)) {
+                if (!manId) {
+                    console.log("⚠️ АНОМАЛІЯ! Знайдено чат без ID мужика:", item);
+                } else if (!allClients.some((c) => c.id === manId)) {
                     allClients.push({ id: manId, chat_uid: chatUid });
                 }
             });
 
-            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
-
-            // Невелика пауза, щоб сайт не забанив за спам запитами
             await sleep(500);
 
         } catch (error) {
-            console.error("Помилка при зборі сторінки", page, error);
+            console.error("❌ Помилка радара на сторінці", page, error);
             hasMore = false;
         }
     }
 
+    console.log(`✅ РАДАР ЗАВЕРШИВ РОБОТУ. Всього зібрано унікальних мужиків: ${allClients.length}\n`);
     return allClients;
 }
 
