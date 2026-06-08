@@ -538,10 +538,23 @@ async function disableProfile(profileId) {
 }
 
 async function sendInvite(token, profileId, recipientId, template) {
+    // 🔥 КРОК 1: "СТУК У ДВЕРІ" (Імітуємо відкриття чату)
+    try {
+        await fetch("https://alpha.date/api/virtual-gift/group/all", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify({ recipient_id: Number(recipientId) })
+        });
+        // Даємо серверу 300 мілісекунд, щоб він встиг створити чат у базі
+        await new Promise(res => setTimeout(res, 300));
+    } catch (e) {
+        // Ігноруємо помилки стуку, головне що ми спробували
+    }
+
+    // 🔥 КРОК 2: ВІДПРАВКА ІНВАЙТУ (Вже в існуючий чат)
     const bodyData = {
        sender_id: Number(profileId),
        recipient_id: Number(recipientId),
-       // 🔥 МИ ПОВНІСТЮ ВИДАЛИЛИ chat_uid! Робимо точно як рідний сайт.
        message_content: template.message_content,
        message_type: template.message_type || "SENT_TEXT",
        filename: "",
