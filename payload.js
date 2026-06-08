@@ -538,56 +538,60 @@ async function disableProfile(profileId) {
 }
 
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
-    // 🔥 МЕТОД 1: Стандартний чат (з chat_uid, БЕЗ chance: true)
-    // Ідеально підходить для мужиків, з якими вже є 1-2 повідомлення
-    const payloadNormal = {
+    // 🔥 КРОК 1: РИТУАЛ ВІДКРИТТЯ ДВЕРЕЙ (Імітуємо XHR запити сайту)
+    if (chatUid) {
+        try {
+            // 1. Читаємо історію (сервер дістає чат з бази)
+            await fetch("https://alpha.date/api/chatList/chatHistory", {
+                method: "POST",
+                headers: getHeaders(token),
+                body: JSON.stringify({ chat_id: chatUid, page: 1 })
+            });
+
+            // 2. Читаємо сповіщення (доводимо серверу, що ми "зайшли" в цей чат)
+            await fetch("https://alpha.date/api/notice/read", {
+                method: "POST",
+                headers: getHeaders(token),
+                body: JSON.stringify({
+                    male_id: Number(recipientId),
+                    female_id: Number(profileId),
+                    chat_uid: chatUid
+                })
+            });
+
+            // Даємо серверу 300 мілісекунд, щоб переварити це
+            await new Promise(res => setTimeout(res, 300));
+        } catch (e) {
+            console.warn(`⚠️ Помилка ритуалу для мужика ${recipientId}`);
+        }
+    }
+
+    // 🔥 КРОК 2: ФІНАЛЬНИЙ УДАР (Точно як в Ехолокаторі: З chance, БЕЗ chat_uid)
+    const payload = {
        sender_id: Number(profileId),
        recipient_id: Number(recipientId),
-       chat_uid: chatUid,
        message_content: template.message_content,
        message_type: template.message_type || "SENT_TEXT",
-       filename: ""
+       filename: "",
+       chance: true
     };
 
     try {
-       let response = await fetch("https://alpha.date/api/chat/message", {
+       const response = await fetch("https://alpha.date/api/chat/message", {
           method: "POST",
           headers: getHeaders(token),
-          body: JSON.stringify(payloadNormal)
+          body: JSON.stringify(payload)
        });
-       let data = await response.json();
+
+       const data = await response.json();
 
        if (response.ok && data.status === true) {
-          console.log(`✅ [СТАНДАРТ] Інвайт полетів до ${recipientId}!`);
-          return true;
-       }
-
-       // 🔥 МЕТОД 2: Шанс-чат (БЕЗ chat_uid, З chance: true)
-       // Якщо перший метод відбив помилку "Chat not found" (бо чат дійсно новий)
-       const payloadChance = {
-           sender_id: Number(profileId),
-           recipient_id: Number(recipientId),
-           message_content: template.message_content,
-           message_type: template.message_type || "SENT_TEXT",
-           filename: "",
-           chance: true
-       };
-
-       response = await fetch("https://alpha.date/api/chat/message", {
-          method: "POST",
-          headers: getHeaders(token),
-          body: JSON.stringify(payloadChance)
-       });
-       data = await response.json();
-
-       if (response.ok && data.status === true) {
-          console.log(`🔥 [ШАНС] Інвайт полетів до ${recipientId}!`);
+          console.log(`✅ [УСПІХ] Інвайт залетів до ${recipientId}!`);
           return true;
        } else {
-          console.warn(`🛑 ВІДМОВА ОБОХ МЕТОДІВ (Мужик: ${recipientId}):`, data);
+          console.warn(`🛑 ВІДМОВА (Мужик: ${recipientId}):`, data);
           return false;
        }
-
     } catch (error) {
        console.error(`❌ Помилка fetch для мужика ${recipientId}:`, error);
        return false;
