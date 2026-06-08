@@ -537,17 +537,21 @@ async function disableProfile(profileId) {
     }
 }
 
-// Додали п'ятий аргумент chatUid
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
     const bodyData = {
        sender_id: Number(profileId),
        recipient_id: Number(recipientId),
-       chat_uid: chatUid, // 🔥 ТЕПЕР СЕРВЕР БАЧИТЬ ЧАТ!
+       // 🔥 Захист: якщо chatUid не передався, ставимо порожній рядок, щоб поле не зникло
+       chat_uid: chatUid || "",
        message_content: template.message_content,
        message_type: template.message_type || "SENT_TEXT",
        filename: "",
        chance: true,
     };
+
+    // 🕵️‍♂️ РЕНТГЕН ЗАПИТУ: Дивимося, що реально летить на сервер
+    console.log(`🚀 СПРОБА ВІДПРАВКИ Мужику ${recipientId}! ChatUID:`, chatUid);
+    console.log(`📦 PAYLOAD:`, bodyData);
 
     try {
        const response = await fetch("https://alpha.date/api/chat/message", {
