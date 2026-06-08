@@ -538,38 +538,53 @@ async function disableProfile(profileId) {
 }
 
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
-    // 🔥 КРОК 1: РИТУАЛ ВІДКРИТТЯ ДВЕРЕЙ (Імітуємо XHR запити сайту)
+    const h = getHeaders(token);
+    const man = Number(recipientId);
+    const woman = Number(profileId);
+
+    // 🔥 РИТУАЛ "АБСОЛЮТНИЙ КЛОН" (Всі XHR запити з Ехолокатора)
     if (chatUid) {
         try {
-            // 1. Читаємо історію (сервер дістає чат з бази)
+            // 1. chatOptions (Найважливіший! Відкриває налаштування чату)
+            await fetch("https://alpha.date/api/chatList/chatOptions", {
+                method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid })
+            });
+
+            // 2. chatHistory
             await fetch("https://alpha.date/api/chatList/chatHistory", {
-                method: "POST",
-                headers: getHeaders(token),
-                body: JSON.stringify({ chat_id: chatUid, page: 1 })
+                method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid, page: 1 })
             });
 
-            // 2. Читаємо сповіщення (доводимо серверу, що ми "зайшли" в цей чат)
+            // 3. checkClick (Ехолокатор не показав пейлоаду, тому пустий об'єкт)
+            await fetch("https://alpha.date/api/operator/checkClick", {
+                method: "POST", headers: h, body: "{}"
+            });
+
+            // 4. v3/config/woman та config/type/check (Конфіги співрозмовників)
+            const configPayload = JSON.stringify({ manExternalID: man, womanExternalID: woman });
+            await fetch("https://alpha.date/api/v3/config/woman", {
+                method: "POST", headers: h, body: configPayload
+            });
+            await fetch("https://alpha.date/api/config/type/check", {
+                method: "POST", headers: h, body: configPayload
+            });
+
+            // 5. notice/read (Читаємо повідомлення)
             await fetch("https://alpha.date/api/notice/read", {
-                method: "POST",
-                headers: getHeaders(token),
-                body: JSON.stringify({
-                    male_id: Number(recipientId),
-                    female_id: Number(profileId),
-                    chat_uid: chatUid
-                })
+                method: "POST", headers: h, body: JSON.stringify({ male_id: man, female_id: woman, chat_uid: chatUid })
             });
 
-            // Даємо серверу 300 мілісекунд, щоб переварити це
-            await new Promise(res => setTimeout(res, 300));
+            // Даємо бекенду півсекунди, щоб ідеально все переварити і зняти блок
+            await new Promise(res => setTimeout(res, 500));
         } catch (e) {
-            console.warn(`⚠️ Помилка ритуалу для мужика ${recipientId}`);
+            console.warn(`⚠️ Ритуал збився на мужику ${recipientId}`);
         }
     }
 
-    // 🔥 КРОК 2: ФІНАЛЬНИЙ УДАР (Точно як в Ехолокаторі: З chance, БЕЗ chat_uid)
+    // 🔥 ФІНАЛЬНИЙ УДАР (Пейлоад 1в1 з Ехолокатора)
     const payload = {
-       sender_id: Number(profileId),
-       recipient_id: Number(recipientId),
+       sender_id: woman,
+       recipient_id: man,
        message_content: template.message_content,
        message_type: template.message_type || "SENT_TEXT",
        filename: "",
@@ -579,7 +594,7 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
     try {
        const response = await fetch("https://alpha.date/api/chat/message", {
           method: "POST",
-          headers: getHeaders(token),
+          headers: h,
           body: JSON.stringify(payload)
        });
 
@@ -589,11 +604,27 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
           console.log(`✅ [УСПІХ] Інвайт залетів до ${recipientId}!`);
           return true;
        } else {
-          console.warn(`🛑 ВІДМОВА (Мужик: ${recipientId}):`, data);
-          return false;
+          // Якщо раптом з chance:true відмовило, робимо контрольний в голову (без chance, але з chat_uid)
+          console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${recipientId}). Пробуємо класику...`);
+
+          const backupPayload = { ...payload, chat_uid: chatUid };
+          delete backupPayload.chance; // Видаляємо chance, бо це вже "активний" чат
+
+          const backupResponse = await fetch("https://alpha.date/api/chat/message", {
+              method: "POST", headers: h, body: JSON.stringify(backupPayload)
+          });
+          const backupData = await backupResponse.json();
+
+          if (backupResponse.ok && backupData.status === true) {
+              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${recipientId}!`);
+              return true;
+          } else {
+              console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ (Мужик: ${recipientId}):`, backupData);
+              return false;
+          }
        }
     } catch (error) {
-       console.error(`❌ Помилка fetch для мужика ${recipientId}:`, error);
+       console.error(`❌ Критична помилка fetch:`, error);
        return false;
     }
 }
