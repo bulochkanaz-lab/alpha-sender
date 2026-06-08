@@ -537,84 +537,72 @@ async function disableProfile(profileId) {
     }
 }
 
-async function sendInvite(token, profileId, recipientId, template, chatUid) {
-    const man = Number(recipientId);
-    const woman = Number(profileId);
+async function collectAllMen(token, profileId) {
+    let allClients = [];
+    let page = 1;
+    let hasMore = true;
 
-    // 🔥 СЕКРЕТНА ЗБРОЯ: Клонуємо заголовки і додаємо анти-бот маркер
-    const h = getHeaders(token);
-    h["X-Requested-With"] = "XMLHttpRequest";
+    while (hasMore && isRunning) {
+        updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
 
-    console.log(`🕵️‍♂️ [АНАЛІЗ] Мужик: ${man} | Радар дав chat_uid:`, chatUid);
+        const bodyData = {
+            user_id: String(profileId),
+            chat_uid: false,
+            page: page,
+            freeze: true,
+            limits: null,
+            ONLINE_STATUS: 1,
+            SEARCH: "",
+            CHAT_TYPE: "CHANCE",
+            showHidden: 0,
+            blockedByWoman: 0,
+            blockedByMan: 0,
+        };
 
-    // 🔥 РИТУАЛ
-    if (chatUid) {
         try {
-            await fetch("https://alpha.date/api/chatList/chatOptions", { method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid }) });
-            await fetch("https://alpha.date/api/chatList/chatHistory", { method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid, page: 1 }) });
+            const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
+                method: "POST",
+                headers: getHeaders(token),
+                body: JSON.stringify(bodyData),
+            });
+            const data = await response.json();
+            const list = data.response || [];
 
-            // Робимо GET замість POST, щоб не ловити 404. Якщо відвалиться - не страшно.
-            fetch(`https://alpha.date/api/operator/checkClick?user_id=${man}`, { method: "GET", headers: h }).catch(()=>{});
+            if (list.length === 0) {
+                hasMore = false;
+                break;
+            }
 
-            await fetch("https://alpha.date/api/virtual-gift/group/all", { method: "POST", headers: h, body: JSON.stringify({ recipient_id: man }) });
+            list.forEach((item) => {
+                // 🔥 ШУКАЄМО EXTERNAL ID (Довгий айдішнік)
+                // Перебираємо всі можливі варіанти, як вони могли його назвати
+                let externalId = item.external_id || item.opponent_external_id || item.male_external_id;
 
-            const configPayload = JSON.stringify({ manExternalID: man, womanExternalID: woman });
-            await fetch("https://alpha.date/api/v3/config/woman", { method: "POST", headers: h, body: configPayload });
-            await fetch("https://alpha.date/api/config/type/check", { method: "POST", headers: h, body: configPayload });
+                // Якщо раптом немає поля external, беремо той ID, який довший (це 100% він)
+                if (!externalId) {
+                    if (String(item.male_id).length >= 9) externalId = item.male_id;
+                    else if (String(item.opponent_id).length >= 9) externalId = item.opponent_id;
+                    else externalId = item.male_id; // На крайній випадок
+                }
 
-            await fetch("https://alpha.date/api/notice/read", { method: "POST", headers: h, body: JSON.stringify({ male_id: man, female_id: woman, chat_uid: chatUid }) });
+                const chatUid = item.chat_uid;
 
-            await new Promise(res => setTimeout(res, 500));
-        } catch (e) {
-            console.warn(`⚠️ Ритуал збився на мужику ${man}`);
+                if (externalId && !allClients.some((c) => c.id === externalId)) {
+                    allClients.push({ id: externalId, chat_uid: chatUid });
+                }
+            });
+
+            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
+            page++;
+            await sleep(500);
+
+        } catch (error) {
+            console.error("Помилка при зборі сторінки", page, error);
+            hasMore = false;
         }
     }
 
-    // 🔥 ФІНАЛЬНИЙ УДАР (Пейлоад з chance: true)
-    const payload = {
-       sender_id: woman,
-       recipient_id: man,
-       message_content: template.message_content,
-       message_type: template.message_type || "SENT_TEXT",
-       filename: "",
-       chance: true
-    };
-
-    try {
-       const response = await fetch("https://alpha.date/api/chat/message", {
-          method: "POST",
-          headers: h,
-          body: JSON.stringify(payload)
-       });
-
-       const data = await response.json();
-
-       if (response.ok && data.status === true) {
-          console.log(`✅ [УСПІХ] Інвайт залетів до ${man}!`);
-          return true;
-       } else {
-          console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${man}). Пробуємо класику...`);
-
-          const backupPayload = { ...payload, chat_uid: chatUid };
-          delete backupPayload.chance;
-
-          const backupResponse = await fetch("https://alpha.date/api/chat/message", {
-              method: "POST", headers: h, body: JSON.stringify(backupPayload)
-          });
-          const backupData = await backupResponse.json();
-
-          if (backupResponse.ok && backupData.status === true) {
-              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
-              return true;
-          } else {
-              console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ (Мужик: ${man}):`, backupData);
-              return false;
-          }
-       }
-    } catch (error) {
-       console.error(`❌ Критична помилка fetch:`, error);
-       return false;
-    }
+    return allClients;
 }
 
 // Головна логіка (Інвайти + Листи + Розумні таймери + АНТИСПАМ)
