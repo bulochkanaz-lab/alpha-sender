@@ -271,43 +271,100 @@ async function getExternalIdsFromLastMessage(token, chatUids) {
 }
 
 async function collectAllMen(token, profileId) {
-    console.log("🕵️‍♂️ Запускаю збір для аналізу...");
+    let allClients = [];
+    let page = 1;
+    let hasMore = true;
 
-    const bodyData = {
-        user_id: String(profileId),
-        chat_uid: false,
-        page: 1,
-        freeze: true,
-        limits: null,
-        ONLINE_STATUS: 1,
-        SEARCH: "",
-        CHAT_TYPE: "CHANCE",
-        showHidden: 0,
-        blockedByWoman: 0,
-        blockedByMan: 0,
-    };
+    while (hasMore && isRunning) {
+        updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
 
-    try {
-        const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
-            method: "POST",
-            headers: getHeaders(token),
-            body: JSON.stringify(bodyData),
-        });
+        const bodyData = {
+            user_id: String(profileId),
+            chat_uid: false,
+            page: page,
+            freeze: true,
+            limits: null,
+            ONLINE_STATUS: 1,
+            SEARCH: "",
+            CHAT_TYPE: "CHANCE",
+            showHidden: 0,
+            blockedByWoman: 0,
+            blockedByMan: 0,
+        };
 
-        const data = await response.json();
-        const list = data.response || [];
+        try {
+            // 1. Отримуємо список "коротких" мужиків
+            const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
+                method: "POST",
+                headers: getHeaders(token),
+                body: JSON.stringify(bodyData),
+            });
+            const data = await response.json();
+            const list = data.response || [];
 
-        if (list.length > 0) {
-            // 🔥 ОСЬ ВІН, МОМЕНТ ІСТИНИ! Виводимо всі "кишки" першого мужика
-            console.log("🚨 [СЕКРЕТНИЙ АНАЛІЗ] Ось як виглядає мужик у базі:", list[0]);
-        } else {
-            console.log("⚠️ Радар повернув порожній список. Можливо, в Шансі нікого немає.");
+            if (list.length === 0) {
+                hasMore = false;
+                break;
+            }
+
+            // 2. Збираємо всі chat_uid з цієї сторінки в один масив
+            const chatUids = list.map(item => item.chat_uid).filter(uid => uid);
+
+            // 3. Робимо ОДИН масовий запит за останніми повідомленнями
+            let messagesData = [];
+            if (chatUids.length > 0) {
+                const lastMsgResponse = await fetch("https://alpha.date/api/chatList/lastMessage", {
+                    method: "POST",
+                    headers: getHeaders(token),
+                    body: JSON.stringify({ chat_uid: chatUids }) // Передаємо масив
+                });
+                const lastMsgJson = await lastMsgResponse.json();
+
+                // Сайт може повернути масив або об'єкт, нормалізуємо це
+                messagesData = lastMsgJson.response || lastMsgJson.data || [];
+                if (!Array.isArray(messagesData) && typeof messagesData === 'object') {
+                    messagesData = Object.values(messagesData);
+                }
+            }
+
+            // 4. З'єднуємо коротких мужиків з їхніми довгими ID (external_id)
+            list.forEach((item) => {
+                let externalId = null;
+                const chatUid = item.chat_uid;
+
+                // Шукаємо повідомлення для цього чату
+                const msg = messagesData.find(m => m.chat_uid === chatUid);
+
+                if (msg) {
+                    // Твоя золота логіка зі старих архівів!
+                    if (Number(msg.is_male) === 1) {
+                        externalId = msg.sender_external_id;
+                    } else {
+                        externalId = msg.recipient_external_id;
+                    }
+                }
+
+                // Фолбек: якщо чат АБСОЛЮТНО порожній і немає lastMessage
+                if (!externalId) {
+                    externalId = item.male_id;
+                }
+
+                if (externalId && !allClients.some((c) => c.id === externalId)) {
+                    allClients.push({ id: externalId, chat_uid: chatUid });
+                }
+            });
+
+            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
+            page++;
+            await sleep(500);
+
+        } catch (error) {
+            console.error("❌ Помилка при зборі сторінки", page, error);
+            hasMore = false;
         }
-    } catch (error) {
-        console.error("❌ Помилка", error);
     }
 
-    return []; // Одразу зупиняємо, щоб не йшло далі
+    return allClients;
 }
 
 
