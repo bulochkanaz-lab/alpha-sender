@@ -538,50 +538,39 @@ async function disableProfile(profileId) {
 }
 
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
-    const h = getHeaders(token);
     const man = Number(recipientId);
     const woman = Number(profileId);
 
-    // 🔥 РИТУАЛ "АБСОЛЮТНИЙ КЛОН" (Всі XHR запити з Ехолокатора)
+    // 🔥 СЕКРЕТНА ЗБРОЯ: Клонуємо заголовки і додаємо анти-бот маркер
+    const h = getHeaders(token);
+    h["X-Requested-With"] = "XMLHttpRequest";
+
+    console.log(`🕵️‍♂️ [АНАЛІЗ] Мужик: ${man} | Радар дав chat_uid:`, chatUid);
+
+    // 🔥 РИТУАЛ
     if (chatUid) {
         try {
-            // 1. chatOptions (Найважливіший! Відкриває налаштування чату)
-            await fetch("https://alpha.date/api/chatList/chatOptions", {
-                method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid })
-            });
+            await fetch("https://alpha.date/api/chatList/chatOptions", { method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid }) });
+            await fetch("https://alpha.date/api/chatList/chatHistory", { method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid, page: 1 }) });
 
-            // 2. chatHistory
-            await fetch("https://alpha.date/api/chatList/chatHistory", {
-                method: "POST", headers: h, body: JSON.stringify({ chat_id: chatUid, page: 1 })
-            });
+            // Робимо GET замість POST, щоб не ловити 404. Якщо відвалиться - не страшно.
+            fetch(`https://alpha.date/api/operator/checkClick?user_id=${man}`, { method: "GET", headers: h }).catch(()=>{});
 
-            // 3. checkClick (Ехолокатор не показав пейлоаду, тому пустий об'єкт)
-            await fetch("https://alpha.date/api/operator/checkClick", {
-                method: "POST", headers: h, body: "{}"
-            });
+            await fetch("https://alpha.date/api/virtual-gift/group/all", { method: "POST", headers: h, body: JSON.stringify({ recipient_id: man }) });
 
-            // 4. v3/config/woman та config/type/check (Конфіги співрозмовників)
             const configPayload = JSON.stringify({ manExternalID: man, womanExternalID: woman });
-            await fetch("https://alpha.date/api/v3/config/woman", {
-                method: "POST", headers: h, body: configPayload
-            });
-            await fetch("https://alpha.date/api/config/type/check", {
-                method: "POST", headers: h, body: configPayload
-            });
+            await fetch("https://alpha.date/api/v3/config/woman", { method: "POST", headers: h, body: configPayload });
+            await fetch("https://alpha.date/api/config/type/check", { method: "POST", headers: h, body: configPayload });
 
-            // 5. notice/read (Читаємо повідомлення)
-            await fetch("https://alpha.date/api/notice/read", {
-                method: "POST", headers: h, body: JSON.stringify({ male_id: man, female_id: woman, chat_uid: chatUid })
-            });
+            await fetch("https://alpha.date/api/notice/read", { method: "POST", headers: h, body: JSON.stringify({ male_id: man, female_id: woman, chat_uid: chatUid }) });
 
-            // Даємо бекенду півсекунди, щоб ідеально все переварити і зняти блок
             await new Promise(res => setTimeout(res, 500));
         } catch (e) {
-            console.warn(`⚠️ Ритуал збився на мужику ${recipientId}`);
+            console.warn(`⚠️ Ритуал збився на мужику ${man}`);
         }
     }
 
-    // 🔥 ФІНАЛЬНИЙ УДАР (Пейлоад 1в1 з Ехолокатора)
+    // 🔥 ФІНАЛЬНИЙ УДАР (Пейлоад з chance: true)
     const payload = {
        sender_id: woman,
        recipient_id: man,
@@ -601,14 +590,13 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
        const data = await response.json();
 
        if (response.ok && data.status === true) {
-          console.log(`✅ [УСПІХ] Інвайт залетів до ${recipientId}!`);
+          console.log(`✅ [УСПІХ] Інвайт залетів до ${man}!`);
           return true;
        } else {
-          // Якщо раптом з chance:true відмовило, робимо контрольний в голову (без chance, але з chat_uid)
-          console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${recipientId}). Пробуємо класику...`);
+          console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${man}). Пробуємо класику...`);
 
           const backupPayload = { ...payload, chat_uid: chatUid };
-          delete backupPayload.chance; // Видаляємо chance, бо це вже "активний" чат
+          delete backupPayload.chance;
 
           const backupResponse = await fetch("https://alpha.date/api/chat/message", {
               method: "POST", headers: h, body: JSON.stringify(backupPayload)
@@ -616,10 +604,10 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
           const backupData = await backupResponse.json();
 
           if (backupResponse.ok && backupData.status === true) {
-              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${recipientId}!`);
+              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
               return true;
           } else {
-              console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ (Мужик: ${recipientId}):`, backupData);
+              console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ (Мужик: ${man}):`, backupData);
               return false;
           }
        }
