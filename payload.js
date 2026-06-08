@@ -275,8 +275,6 @@ async function collectAllMen(token, profileId) {
     let page = 1;
     let hasMore = true;
 
-    console.log(`\n🕵️‍♂️ --- РАДАР ЗАПУЩЕНО ДЛЯ АНКЕТИ: ${profileId} ---`);
-
     while (hasMore && isRunning) {
         updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
 
@@ -303,36 +301,40 @@ async function collectAllMen(token, profileId) {
             const data = await response.json();
             const list = data.response || [];
 
-            console.log(`📄 Сторінка ${page}: Сайт віддав ${list.length} людей.`);
-
             if (list.length === 0) {
-                console.log("🛑 Список порожній, зупиняємо пошук по цій анкеті.");
                 hasMore = false;
                 break;
             }
 
             list.forEach((item) => {
-                // Пробуємо різні варіанти, раптом сайт для якихось юзерів ховає ID
-                const manId = item.male_id || item.opponent_external_id || item.opponent_id;
+                // 🔥 ШУКАЄМО EXTERNAL ID (Довгий айдішнік)
+                // Перебираємо всі можливі варіанти, як вони могли його назвати
+                let externalId = item.external_id || item.opponent_external_id || item.male_external_id;
+
+                // Якщо раптом немає поля external, беремо той ID, який довший (це 100% він)
+                if (!externalId) {
+                    if (String(item.male_id).length >= 9) externalId = item.male_id;
+                    else if (String(item.opponent_id).length >= 9) externalId = item.opponent_id;
+                    else externalId = item.male_id; // На крайній випадок
+                }
+
                 const chatUid = item.chat_uid;
 
-                if (!manId) {
-                    console.log("⚠️ АНОМАЛІЯ! Знайдено чат без ID мужика:", item);
-                } else if (!allClients.some((c) => c.id === manId)) {
-                    allClients.push({ id: manId, chat_uid: chatUid });
+                if (externalId && !allClients.some((c) => c.id === externalId)) {
+                    allClients.push({ id: externalId, chat_uid: chatUid });
                 }
             });
 
+            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
             await sleep(500);
 
         } catch (error) {
-            console.error("❌ Помилка радара на сторінці", page, error);
+            console.error("Помилка при зборі сторінки", page, error);
             hasMore = false;
         }
     }
 
-    console.log(`✅ РАДАР ЗАВЕРШИВ РОБОТУ. Всього зібрано унікальних мужиків: ${allClients.length}\n`);
     return allClients;
 }
 
@@ -537,72 +539,55 @@ async function disableProfile(profileId) {
     }
 }
 
-async function collectAllMen(token, profileId) {
-    let allClients = [];
-    let page = 1;
-    let hasMore = true;
+async function sendInvite(token, profileId, recipientId, template, chatUid) {
+    const man = Number(recipientId);
+    const woman = Number(profileId);
 
-    while (hasMore && isRunning) {
-        updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
+    const payload = {
+       sender_id: woman,
+       recipient_id: man, // 🔥 ТЕПЕР ТУТ ЛЕТИТЬ ДОВГИЙ EXTERNAL ID!
+       message_content: template.message_content,
+       message_type: template.message_type || "SENT_TEXT",
+       filename: "",
+       chance: true
+    };
 
-        const bodyData = {
-            user_id: String(profileId),
-            chat_uid: false,
-            page: page,
-            freeze: true,
-            limits: null,
-            ONLINE_STATUS: 1,
-            SEARCH: "",
-            CHAT_TYPE: "CHANCE",
-            showHidden: 0,
-            blockedByWoman: 0,
-            blockedByMan: 0,
-        };
+    try {
+       const response = await fetch("https://alpha.date/api/chat/message", {
+          method: "POST",
+          headers: getHeaders(token),
+          body: JSON.stringify(payload)
+       });
 
-        try {
-            const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
-                method: "POST",
-                headers: getHeaders(token),
-                body: JSON.stringify(bodyData),
-            });
-            const data = await response.json();
-            const list = data.response || [];
+       const data = await response.json();
 
-            if (list.length === 0) {
-                hasMore = false;
-                break;
-            }
+       if (response.ok && data.status === true) {
+          console.log(`✅ [УСПІХ] Інвайт залетів до мужика ${man}!`);
+          return true;
+       } else {
+          // Якщо раптом сайт скаже, що чат уже занадто розвинений для Шансу
+          console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${man}). Пробуємо класику...`);
 
-            list.forEach((item) => {
-                // 🔥 ШУКАЄМО EXTERNAL ID (Довгий айдішнік)
-                // Перебираємо всі можливі варіанти, як вони могли його назвати
-                let externalId = item.external_id || item.opponent_external_id || item.male_external_id;
+          const backupPayload = { ...payload, chat_uid: chatUid };
+          delete backupPayload.chance;
 
-                // Якщо раптом немає поля external, беремо той ID, який довший (це 100% він)
-                if (!externalId) {
-                    if (String(item.male_id).length >= 9) externalId = item.male_id;
-                    else if (String(item.opponent_id).length >= 9) externalId = item.opponent_id;
-                    else externalId = item.male_id; // На крайній випадок
-                }
+          const backupResponse = await fetch("https://alpha.date/api/chat/message", {
+              method: "POST", headers: getHeaders(token), body: JSON.stringify(backupPayload)
+          });
+          const backupData = await backupResponse.json();
 
-                const chatUid = item.chat_uid;
-
-                if (externalId && !allClients.some((c) => c.id === externalId)) {
-                    allClients.push({ id: externalId, chat_uid: chatUid });
-                }
-            });
-
-            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
-            page++;
-            await sleep(500);
-
-        } catch (error) {
-            console.error("Помилка при зборі сторінки", page, error);
-            hasMore = false;
-        }
+          if (backupResponse.ok && backupData.status === true) {
+              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
+              return true;
+          } else {
+              console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ:`, backupData);
+              return false;
+          }
+       }
+    } catch (error) {
+       console.error(`❌ Критична помилка fetch:`, error);
+       return false;
     }
-
-    return allClients;
 }
 
 // Головна логіка (Інвайти + Листи + Розумні таймери + АНТИСПАМ)
