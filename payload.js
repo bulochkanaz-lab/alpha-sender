@@ -307,9 +307,9 @@ async function collectAllMen(token, profileId) {
                 break;
             }
 
-            // Фільтруємо тільки доступні чати
+            // 🔥 Ідеальний фільтр: беремо тих, кому можна слати або ЛИСТА, або ІНВАЙТ (в чат)
             const validChats = list.filter((item) =>
-                item.letter_limit > 0 &&
+                (item.letter_limit > 0 || item.message_limit > 0) &&
                 item.male_block === 0 &&
                 item.female_block === 0 &&
                 item.hide_chat === 0 &&
