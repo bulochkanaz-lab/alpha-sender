@@ -286,7 +286,7 @@ async function collectAllMen(token, profileId) {
             page: page,
             freeze: true,
             limits: null,
-            ONLINE_STATUS: null, // 🔥 Змінили з 1 на null, щоб побачити АБСОЛЮТНО ВСІХ у Шансі
+            ONLINE_STATUS: 1,
             SEARCH: "",
             CHAT_TYPE: "CHANCE",
             showHidden: 0,
@@ -538,43 +538,37 @@ async function disableProfile(profileId) {
 }
 
 async function sendInvite(token, profileId, recipientId, template) {
-	const bodyData = {
-		sender_id: Number(profileId),
+    const bodyData = {
+       sender_id: Number(profileId),
+       recipient_id: Number(recipientId),
+       message_content: template.message_content,
+       message_type: template.message_type || "SENT_TEXT",
+       filename: "",
+       chance: true,
+    };
 
-		recipient_id: Number(recipientId),
+    try {
+       const response = await fetch("https://alpha.date/api/chat/message", {
+          method: "POST",
+          headers: getHeaders(token),
+          body: JSON.stringify(bodyData),
+       });
 
-		message_content: template.message_content,
+       // Читаємо відповідь сервера
+       const data = await response.json();
 
-		message_type: template.message_type || "SENT_TEXT",
-
-		filename: "",
-
-		chance: true,
-	};
-
-	try {
-		const response = await fetch("https://alpha.date/api/chat/message", {
-			method: "POST",
-
-			headers: getHeaders(token),
-
-			body: JSON.stringify(bodyData),
-		});
-
-		const data = await response.json();
-
-		if (response.ok && data.status === true) {
-			return true;
-		} else {
-			// console.warn(`⚠️ Відмова інвайту для ID ${recipientId}:`, data);
-
-			return false;
-		}
-	} catch (error) {
-		// console.error(`❌ Помилка fetch при відправці інвайту:`, error);
-
-		return false;
-	}
+       if (response.ok && data.status === true) {
+          console.log(`✅ Інвайт УСПІШНО полетів до мужика ${recipientId}!`);
+          return true;
+       } else {
+          // 🔥 НАШ ЖУЧОК: Виводимо точну причину відмови від сайту
+          console.warn(`🛑 ВІДМОВА ВІД САЙТУ (Мужик: ${recipientId}). Відповідь сервера:`, data);
+          return false;
+       }
+    } catch (error) {
+       console.error(`❌ КРИТИЧНА ПОМИЛКА fetch при відправці інвайту мужику ${recipientId}:`, error);
+       return false;
+    }
 }
 
 // Головна логіка (Інвайти + Листи + Розумні таймери + АНТИСПАМ)
