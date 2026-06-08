@@ -271,71 +271,43 @@ async function getExternalIdsFromLastMessage(token, chatUids) {
 }
 
 async function collectAllMen(token, profileId) {
-    let allClients = [];
-    let page = 1;
-    let hasMore = true;
+    console.log("🕵️‍♂️ Запускаю збір для аналізу...");
 
-    while (hasMore && isRunning) {
-        updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
+    const bodyData = {
+        user_id: String(profileId),
+        chat_uid: false,
+        page: 1,
+        freeze: true,
+        limits: null,
+        ONLINE_STATUS: 1,
+        SEARCH: "",
+        CHAT_TYPE: "CHANCE",
+        showHidden: 0,
+        blockedByWoman: 0,
+        blockedByMan: 0,
+    };
 
-        const bodyData = {
-            user_id: String(profileId),
-            chat_uid: false,
-            page: page,
-            freeze: true,
-            limits: null,
-            ONLINE_STATUS: 1,
-            SEARCH: "",
-            CHAT_TYPE: "CHANCE",
-            showHidden: 0,
-            blockedByWoman: 0,
-            blockedByMan: 0,
-        };
+    try {
+        const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify(bodyData),
+        });
 
-        try {
-            const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
-                method: "POST",
-                headers: getHeaders(token),
-                body: JSON.stringify(bodyData),
-            });
-            const data = await response.json();
-            const list = data.response || [];
+        const data = await response.json();
+        const list = data.response || [];
 
-            if (list.length === 0) {
-                hasMore = false;
-                break;
-            }
-
-            list.forEach((item) => {
-                // 🔥 ШУКАЄМО EXTERNAL ID (Довгий айдішнік)
-                // Перебираємо всі можливі варіанти, як вони могли його назвати
-                let externalId = item.external_id || item.opponent_external_id || item.male_external_id;
-
-                // Якщо раптом немає поля external, беремо той ID, який довший (це 100% він)
-                if (!externalId) {
-                    if (String(item.male_id).length >= 9) externalId = item.male_id;
-                    else if (String(item.opponent_id).length >= 9) externalId = item.opponent_id;
-                    else externalId = item.male_id; // На крайній випадок
-                }
-
-                const chatUid = item.chat_uid;
-
-                if (externalId && !allClients.some((c) => c.id === externalId)) {
-                    allClients.push({ id: externalId, chat_uid: chatUid });
-                }
-            });
-
-            updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
-            page++;
-            await sleep(500);
-
-        } catch (error) {
-            console.error("Помилка при зборі сторінки", page, error);
-            hasMore = false;
+        if (list.length > 0) {
+            // 🔥 ОСЬ ВІН, МОМЕНТ ІСТИНИ! Виводимо всі "кишки" першого мужика
+            console.log("🚨 [СЕКРЕТНИЙ АНАЛІЗ] Ось як виглядає мужик у базі:", list[0]);
+        } else {
+            console.log("⚠️ Радар повернув порожній список. Можливо, в Шансі нікого немає.");
         }
+    } catch (error) {
+        console.error("❌ Помилка", error);
     }
 
-    return allClients;
+    return []; // Одразу зупиняємо, щоб не йшло далі
 }
 
 
