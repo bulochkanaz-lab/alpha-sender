@@ -537,10 +537,12 @@ async function disableProfile(profileId) {
     }
 }
 
-async function sendInvite(token, profileId, recipientId, template) {
+// Додали п'ятий аргумент chatUid
+async function sendInvite(token, profileId, recipientId, template, chatUid) {
     const bodyData = {
        sender_id: Number(profileId),
        recipient_id: Number(recipientId),
+       chat_uid: chatUid, // 🔥 ТЕПЕР СЕРВЕР БАЧИТЬ ЧАТ!
        message_content: template.message_content,
        message_type: template.message_type || "SENT_TEXT",
        filename: "",
@@ -554,14 +556,12 @@ async function sendInvite(token, profileId, recipientId, template) {
           body: JSON.stringify(bodyData),
        });
 
-       // Читаємо відповідь сервера
        const data = await response.json();
 
        if (response.ok && data.status === true) {
           console.log(`✅ Інвайт УСПІШНО полетів до мужика ${recipientId}!`);
           return true;
        } else {
-          // 🔥 НАШ ЖУЧОК: Виводимо точну причину відмови від сайту
           console.warn(`🛑 ВІДМОВА ВІД САЙТУ (Мужик: ${recipientId}). Відповідь сервера:`, data);
           return false;
        }
@@ -770,7 +770,7 @@ async function startSendingProcess() {
 							// Якщо тексту ще немає в історії — відправляємо
 
 							if (!historyTexts.includes(normalizedText)) {
-								const success = await sendInvite(token, currentProfile.id, client.id, template);
+								const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
 								if (success) {
 									incrementStat("invites");
@@ -807,7 +807,7 @@ async function startSendingProcess() {
 						}
 
 						if (templateToSend) {
-							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend);
+							const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
 							if (success) {
 								incrementStat("invites");
@@ -833,7 +833,7 @@ async function startSendingProcess() {
 						continue;
 					}
 
-					const success = await sendInvite(token, currentProfile.id, client.id, randomTemplate);
+					const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
 					if (success) {
 						incrementStat("invites");
