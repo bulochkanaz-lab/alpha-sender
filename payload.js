@@ -277,8 +277,9 @@ async function collectAllMen(token, profileId) {
 
     while (hasMore && isRunning) {
         updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
+
         const bodyData = {
-            user_id: "",
+            user_id: String(profileId), // 🔥 ОПТИМІЗАЦІЯ №2: Запитуємо чати конкретної анкети
             chat_uid: false,
             page: page,
             freeze: true,
@@ -306,6 +307,14 @@ async function collectAllMen(token, profileId) {
             }
 
             const validChats = list.filter((item) => item.letter_limit > 0 && item.male_block === 0 && item.female_block === 0 && item.hide_chat === 0 && item.status === 1);
+
+            // 🔎 ТИМЧАСОВИЙ ЛОКАТОР ДЛЯ ПОШУКУ ID МУЖИКА В ПУСТИХ ЧАТАХ
+            if (validChats.length > 0 && page === 1) {
+                console.log("👉 СТРУКТУРА ОДНОГО ЧАТУ З САЙТУ:", validChats[0]);
+                // Відкрий консоль (F12) при старті і подивись, які поля є в цьому об'єкті.
+                // Нам треба знайти там ID чоловіка, щоб пусті чати більше не пролітали повз розсилку.
+            }
+
             const chatUids = validChats.map((item) => item.chat_uid).filter((uid) => uid);
 
             if (chatUids.length > 0) {
