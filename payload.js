@@ -307,14 +307,35 @@ async function collectAllMen(token, profileId) {
                 break;
             }
 
-            // 🔥 Ідеальний фільтр: беремо тих, кому можна слати або ЛИСТА, або ІНВАЙТ (в чат)
-            const validChats = list.filter((item) =>
-                (item.letter_limit > 0 || item.message_limit > 0) &&
-                item.male_block === 0 &&
-                item.female_block === 0 &&
-                item.hide_chat === 0 &&
-                item.status === 1
-            );
+            // --- РЕНТГЕН-АНАЛІЗ ПРОПУЩЕНИХ МУЖИКІВ ---
+            const validChats = [];
+
+            list.forEach((item) => {
+                const hasLimits = item.letter_limit > 0 || item.message_limit > 0;
+                const noBlocks = item.male_block === 0 && item.female_block === 0;
+                const notHidden = item.hide_chat === 0;
+                const isStatusOk = item.status === 1;
+
+                const isValid = hasLimits && noBlocks && notHidden && isStatusOk;
+
+                if (isValid) {
+                    validChats.push(item);
+                } else {
+                    // Виводимо в консоль точну причину відмови
+                    console.log(`❌ ПРОПУСК Мужика ${item.male_id}: Ліміти ок? ${hasLimits} | Блоків нема? ${noBlocks} | Не прихований? ${notHidden} | Статус = 1? ${isStatusOk}`);
+                }
+            });
+            // ------------------------------------------
+
+            validChats.forEach((item) => {
+                const manId = item.male_id;
+                const womanId = item.female_id;
+                const chatUid = item.chat_uid;
+
+                if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
+                    allClients.push({ id: manId, chat_uid: chatUid });
+                }
+            });
 
             // 🔥 СУПЕР-ОПТИМІЗАЦІЯ: Беремо ID прямо зі списку, без перевірки історії!
             validChats.forEach((item) => {
