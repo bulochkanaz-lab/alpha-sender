@@ -286,7 +286,7 @@ async function collectAllMen(token, profileId) {
             limits: null,
             ONLINE_STATUS: 1,
             SEARCH: "",
-            CHAT_TYPE: "CHANCE", // Залишаємо CHANCE, як ти казав
+            CHAT_TYPE: "CHANCE",
             showHidden: 0,
             blockedByWoman: 0,
             blockedByMan: 0,
@@ -301,49 +301,26 @@ async function collectAllMen(token, profileId) {
             const data = await response.json();
             const list = data.response || [];
 
-            // Якщо сайт повернув порожній масив - ми дійшли до кінця списку
             if (list.length === 0) {
                 hasMore = false;
                 break;
             }
 
-            // --- РЕНТГЕН-АНАЛІЗ ПРОПУЩЕНИХ МУЖИКІВ ---
-            const validChats = [];
-
-            list.forEach((item) => {
+            // 🔥 БРОНЕБІЙНИЙ ФІЛЬТР: пропускає null, 0, порожнечу (все, крім явної одиниці)
+            const validChats = list.filter((item) => {
                 const hasLimits = item.letter_limit > 0 || item.message_limit > 0;
-                const noBlocks = item.male_block === 0 && item.female_block === 0;
-                const notHidden = item.hide_chat === 0;
-                const isStatusOk = item.status === 1;
+                const noBlocks = item.male_block != 1 && item.female_block != 1;
+                const notHidden = item.hide_chat != 1;
+                const isStatusOk = item.status == 1;
 
-                const isValid = hasLimits && noBlocks && notHidden && isStatusOk;
-
-                if (isValid) {
-                    validChats.push(item);
-                } else {
-                    // Виводимо в консоль точну причину відмови
-                    console.log(`❌ ПРОПУСК Мужика ${item.male_id}: Ліміти ок? ${hasLimits} | Блоків нема? ${noBlocks} | Не прихований? ${notHidden} | Статус = 1? ${isStatusOk}`);
-                }
+                return hasLimits && noBlocks && notHidden && isStatusOk;
             });
-            // ------------------------------------------
 
             validChats.forEach((item) => {
                 const manId = item.male_id;
                 const womanId = item.female_id;
                 const chatUid = item.chat_uid;
 
-                if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
-                    allClients.push({ id: manId, chat_uid: chatUid });
-                }
-            });
-
-            // 🔥 СУПЕР-ОПТИМІЗАЦІЯ: Беремо ID прямо зі списку, без перевірки історії!
-            validChats.forEach((item) => {
-                const manId = item.male_id;
-                const womanId = item.female_id;
-                const chatUid = item.chat_uid;
-
-                // Якщо це наша анкета, є мужик, і ми його ще не додали в масив
                 if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
                     allClients.push({ id: manId, chat_uid: chatUid });
                 }
@@ -351,8 +328,6 @@ async function collectAllMen(token, profileId) {
 
             updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
-
-            // Невелика пауза, щоб сайт не забанив за спам запитами
             await sleep(500);
 
         } catch (error) {
