@@ -279,14 +279,14 @@ async function collectAllMen(token, profileId) {
         updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
 
         const bodyData = {
-            user_id: String(profileId), // 🔥 ОПТИМІЗАЦІЯ №2: Запитуємо чати конкретної анкети
+            user_id: String(profileId),
             chat_uid: false,
             page: page,
             freeze: true,
             limits: null,
             ONLINE_STATUS: 1,
             SEARCH: "",
-            CHAT_TYPE: "CHANCE",
+            CHAT_TYPE: "CHANCE", // Залишаємо CHANCE, як ти казав
             showHidden: 0,
             blockedByWoman: 0,
             blockedByMan: 0,
@@ -301,43 +301,41 @@ async function collectAllMen(token, profileId) {
             const data = await response.json();
             const list = data.response || [];
 
+            // Якщо сайт повернув порожній масив - ми дійшли до кінця списку
             if (list.length === 0) {
                 hasMore = false;
                 break;
             }
 
-            const validChats = list.filter((item) => item.letter_limit > 0 && item.male_block === 0 && item.female_block === 0 && item.hide_chat === 0 && item.status === 1);
+            // Фільтруємо тільки доступні чати
+            const validChats = list.filter((item) =>
+                item.letter_limit > 0 &&
+                item.male_block === 0 &&
+                item.female_block === 0 &&
+                item.hide_chat === 0 &&
+                item.status === 1
+            );
 
-            // 🔎 ТИМЧАСОВИЙ ЛОКАТОР ДЛЯ ПОШУКУ ID МУЖИКА В ПУСТИХ ЧАТАХ
-            if (validChats.length > 0 && page === 1) {
-                console.log("👉 СТРУКТУРА ОДНОГО ЧАТУ З САЙТУ:", validChats[0]);
-                // Відкрий консоль (F12) при старті і подивись, які поля є в цьому об'єкті.
-                // Нам треба знайти там ID чоловіка, щоб пусті чати більше не пролітали повз розсилку.
-            }
+            // 🔥 СУПЕР-ОПТИМІЗАЦІЯ: Беремо ID прямо зі списку, без перевірки історії!
+            validChats.forEach((item) => {
+                const manId = item.male_id;
+                const womanId = item.female_id;
+                const chatUid = item.chat_uid;
 
-            const chatUids = validChats.map((item) => item.chat_uid).filter((uid) => uid);
-
-            if (chatUids.length > 0) {
-                const lastMessagesData = await getExternalIdsFromLastMessage(token, chatUids);
-                const lastMessagesArray = lastMessagesData.response || lastMessagesData;
-
-                if (Array.isArray(lastMessagesArray)) {
-                    lastMessagesArray.forEach((msg) => {
-                        const { sender_external_id, recipient_external_id, is_male, chat_uid } = msg;
-                        const manId = is_male === 1 ? sender_external_id : recipient_external_id;
-                        const womanId = is_male === 1 ? recipient_external_id : sender_external_id;
-
-                        if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
-                            allClients.push({ id: manId, chat_uid });
-                        }
-                    });
+                // Якщо це наша анкета, є мужик, і ми його ще не додали в масив
+                if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
+                    allClients.push({ id: manId, chat_uid: chatUid });
                 }
-            }
+            });
 
             updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
+
+            // Невелика пауза, щоб сайт не забанив за спам запитами
             await sleep(500);
+
         } catch (error) {
+            console.error("Помилка при зборі сторінки", page, error);
             hasMore = false;
         }
     }
