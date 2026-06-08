@@ -301,33 +301,28 @@ async function collectAllMen(token, profileId) {
             const data = await response.json();
             const list = data.response || [];
 
+            // Якщо сайт повернув порожній масив - ми дійшли до кінця списку
             if (list.length === 0) {
                 hasMore = false;
                 break;
             }
 
-            // 🔥 БРОНЕБІЙНИЙ ФІЛЬТР: пропускає null, 0, порожнечу (все, крім явної одиниці)
-            const validChats = list.filter((item) => {
-                const hasLimits = item.letter_limit > 0 || item.message_limit > 0;
-                const noBlocks = item.male_block != 1 && item.female_block != 1;
-                const notHidden = item.hide_chat != 1;
-                const isStatusOk = item.status == 1;
-
-                return hasLimits && noBlocks && notHidden && isStatusOk;
-            });
-
-            validChats.forEach((item) => {
+            // 🔥 ПРОСТО БЕРЕМО ВСІХ! Без зайвих перевірок і блокувань.
+            // Сайт сам знає, кого показувати в "Шансі".
+            list.forEach((item) => {
                 const manId = item.male_id;
-                const womanId = item.female_id;
                 const chatUid = item.chat_uid;
 
-                if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
+                // Якщо ID існує і ми його ще не записали - додаємо в базу
+                if (manId && !allClients.some((c) => c.id === manId)) {
                     allClients.push({ id: manId, chat_uid: chatUid });
                 }
             });
 
             updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
+
+            // Невелика пауза, щоб сайт не забанив за спам запитами
             await sleep(500);
 
         } catch (error) {
