@@ -591,11 +591,11 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
        const data = await response.json();
 
        if (response.ok && data.status === true) {
-          console.log(`✅ [УСПІХ] Інвайт залетів до мужика ${man}!`);
+          //console.log(`✅ [УСПІХ] Інвайт залетів до мужика ${man}!`);
           return true;
        } else {
           // Якщо раптом сайт скаже, що чат уже занадто розвинений для Шансу
-          console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${man}). Пробуємо класику...`);
+          //console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${man}). Пробуємо класику...`);
 
           const backupPayload = { ...payload, chat_uid: chatUid };
           delete backupPayload.chance;
@@ -609,12 +609,12 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
               console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
               return true;
           } else {
-              console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ:`, backupData);
+              //console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ:`, backupData);
               return false;
           }
        }
     } catch (error) {
-       console.error(`❌ Критична помилка fetch:`, error);
+       //console.error(`❌ Критична помилка fetch:`, error);
        return false;
     }
 }
