@@ -367,4 +367,16 @@ class SmartSearch {
         if (this.currentHighlightIndex < 0) this.currentHighlightIndex = this.highlights.length - 1;
 
         const targetEl = this.highlights[this.currentHighlightIndex];
-        target
+
+        targetEl.style.border = "2px solid #ff9800";
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.updateCounter();
+    }
+
+    updateCounter() {
+        const countSpan = this.modal.querySelector('#alpha-search-count');
+        countSpan.innerText = this.highlights.length === 0 ? "0 / 0" : `${this.currentHighlightIndex + 1} / ${this.highlights.length}`;
+    }
+}
+
+window.alphaSmartSearch = new SmartSearch();
