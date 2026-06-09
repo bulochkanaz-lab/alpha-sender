@@ -1938,7 +1938,8 @@ function injectSearchButton() {
 
         searchContainer.addEventListener('click', async () => {
             const token = localStorage.getItem('token');
-            const match = window.location.href.match(/\/chat\/([a-z0-9\-]+)/);
+            const match = window.location.href.match(/\/(chat|letter)\/([a-z0-9\-]+)/);
+            const currentChatId = match ? match[2] : null;
             const currentChatId = match ? match[1] : null;
 
             if (!currentChatId || !window.alphaSmartSearch) return;
