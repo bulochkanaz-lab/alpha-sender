@@ -1946,30 +1946,22 @@ function injectSearchButton() {
             const textSpan = searchContainer.querySelector('.alpha-search-text');
             const progressFill = searchContainer.querySelector('.alpha-progress-fill');
 
-            // ЕТАП 2: Якщо вже завантажено, просто відкриваємо меню
-            if (isLoaded) {
-                window.alphaSmartSearch.open();
+            // Якщо ми вже завантажили історію САМЕ ДЛЯ ЦЬОГО чату — просто показуємо вікно
+            if (isLoaded && window.alphaSmartSearch.chatId === currentChatId) {
+                window.alphaSmartSearch.modal.style.display = "flex";
                 return;
             }
 
-            // ЕТАП 1: Якщо ще не завантажено, починаємо викачувати
-            if (!isLoading) {
-                isLoading = true;
-                textSpan.innerText = "Завантаження...";
+            // Якщо це перший клік або ми перейшли в інший чат — запускаємо нашу "дверну ручку"
+            window.alphaSmartSearch.openWithContext(currentChatId, token, 'chat');
 
-                // Передаємо функцію зворотного зв'язку, щоб smartSearch оновлював наш прогрес-бар
-                await window.alphaSmartSearch.preloadHistory(currentChatId, token, (percent) => {
-                    progressFill.style.width = `${percent}%`;
-                });
-
-                isLoading = false;
-                isLoaded = true;
-                textSpan.innerText = "Відкрити пошук";
-                textSpan.style.color = "#1976d2";
-                textSpan.style.fontWeight = "bold";
-                progressFill.style.background = "#bbdefb"; // Робимо фон більш контрастним
-                progressFill.style.width = "100%";
-            }
+            // Миттєво міняємо дизайн кнопки на "активний"
+            isLoaded = true;
+            textSpan.innerText = "Відкрити пошук";
+            textSpan.style.color = "#1976d2";
+            textSpan.style.fontWeight = "bold";
+            progressFill.style.background = "#bbdefb";
+            progressFill.style.width = "100%";
         });
 
         middleBlock.insertAdjacentElement('afterend', searchContainer);
