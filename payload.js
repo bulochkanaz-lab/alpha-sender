@@ -690,14 +690,13 @@ async function startSendingProcess() {
     }
     window.alphaHeartbeatInterval = setInterval(() => {
         if (isRunning) {
+            localStorage.setItem("alphaLockTime", Date.now().toString()); // Оновлюємо замок
             sendHeartbeatToServer(profilesToProcess);
         } else {
-            // Якщо бот зупинений - відправляємо порожній список, щоб в Telegram показало "Немає активних"
             sendHeartbeatToServer([]);
             clearInterval(window.alphaHeartbeatInterval);
         }
-    }, 60000);
-    // --- КІНЕЦЬ НОВОГО КОДУ ---
+    }, 20000); // Keep-Alive кожні 20 секунд
 
 	for (let pIndex = 0; pIndex < profilesToProcess.length; pIndex++) {
 		if (!isRunning) break;
@@ -1790,6 +1789,7 @@ function injectBotUI() {
 		clearInterval(botLoopTimer);
 		localStorage.setItem("alphaBotState", "stopped");
 		updatePopup("Зупинено", true, "-");
+		localStorage.removeItem("alphaLockTime");
 	};
 
 	checkBotMemory();
@@ -2288,6 +2288,14 @@ function updateProfileColors() {
 	}
 }
 
+// Ловимо екстрену зупинку від лоадера (якщо впав фон)
+window.addEventListener("AlphaBackgroundCrash", () => {
+    if (isRunning) {
+        document.getElementById("uiStopBtn").click(); // Емулюємо натискання Стоп
+        showSystemAlert("⚠️ Збій розширення", "Зв'язок з ядром втрачено (можливо через сторонні розширення). Розсилку безпечно зупинено.", "#f44336");
+    }
+});
+
 // ==========================================
 
 // ПАМ'ЯТЬ БОТА (ВІДНОВЛЕННЯ ПІСЛЯ F5)
@@ -2598,6 +2606,15 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 // Функція sendAutoMessage залишається без змін...
 
 async function sendAutoMessage(profileId, manId, text) {
+    // --- MUTEX LOCK: Захист від паралельних вкладок ---
+    const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
+    if (Date.now() - lastActive < 15000 && !isRunning) {
+        showSystemAlert("⛔ Помилка", "Розсилка вже працює в іншій вкладці! Зупиніть її там.", "#f44336");
+        document.getElementById("uiStartBtn").style.display = "block";
+        document.getElementById("uiStopBtn").style.display = "none";
+        return;
+    }
+    // --------------------------------------------------
 	let token = localStorage.getItem("token");
 
 	if (!token) return;
