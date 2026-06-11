@@ -716,22 +716,17 @@ async function startSendingProcess() {
 		let letterTemplates = [];
 
 		if (!useSiteTpl) {
-			// Беремо кастомні тексти з пам'яті
+          // Беремо ТІЛЬКИ кастомні тексти з пам'яті (без фоллбеку на сайт)
+          inviteTemplates = JSON.parse(localStorage.getItem(`alpha_invites_${currentProfile.id}`) || "[]");
+          letterTemplates = JSON.parse(localStorage.getItem(`alpha_letters_${currentProfile.id}`) || "[]");
 
-			const localInvites = JSON.parse(localStorage.getItem(`alpha_invites_${currentProfile.id}`) || "[]");
-
-			const localLetters = JSON.parse(localStorage.getItem(`alpha_letters_${currentProfile.id}`) || "[]");
-
-			// Якщо є свої - беремо їх. Якщо порожньо - робимо запит до сайту (Гнучкий режим)
-
-			inviteTemplates = localInvites.length > 0 ? localInvites : await getInviteTemplates(token, currentProfile.id);
-
-			letterTemplates = localLetters.length > 0 ? localLetters : await getTemplates(token, currentProfile.id);
-
-			// if (localInvites.length === 0) console.log(`⚠️ Для ${currentProfile.name} немає кастомних інвайтів. Взято з сайту.`);
-
-			// if (localLetters.length === 0) console.log(`⚠️ Для ${currentProfile.name} немає кастомних листів. Взято з сайту.`);
-		} else {
+          // Якщо для анкети немає ні інвайтів, ні листів — економимо час і йдемо до наступної
+          if (inviteTemplates.length === 0 && letterTemplates.length === 0) {
+             updatePopup(`Пропуск (немає текстів)`, false, profileNameDisplay);
+             await sleep(2000);
+             continue; // Перестрибуємо на наступну анкету
+          }
+       } else {
 			// Стандартний режим: беремо тільки з сайту
 
 			inviteTemplates = await getInviteTemplates(token, currentProfile.id);

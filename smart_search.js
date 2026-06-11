@@ -169,7 +169,7 @@ class SmartSearch {
         this.updateInternalProgress(0);
 
         let page = 1; let hasMore = true;
-        while (hasMore && page <= 50) {
+        while (hasMore && page <= 500) {
             try {
                 const response = await fetch("https://alpha.date/api/chatList/chatHistory", {
                     method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
@@ -179,7 +179,7 @@ class SmartSearch {
                 if (data.status === true && data.response && data.response.length > 0) {
                     this.chatMessages = this.chatMessages.concat(data.response);
                     page++;
-                    this.updateInternalProgress(Math.min(page * 5, 95));
+                    this.updateInternalProgress(Math.min(Math.floor(95 * (1 - Math.pow(0.9, page))), 95));
                 } else {
                     hasMore = false;
                 }
@@ -196,7 +196,7 @@ class SmartSearch {
         this.updateInternalProgress(0);
 
         let page = 1; let hasMore = true;
-        while (hasMore && page <= 50) {
+        while (hasMore && page <= 500) {
             try {
                 const response = await fetch("https://alpha.date/api/mailbox/mails", {
                     method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
@@ -227,7 +227,7 @@ class SmartSearch {
                         }
                     });
                     page++;
-                    this.updateInternalProgress(Math.min(page * 5, 95));
+                    this.updateInternalProgress(Math.min(Math.floor(95 * (1 - Math.pow(0.9, page))), 95));
                 } else {
                     hasMore = false;
                 }
