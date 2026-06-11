@@ -118,6 +118,15 @@ def verify_and_bind_key(access_key: str, hwid: str) -> tuple[bool, str]:
         print(f"DB ERROR: {e}")
         return False, "Помилка бази даних"
 
+def reset_all_hwids() -> int:
+    """Скидає HWID для всіх ключів у базі і повертає кількість оновлених рядків"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE keys SET hwid = NULL")
+    updated = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return updated
 
 def reset_hwid(access_key: str) -> bool:
     conn = get_connection()
