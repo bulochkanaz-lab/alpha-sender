@@ -868,37 +868,36 @@ async function startSendingProcess() {
 						}
 					}
 				} else {
-					// --- ШАБЛОНИ З САЙТУ (Стандартний рандомний режим) ---
+                // --- ШАБЛОНИ З САЙТУ (Послідовний режим) ---
+                let templateToSend = null;
 
-					const randomTemplate = inviteTemplates[Math.floor(Math.random() * inviteTemplates.length)];
+                for (let t = 0; t < inviteTemplates.length; t++) {
+                   const normalizedText = String(inviteTemplates[t].message_content).trim().toLowerCase();
 
-					const normalizedText = String(randomTemplate.message_content).trim().toLowerCase();
+                   // Шукаємо перший інвайт, якого ще немає в історії
+                   if (!historyTexts.includes(normalizedText)) {
+                      templateToSend = inviteTemplates[t];
+                      break;
+                   }
+                }
 
-					if (historyTexts.includes(normalizedText)) {
-						//(`⏩ Пропуск Інвайту для ${client.id}: такий текст вже є в історії!`);
+                if (templateToSend) {
+                   const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
-						continue;
-					}
+                   if (success) {
+                      incrementStat("invites");
+                      updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                   }
 
-					const success = await sendInvite(token, currentProfile.id, client.id, randomTemplate, client.chat_uid);
-
-					if (success) {
-						incrementStat("invites");
-
-						updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-					}
-
-					if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
-				}
-			}
+                   if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
+                }
+             }
 		}
 
 		if (!isRunning) break;
 
 		// ==========================================
-
 		// ПАУЗА МІЖ ІНВАЙТАМИ ТА ЛИСТАМИ
-
 		// ==========================================
 
 		if (hasInvites && hasLetters && phaseDelayMinutes > 0 && clientsList.length > 0) {
