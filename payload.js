@@ -890,9 +890,10 @@ async function startSendingProcess() {
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
-                }
-             }
-		}
+              }
+           }
+        }
+    }
 
 		if (!isRunning) break;
 
