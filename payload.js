@@ -854,7 +854,7 @@ async function startSendingProcess() {
 						}
 
 						if (templateToSend) {
-							const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
+							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
 							if (success) {
 								incrementStat("invites");
@@ -880,7 +880,7 @@ async function startSendingProcess() {
 						continue;
 					}
 
-					const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
+					const success = await sendInvite(token, currentProfile.id, client.id, randomTemplate, client.chat_uid);
 
 					if (success) {
 						incrementStat("invites");
