@@ -698,8 +698,10 @@ async function startSendingProcess() {
         }
     }, 20000); // Keep-Alive кожні 20 секунд
 
-	for (let pIndex = 0; pIndex < profilesToProcess.length; pIndex++) {
-		if (!isRunning) break;
+	let startIndex = parseInt(localStorage.getItem("alphaCurrentPIndex") || "0");
+    for (let pIndex = startIndex; pIndex < profilesToProcess.length; pIndex++) {
+       localStorage.setItem("alphaCurrentPIndex", pIndex.toString());
+       if (!isRunning) break;
 
 		const currentProfile = profilesToProcess[pIndex];
 
@@ -960,14 +962,11 @@ async function startSendingProcess() {
 	}
 
 	if (isRunning) {
+	    localStorage.removeItem("alphaCurrentPIndex");
 		updatePopup(`Перерва ${breakTimeMinutes} хв...`, false, t("statusWaiting"));
-
 		const resumeTime = Date.now() + breakTimeMinutes * 60 * 1000;
-
 		localStorage.setItem("alphaBotState", "waiting");
-
 		localStorage.setItem("alphaBotResumeTime", resumeTime.toString());
-
 		startWaitCountdown(resumeTime);
 	}
 }
@@ -993,12 +992,9 @@ function startWaitCountdown(resumeTime) {
 
 			startSendingProcess(); // Запуск нового кола без аргументів!
 		} else {
-			const min = Math.floor(left / 60000);
-
-			const sec = Math.floor((left % 60000) / 1000);
-
-			updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
-		}
+          const minLeft = Math.ceil(left / 60000);
+          updatePopup(`Перерва: ${minLeft} хв`, false, "Очікування...");
+       }
 	}, 1000);
 }
 
@@ -1764,8 +1760,8 @@ function injectBotUI() {
 
 	document.getElementById("uiStartBtn").onclick = () => {
 		if (isRunning) return;
-
 		isRunning = true;
+		localStorage.removeItem("alphaCurrentPIndex");
 
 		const delay = parseInt(document.getElementById("uiDelay").value);
 		const phaseDelay = parseInt(document.getElementById("uiPhaseDelay").value);

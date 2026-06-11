@@ -690,17 +690,18 @@ async function startSendingProcess() {
     }
     window.alphaHeartbeatInterval = setInterval(() => {
         if (isRunning) {
+            localStorage.setItem("alphaLockTime", Date.now().toString()); // Оновлюємо замок
             sendHeartbeatToServer(profilesToProcess);
         } else {
-            // Якщо бот зупинений - відправляємо порожній список, щоб в Telegram показало "Немає активних"
             sendHeartbeatToServer([]);
             clearInterval(window.alphaHeartbeatInterval);
         }
-    }, 60000);
-    // --- КІНЕЦЬ НОВОГО КОДУ ---
+    }, 20000); // Keep-Alive кожні 20 секунд
 
-	for (let pIndex = 0; pIndex < profilesToProcess.length; pIndex++) {
-		if (!isRunning) break;
+	let startIndex = parseInt(localStorage.getItem("alphaCurrentPIndex") || "0");
+    for (let pIndex = startIndex; pIndex < profilesToProcess.length; pIndex++) {
+       localStorage.setItem("alphaCurrentPIndex", pIndex.toString());
+       if (!isRunning) break;
 
 		const currentProfile = profilesToProcess[pIndex];
 
@@ -717,22 +718,17 @@ async function startSendingProcess() {
 		let letterTemplates = [];
 
 		if (!useSiteTpl) {
-			// Беремо кастомні тексти з пам'яті
+          // Беремо ТІЛЬКИ кастомні тексти з пам'яті (без фоллбеку на сайт)
+          inviteTemplates = JSON.parse(localStorage.getItem(`alpha_invites_${currentProfile.id}`) || "[]");
+          letterTemplates = JSON.parse(localStorage.getItem(`alpha_letters_${currentProfile.id}`) || "[]");
 
-			const localInvites = JSON.parse(localStorage.getItem(`alpha_invites_${currentProfile.id}`) || "[]");
-
-			const localLetters = JSON.parse(localStorage.getItem(`alpha_letters_${currentProfile.id}`) || "[]");
-
-			// Якщо є свої - беремо їх. Якщо порожньо - робимо запит до сайту (Гнучкий режим)
-
-			inviteTemplates = localInvites.length > 0 ? localInvites : await getInviteTemplates(token, currentProfile.id);
-
-			letterTemplates = localLetters.length > 0 ? localLetters : await getTemplates(token, currentProfile.id);
-
-			// if (localInvites.length === 0) console.log(`⚠️ Для ${currentProfile.name} немає кастомних інвайтів. Взято з сайту.`);
-
-			// if (localLetters.length === 0) console.log(`⚠️ Для ${currentProfile.name} немає кастомних листів. Взято з сайту.`);
-		} else {
+          // Якщо для анкети немає ні інвайтів, ні листів — економимо час і йдемо до наступної
+          if (inviteTemplates.length === 0 && letterTemplates.length === 0) {
+             updatePopup(`Пропуск (немає текстів)`, false, profileNameDisplay);
+             await sleep(2000);
+             continue; // Перестрибуємо на наступну анкету
+          }
+       } else {
 			// Стандартний режим: беремо тільки з сайту
 
 			inviteTemplates = await getInviteTemplates(token, currentProfile.id);
@@ -855,7 +851,7 @@ async function startSendingProcess() {
 						}
 
 						if (templateToSend) {
-							const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
+							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
 							if (success) {
 								incrementStat("invites");
@@ -869,37 +865,37 @@ async function startSendingProcess() {
 						}
 					}
 				} else {
-					// --- ШАБЛОНИ З САЙТУ (Стандартний рандомний режим) ---
+                // --- ШАБЛОНИ З САЙТУ (Послідовний режим) ---
+                let templateToSend = null;
 
-					const randomTemplate = inviteTemplates[Math.floor(Math.random() * inviteTemplates.length)];
+                for (let t = 0; t < inviteTemplates.length; t++) {
+                   const normalizedText = String(inviteTemplates[t].message_content).trim().toLowerCase();
 
-					const normalizedText = String(randomTemplate.message_content).trim().toLowerCase();
+                   // Шукаємо перший інвайт, якого ще немає в історії
+                   if (!historyTexts.includes(normalizedText)) {
+                      templateToSend = inviteTemplates[t];
+                      break;
+                   }
+                }
 
-					if (historyTexts.includes(normalizedText)) {
-						//(`⏩ Пропуск Інвайту для ${client.id}: такий текст вже є в історії!`);
+                if (templateToSend) {
+                   const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
-						continue;
-					}
+                   if (success) {
+                      incrementStat("invites");
+                      updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                   }
 
-					const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
-
-					if (success) {
-						incrementStat("invites");
-
-						updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-					}
-
-					if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
-				}
-			}
-		}
+                   if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
+              }
+           }
+        }
+    }
 
 		if (!isRunning) break;
 
 		// ==========================================
-
 		// ПАУЗА МІЖ ІНВАЙТАМИ ТА ЛИСТАМИ
-
 		// ==========================================
 
 		if (hasInvites && hasLetters && phaseDelayMinutes > 0 && clientsList.length > 0) {
@@ -966,14 +962,11 @@ async function startSendingProcess() {
 	}
 
 	if (isRunning) {
+	    localStorage.removeItem("alphaCurrentPIndex");
 		updatePopup(`Перерва ${breakTimeMinutes} хв...`, false, t("statusWaiting"));
-
 		const resumeTime = Date.now() + breakTimeMinutes * 60 * 1000;
-
 		localStorage.setItem("alphaBotState", "waiting");
-
 		localStorage.setItem("alphaBotResumeTime", resumeTime.toString());
-
 		startWaitCountdown(resumeTime);
 	}
 }
@@ -999,12 +992,9 @@ function startWaitCountdown(resumeTime) {
 
 			startSendingProcess(); // Запуск нового кола без аргументів!
 		} else {
-			const min = Math.floor(left / 60000);
-
-			const sec = Math.floor((left % 60000) / 1000);
-
-			updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
-		}
+          const minLeft = Math.ceil(left / 60000);
+          updatePopup(`Перерва: ${minLeft} хв`, false, "Очікування...");
+       }
 	}, 1000);
 }
 
@@ -1135,7 +1125,7 @@ function injectBotUI() {
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
                     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Fire Snakes</div>
+                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro</div>
                     <div class="alpha-lang-switch">
                         <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
                         <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
@@ -1770,8 +1760,8 @@ function injectBotUI() {
 
 	document.getElementById("uiStartBtn").onclick = () => {
 		if (isRunning) return;
-
 		isRunning = true;
+		localStorage.removeItem("alphaCurrentPIndex");
 
 		const delay = parseInt(document.getElementById("uiDelay").value);
 		const phaseDelay = parseInt(document.getElementById("uiPhaseDelay").value);
@@ -1790,6 +1780,7 @@ function injectBotUI() {
 		clearInterval(botLoopTimer);
 		localStorage.setItem("alphaBotState", "stopped");
 		updatePopup("Зупинено", true, "-");
+		localStorage.removeItem("alphaLockTime");
 	};
 
 	checkBotMemory();
@@ -2057,21 +2048,17 @@ function renderCustomInvites() {
 
 	saved.forEach((item, index) => {
 		const div = document.createElement("div");
-
 		div.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
 
 		// Додаємо нумерацію для наочності
 
 		const textSpan = document.createElement("span");
-
 		textSpan.innerText = `${index + 1}. ${item.message_content}`;
-
 		textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
 
 		// Контейнер для кнопок управління
 
 		const controlsDiv = document.createElement("div");
-
 		controlsDiv.style.cssText = `display: flex; align-items: center; gap: 8px; margin-left: 10px;`;
 
 		// Кнопка ВГОРУ (не показуємо для першого елемента)
@@ -2287,6 +2274,14 @@ function updateProfileColors() {
 		});
 	}
 }
+
+// Ловимо екстрену зупинку від лоадера (якщо впав фон)
+window.addEventListener("AlphaBackgroundCrash", () => {
+    if (isRunning) {
+        document.getElementById("uiStopBtn").click(); // Емулюємо натискання Стоп
+        showSystemAlert("⚠️ Збій розширення", "Зв'язок з ядром втрачено (можливо через сторонні розширення). Розсилку безпечно зупинено.", "#f44336");
+    }
+});
 
 // ==========================================
 
@@ -2598,6 +2593,15 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 // Функція sendAutoMessage залишається без змін...
 
 async function sendAutoMessage(profileId, manId, text) {
+    // --- MUTEX LOCK: Захист від паралельних вкладок ---
+    const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
+    if (Date.now() - lastActive < 15000 && !isRunning) {
+        showSystemAlert("⛔ Помилка", "Розсилка вже працює в іншій вкладці! Зупиніть її там.", "#f44336");
+        document.getElementById("uiStartBtn").style.display = "block";
+        document.getElementById("uiStopBtn").style.display = "none";
+        return;
+    }
+    // --------------------------------------------------
 	let token = localStorage.getItem("token");
 
 	if (!token) return;
