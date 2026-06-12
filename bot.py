@@ -32,7 +32,8 @@ main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔑 Додати ключ"), KeyboardButton(text="📋 База ключів")],
         [KeyboardButton(text="🗑 Видалити ключі"), KeyboardButton(text="➕ Згенерувати ключі")],
-        [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути HWID")]
+        [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути HWID")],
+        [KeyboardButton(text="🧨 Скинути ВСІ HWID одночасно")] # Додали сюди
     ],
     resize_keyboard=True
 )
@@ -124,6 +125,8 @@ async def process_toggle_ban(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ Такого ключа не знайдено в базі.")
     await state.clear()
+
+
 
 
 # ==========================================
