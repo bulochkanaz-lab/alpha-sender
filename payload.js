@@ -2508,13 +2508,6 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
        }
 
-       if (!isRunning) return; // 🛑 Блокуємо розсилку та автовідповідач, якщо на паузі
-
-       // ==========================================
-       // 🛑 УВАГА: Далі йде автовідповідач (Лайки/Вінки).
-       // Він МАЄ блокуватися, якщо бот зупинений!
-       if (!isRunning) return;
-
        // ==========================================
        // РОЗУМНИЙ АВТОВІДПОВІДАЧ (Лайки / Кастомні Вінки)
        // ==========================================
@@ -2600,50 +2593,46 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 // Функція sendAutoMessage залишається без змін...
 
 async function sendAutoMessage(profileId, manId, text) {
-    // --- MUTEX LOCK: Захист від паралельних вкладок ---
+    // --- MUTEX LOCK: Захист від паралельних вкладок залишаємо ---
     const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
     if (Date.now() - lastActive < 15000 && !isRunning) {
-        showSystemAlert("⛔ Помилка", "Розсилка вже працює в іншій вкладці! Зупиніть її там.", "#f44336");
-        document.getElementById("uiStartBtn").style.display = "block";
-        document.getElementById("uiStopBtn").style.display = "none";
-        return;
+        return; // Просто тихо виходимо, якщо є інша активна вкладка
     }
     // --------------------------------------------------
-	let token = localStorage.getItem("token");
 
-	if (!token) return;
+    let token = localStorage.getItem("token");
+    if (!token) return;
+    token = token.replace(/^"|"$/g, "");
 
-	token = token.replace(/^"|"$/g, "");
+    const payload = {
+       sender_id: Number(profileId),
+       recipient_id: Number(manId),
+       message_content: text,
+       message_type: "SENT_TEXT",
+       filename: "",
+       chance: true, // Пробуємо як перший шанс
+    };
 
-	const bodyData = {
-		sender_id: Number(profileId),
+    try {
+       const response = await fetch("https://alpha.date/api/chat/message", {
+          method: "POST",
+          headers: getHeaders(token),
+          body: JSON.stringify(payload),
+       });
+       const data = await response.json();
 
-		recipient_id: Number(manId),
+       // Якщо шанс не пройшов, стріляємо класичним повідомленням
+       if (!response.ok || data.status !== true) {
+          const backupPayload = { ...payload };
+          delete backupPayload.chance;
 
-		message_content: text,
-
-		message_type: "SENT_TEXT",
-
-		filename: "",
-
-		chance: true,
-	};
-
-	try {
-		const response = await fetch("https://alpha.date/api/chat/message", {
-			method: "POST",
-
-			headers: getHeaders(token), // Функція getHeaders вже є у твоєму файлі вище
-
-			body: JSON.stringify(bodyData),
-		});
-
-		const data = await response.json();
-
-		if (response.ok && data.status === true) {
-			// console.log(`✅ УСПІХ! Автовідповідь надіслана: "${text}"`);
-		}
-	} catch (error) {
-		//console.error("Помилка автовідповіді", error);
-	}
+          await fetch("https://alpha.date/api/chat/message", {
+              method: "POST",
+              headers: getHeaders(token),
+              body: JSON.stringify(backupPayload)
+          });
+       }
+    } catch (error) {
+       // Тиха помилка, щоб не спамити в консоль
+    }
 }
