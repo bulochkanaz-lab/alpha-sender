@@ -25,6 +25,12 @@ def init_db():
     )
     """)
 
+    # ДОДАЄМО ЦЕ: Колонка для зберігання наказів (C&C)
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN pending_config TEXT")
+    except sqlite3.OperationalError:
+        pass  # Якщо колонка вже є
+
     # ДОДАЛИ ЦЕЙ БЛОК: Безпечно додаємо колонку до вже існуючої таблиці
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
