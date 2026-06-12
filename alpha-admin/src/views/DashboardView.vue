@@ -1,14 +1,14 @@
 <template>
-  <div style="padding: 20px;">
+  <div style="padding: 20px; position: relative;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
       <h2>Панель керування Alpha</h2>
-      <button @click="logout" style="padding: 8px 15px; background: #ff4d4f; color: white; border: none; cursor: pointer;">Вийти</button>
+      <button @click="logout" style="padding: 8px 15px; background: #ff4d4f; color: white; border: none; border-radius: 5px; cursor: pointer;">Вийти</button>
     </div>
 
     <p v-if="loading">Завантаження даних...</p>
     <p v-else-if="error" style="color: red;">{{ error }}</p>
 
-    <table v-else border="1" cellpadding="10" style="border-collapse: collapse; width: 100%; background: white;">
+    <table v-else border="1" cellpadding="10" style="border-collapse: collapse; width: 100%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
       <thead style="background: #f0f0f0;">
         <tr>
           <th>ID</th>
@@ -16,20 +16,33 @@
           <th>HWID</th>
           <th>Баланс</th>
           <th>Бан</th>
+          <th>Дії</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="user in users" :key="user.id" style="text-align: center;">
           <td>{{ user.id }}</td>
-          <td style="font-family: monospace;">{{ user.access_key }}</td>
-          <td>{{ user.hwid || '—' }}</td>
+          <td style="font-family: monospace; font-weight: bold; color: #333;">{{ user.access_key }}</td>
+          <td style="color: #666;">{{ user.hwid || '—' }}</td>
           <td>{{ user.balance }}</td>
-          <td :style="{ color: user.is_banned ? 'red' : 'green' }">
+          <td :style="{ color: user.is_banned ? '#ff4d4f' : '#52c41a', fontWeight: 'bold' }">
             {{ user.is_banned ? 'Так' : 'Ні' }}
+          </td>
+          <td>
+            <button @click="toggleBan(user.access_key)" style="margin-right: 5px; padding: 5px 10px; cursor: pointer;">
+              {{ user.is_banned ? '🟢 Розбанити' : '🔴 Забанити' }}
+            </button>
+            <button @click="resetHwid(user.access_key)" style="margin-right: 5px; padding: 5px 10px; cursor: pointer;">
+              🔄 Скинути HWID
+            </button>
+            <button @click="deleteKey(user.access_key)" style="padding: 5px 10px; cursor: pointer; color: white; background: #ff4d4f; border: 1px solid #ff4d4f; border-radius: 3px;">
+              🗑️ Видалити
+            </button>
           </td>
         </tr>
       </tbody>
     </table>
+
   </div>
 </template>
 
@@ -42,21 +55,20 @@ import axios from 'axios'
 const router = useRouter()
 const authStore = useAuthStore()
 
-// Змінні для зберігання стану сторінки
 const users = ref([])
 const loading = ref(true)
 const error = ref('')
 
-// Логіка виходу
+const SERVER_URL = 'http://178.105.190.180:8001'
+
 const logout = () => {
   authStore.logout()
   router.push('/login')
 }
 
-// Запит на сервер за списком ключів
 const fetchUsers = async () => {
   try {
-    const response = await axios.get('http://178.105.190.180:8001/admin/keys', {
+    const response = await axios.get(`${SERVER_URL}/admin/keys`, {
       headers: { 'admin-token': authStore.token }
     })
 
@@ -66,14 +78,40 @@ const fetchUsers = async () => {
       error.value = 'Помилка отримання даних від сервера'
     }
   } catch (e) {
-    error.value = 'Не вдалося з\'єднатися з бекендом. Перевір, чи запущений сервер.'
+    error.value = 'Не вдалося з\'єднатися з бекендом.'
     console.error(e)
   } finally {
     loading.value = false
   }
 }
 
-// Автоматично запускаємо функцію fetchUsers при відкритті сторінки
+// ==========================================
+// ШВИДКІ ДІЇ
+// ==========================================
+
+const toggleBan = async (key) => {
+  try {
+    await axios.post(`${SERVER_URL}/admin/toggle_ban`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
+    fetchUsers()
+  } catch (e) { console.error(e) }
+}
+
+const resetHwid = async (key) => {
+  if (!confirm(`Точно скинути HWID для ${key}?`)) return
+  try {
+    await axios.post(`${SERVER_URL}/admin/reset_hwid`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
+    fetchUsers()
+  } catch (e) { console.error(e) }
+}
+
+const deleteKey = async (key) => {
+  if (!confirm(`Точно видалити ключ ${key}?`)) return
+  try {
+    await axios.post(`${SERVER_URL}/admin/delete_key`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
+    fetchUsers()
+  } catch (e) { console.error(e) }
+}
+
 onMounted(() => {
   fetchUsers()
 })
