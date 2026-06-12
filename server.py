@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.responses import Response
 
-
 app = FastAPI()
 
 ADMIN_SECRET_TOKEN = "SuperSecretAlphaKey_2026_ChangeMe" # Зміниш на щось складне
@@ -25,7 +24,7 @@ def verify_admin(admin_token: str = Header(None)):
 # Абсолютні шляхи - це наш захист від того, що сервер "забуде" де файли
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PAYLOAD_PATH = os.path.join(BASE_DIR, "payload.js")
-SMART_SEARCH_PATH = os.path.join(BASE_DIR, "smart_search.js") # ДОДАЛИ ЦЕЙ РЯДОК
+SMART_SEARCH_PATH = os.path.join(BASE_DIR, "smart_search.js")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +33,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class AuthRequest(BaseModel):
     access_key: str = ""
@@ -68,7 +66,6 @@ async def config_applied(request: ConfigAppliedRequest):
 
     db = database_fs if request.team == "fs" else database
 
-    # Обов'язково перевіряємо валідність ключа і HWID, щоб хтось чужий не скинув наказ
     success, message = db.verify_and_bind_key(key, hwid)
 
     if success:
@@ -92,7 +89,6 @@ async def authenticate(request: AuthRequest):
     key = request.access_key.replace('"', '').strip()
     hwid = request.hwid.strip()
 
-    # ВИБИРАЄМО БАЗУ:
     db = database_fs if request.team == "fs" else database
 
     success, message = db.verify_and_bind_key(key, hwid)
@@ -102,7 +98,6 @@ async def authenticate(request: AuthRequest):
 
 
 @app.post("/heartbeat")
-<<<<<<< HEAD
 async def heartbeat(request: HeartbeatRequest):
     key = request.access_key.replace('"', '').strip()
     hwid = request.hwid.strip()
@@ -134,33 +129,26 @@ async def heartbeat(request: HeartbeatRequest):
         return {"status": "banned", "message": message}
 
     return {"status": "error", "message": message}
-=======
->>>>>>> master
 
 
-# Додаємо параметр team зі стандартним значенням "alpha"
 @app.get("/get_payload")
 async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team: str = "alpha"):
     key = key.replace('"', '').strip()
     hwid = hwid.strip()
 
-    # ТУТ ТЕЖ ТРЕБА ВИБРАТИ БАЗУ! (Ось де ховалася помилка цілісності)
     db = database_fs if team == "fs" else database
 
     success, msg = db.verify_and_bind_key(key, hwid)
     if success:
         try:
-            # Визначаємо, який файл брати залежно від команди
             if team == "fs":
                 current_payload_path = os.path.join(BASE_DIR, "payload-fs.js")
             else:
                 current_payload_path = os.path.join(BASE_DIR, "payload.js")
 
-            # Читаємо smart_search.js (він спільний для всіх)
             with open(SMART_SEARCH_PATH, "r", encoding="utf-8") as f_search:
                 smart_search_js = f_search.read()
 
-            # Читаємо потрібний payload
             with open(current_payload_path, "r", encoding="utf-8") as f_payload:
                 main_payload_js = f_payload.read()
 
@@ -177,12 +165,10 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
 
 
 def encrypt_payload(payload: str, key: str) -> str:
-    # Створюємо 32-байтний ключ з access_key для AES-256
     aes_key = hashlib.sha256(key.encode()).digest()
     aesgcm = AESGCM(aes_key)
     nonce = os.urandom(12)  # Унікальний вектор ініціалізації
 
-    # Шифруємо і об'єднуємо з nonce
     ct = aesgcm.encrypt(nonce, payload.encode('utf-8'), None)
     return base64.b64encode(nonce + ct).decode('utf-8')
 
@@ -198,16 +184,17 @@ async def get_admin_keys(team: str = "alpha", authorized: bool = Depends(verify_
 
     conn = db.get_connection()
     cursor = conn.cursor()
-    # Витягуємо всі дані, включаючи поточні накази
     cursor.execute("SELECT access_key, hwid, is_banned, profiles, pending_config FROM keys")
     rows = cursor.fetchall()
     conn.close()
 
     keys_list = []
-    for row in rows:
+    for index, row in enumerate(rows, start=1):
         keys_list.append({
+            "id": index,  # Порядковий номер для таблиці Vue
             "access_key": row[0],
             "hwid": row[1],
+            "balance": 0,  # Заглушка (або підтягуй з бази, якщо додаси таку колонку)
             "is_banned": bool(row[2]),
             "profiles": json.loads(row[3]) if row[3] else [],
             "pending_config": json.loads(row[4]) if row[4] else None
