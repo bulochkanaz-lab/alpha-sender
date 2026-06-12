@@ -46,6 +46,8 @@ class HeartbeatRequest(BaseModel):
     hwid: str = ""
     profiles: list = []
     team: str = "alpha"
+    stats_invites: int = 0  # <--- Додали лічильник інвайтів
+    stats_letters: int = 0  # <--- Додали лічильник листів
 
 class AdminConfigUpdateRequest(BaseModel):
     access_key: str
@@ -108,6 +110,16 @@ async def heartbeat(request: HeartbeatRequest):
 
     if success:
         db.update_profiles(key, request.profiles)
+
+        # --- ОНОВЛЕННЯ СТАТИСТИКИ ТА ПІНГУ ---
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE keys SET stats_invites = ?, stats_letters = ?, last_ping = CURRENT_TIMESTAMP WHERE access_key = ?",
+            (request.stats_invites, request.stats_letters, key)
+        )
+        conn.commit()
+        # -----------------------------------
 
         # Перевіряємо, чи є нові накази від адміна
         conn = db.get_connection()
@@ -184,7 +196,7 @@ async def get_admin_keys(team: str = "alpha", authorized: bool = Depends(verify_
 
     conn = db.get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT access_key, hwid, is_banned, profiles, pending_config FROM keys")
+    cursor.execute("SELECT access_key, hwid, is_banned, profiles, pending_config, stats_invites, stats_letters, last_ping FROM keys")
     rows = cursor.fetchall()
     conn.close()
 
@@ -197,7 +209,10 @@ async def get_admin_keys(team: str = "alpha", authorized: bool = Depends(verify_
             "balance": 0,  # Заглушка (або підтягуй з бази, якщо додаси таку колонку)
             "is_banned": bool(row[2]),
             "profiles": json.loads(row[3]) if row[3] else [],
-            "pending_config": json.loads(row[4]) if row[4] else None
+            "pending_config": json.loads(row[4]) if row[4] else None,
+            "stats_invites": row[5] or 0,  # <--- Додали
+            "stats_letters": row[6] or 0,  # <--- Додали
+            "last_ping": row[7]  # <--- Додали
         })
 
     return {"status": "success", "keys": keys_list}

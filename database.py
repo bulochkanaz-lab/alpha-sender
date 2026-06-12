@@ -31,6 +31,14 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Якщо колонка вже є
 
+    # ДОДАЄМО ЦЕ: Колонки для статистики та онлайну
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN stats_invites INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE keys ADD COLUMN stats_letters INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE keys ADD COLUMN last_ping TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass  # Якщо колонки вже є
+
     # ДОДАЛИ ЦЕЙ БЛОК: Безпечно додаємо колонку до вже існуючої таблиці
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
