@@ -221,3 +221,63 @@ async def update_user_config(request: AdminConfigUpdateRequest, authorized: bool
     conn.close()
 
     return {"status": "success", "message": f"Наказ для {request.access_key} збережено"}
+
+
+# ==========================================
+# ШВИДКІ ДІЇ (Quick Actions)
+# ==========================================
+
+class AdminActionRequest(BaseModel):
+    access_key: str
+    team: str = "alpha"
+
+
+@app.post("/admin/toggle_ban")
+async def toggle_ban(request: AdminActionRequest, authorized: bool = Depends(verify_admin)):
+    """Блокує або розблоковує користувача (перемикач)"""
+    db = database_fs if request.team == "fs" else database
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT is_banned FROM keys WHERE access_key = ?", (request.access_key,))
+    row = cursor.fetchone()
+
+    if row is not None:
+        new_status = 0 if row[0] else 1  # Якщо був 1 (бан), ставимо 0. Якщо був 0, ставимо 1.
+        cursor.execute("UPDATE keys SET is_banned = ? WHERE access_key = ?", (new_status, request.access_key))
+        conn.commit()
+        action_str = "заблоковано" if new_status else "розблоковано"
+        message = f"Ключ {request.access_key} успішно {action_str}"
+    else:
+        message = "Ключ не знайдено"
+
+    conn.close()
+    return {"status": "success", "message": message}
+
+
+@app.post("/admin/reset_hwid")
+async def reset_hwid(request: AdminActionRequest, authorized: bool = Depends(verify_admin)):
+    """Скидає прив'язку до комп'ютера (HWID)"""
+    db = database_fs if request.team == "fs" else database
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("UPDATE keys SET hwid = NULL WHERE access_key = ?", (request.access_key,))
+    conn.commit()
+    conn.close()
+
+    return {"status": "success", "message": f"HWID для {request.access_key} скинуто"}
+
+
+@app.post("/admin/delete_key")
+async def delete_key(request: AdminActionRequest, authorized: bool = Depends(verify_admin)):
+    """Повністю видаляє ключ із бази"""
+    db = database_fs if request.team == "fs" else database
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM keys WHERE access_key = ?", (request.access_key,))
+    conn.commit()
+    conn.close()
+
+    return {"status": "success", "message": f"Ключ {request.access_key} назавжди видалено"}
