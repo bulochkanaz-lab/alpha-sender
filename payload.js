@@ -986,16 +986,15 @@ function startWaitCountdown(resumeTime) {
 		const left = resumeTime - Date.now();
 
 		if (left <= 0) {
-			clearInterval(botLoopTimer);
-
-			localStorage.setItem("alphaBotState", "running");
-
-			startSendingProcess(); // Запуск нового кола без аргументів!
-		} else {
-          const minLeft = Math.ceil(left / 60000);
-          updatePopup(`Перерва: ${minLeft} хв`, false, "Очікування...");
+          clearInterval(botLoopTimer);
+          localStorage.setItem("alphaBotState", "running");
+          startSendingProcess(); // Запуск нового кола без аргументів!
+       } else {
+          const min = Math.floor(left / 60000);
+          const sec = Math.floor((left % 60000) / 1000);
+          updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
        }
-	}, 1000);
+    }, 1000);
 }
 
 // ==========================================

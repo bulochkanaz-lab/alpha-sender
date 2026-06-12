@@ -102,6 +102,7 @@ async def authenticate(request: AuthRequest):
 
 
 @app.post("/heartbeat")
+<<<<<<< HEAD
 async def heartbeat(request: HeartbeatRequest):
     key = request.access_key.replace('"', '').strip()
     hwid = request.hwid.strip()
@@ -133,6 +134,8 @@ async def heartbeat(request: HeartbeatRequest):
         return {"status": "banned", "message": message}
 
     return {"status": "error", "message": message}
+=======
+>>>>>>> master
 
 
 # Додаємо параметр team зі стандартним значенням "alpha"
