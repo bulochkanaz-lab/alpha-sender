@@ -196,7 +196,8 @@ async function getAllProfiles(token) {
             headers: getHeaders(token),
         });
         const data = await response.json();
-        return Array.isArray(data) ? data.filter((p) => p.online === 1) : [];
+        // Повертаємо всі анкети без фільтрації
+        return Array.isArray(data) ? data : [];
     } catch (error) {
         return [];
     }
@@ -276,8 +277,9 @@ async function collectAllMen(token, profileId) {
 
     while (hasMore && isRunning) {
         updatePopup(`Шукаю мужиків (Сторінка ${page})...`);
+
         const bodyData = {
-            user_id: "",
+            user_id: String(profileId),
             chat_uid: false,
             page: page,
             freeze: true,
@@ -291,6 +293,7 @@ async function collectAllMen(token, profileId) {
         };
 
         try {
+            // 1. Отримуємо список "коротких" мужиків
             const response = await fetch("https://alpha.date/api/chatList/chatListByUserID", {
                 method: "POST",
                 headers: getHeaders(token),
@@ -304,30 +307,59 @@ async function collectAllMen(token, profileId) {
                 break;
             }
 
-            const validChats = list.filter((item) => item.letter_limit > 0 && item.male_block === 0 && item.female_block === 0 && item.hide_chat === 0 && item.status === 1);
-            const chatUids = validChats.map((item) => item.chat_uid).filter((uid) => uid);
+            // 2. Збираємо всі chat_uid з цієї сторінки в один масив
+            const chatUids = list.map(item => item.chat_uid).filter(uid => uid);
 
+            // 3. Робимо ОДИН масовий запит за останніми повідомленнями
+            let messagesData = [];
             if (chatUids.length > 0) {
-                const lastMessagesData = await getExternalIdsFromLastMessage(token, chatUids);
-                const lastMessagesArray = lastMessagesData.response || lastMessagesData;
+                const lastMsgResponse = await fetch("https://alpha.date/api/chatList/lastMessage", {
+                    method: "POST",
+                    headers: getHeaders(token),
+                    body: JSON.stringify({ chat_uid: chatUids }) // Передаємо масив
+                });
+                const lastMsgJson = await lastMsgResponse.json();
 
-                if (Array.isArray(lastMessagesArray)) {
-                    lastMessagesArray.forEach((msg) => {
-                        const { sender_external_id, recipient_external_id, is_male, chat_uid } = msg;
-                        const manId = is_male === 1 ? sender_external_id : recipient_external_id;
-                        const womanId = is_male === 1 ? recipient_external_id : sender_external_id;
-
-                        if (womanId == profileId && manId && !allClients.some((c) => c.id === manId)) {
-                            allClients.push({ id: manId, chat_uid });
-                        }
-                    });
+                // Сайт може повернути масив або об'єкт, нормалізуємо це
+                messagesData = lastMsgJson.response || lastMsgJson.data || [];
+                if (!Array.isArray(messagesData) && typeof messagesData === 'object') {
+                    messagesData = Object.values(messagesData);
                 }
             }
+
+            // 4. З'єднуємо коротких мужиків з їхніми довгими ID (external_id)
+            list.forEach((item) => {
+                let externalId = null;
+                const chatUid = item.chat_uid;
+
+                // Шукаємо повідомлення для цього чату
+                const msg = messagesData.find(m => m.chat_uid === chatUid);
+
+                if (msg) {
+                    // Твоя золота логіка зі старих архівів!
+                    if (Number(msg.is_male) === 1) {
+                        externalId = msg.sender_external_id;
+                    } else {
+                        externalId = msg.recipient_external_id;
+                    }
+                }
+
+                // Фолбек: якщо чат АБСОЛЮТНО порожній і немає lastMessage
+                if (!externalId) {
+                    externalId = item.male_id;
+                }
+
+                if (externalId && !allClients.some((c) => c.id === externalId)) {
+                    allClients.push({ id: externalId, chat_uid: chatUid });
+                }
+            });
 
             updatePopup(`Збір мужиків (Сторінка ${page})... Знайдено: ${allClients.length}`);
             page++;
             await sleep(500);
+
         } catch (error) {
+            console.error("❌ Помилка при зборі сторінки", page, error);
             hasMore = false;
         }
     }
@@ -380,9 +412,7 @@ async function isDuplicateInHistory(token, chatUid, textToCheck) {
 }
 
 // ==========================================
-
 // АНТИ-СПАМ: Швидке читання останніх повідомлень
-
 // ==========================================
 
 async function getRecentHistoryTexts(token, chatUid) {
@@ -538,44 +568,55 @@ async function disableProfile(profileId) {
     }
 }
 
-async function sendInvite(token, profileId, recipientId, template) {
-	const bodyData = {
-		sender_id: Number(profileId),
+async function sendInvite(token, profileId, recipientId, template, chatUid) {
+    const man = Number(recipientId);
+    const woman = Number(profileId);
 
-		recipient_id: Number(recipientId),
+    const payload = {
+       sender_id: woman,
+       recipient_id: man, // 🔥 ТЕПЕР ТУТ ЛЕТИТЬ ДОВГИЙ EXTERNAL ID!
+       message_content: template.message_content,
+       message_type: template.message_type || "SENT_TEXT",
+       filename: "",
+       chance: true
+    };
 
-		message_content: template.message_content,
+    try {
+       const response = await fetch("https://alpha.date/api/chat/message", {
+          method: "POST",
+          headers: getHeaders(token),
+          body: JSON.stringify(payload)
+       });
 
-		message_type: template.message_type || "SENT_TEXT",
+       const data = await response.json();
 
-		filename: "",
+       if (response.ok && data.status === true) {
+          //console.log(`✅ [УСПІХ] Інвайт залетів до мужика ${man}!`);
+          return true;
+       } else {
+          // Якщо раптом сайт скаже, що чат уже занадто розвинений для Шансу
+          //console.warn(`🛑 ВІДМОВА З CHANCE (Мужик: ${man}). Пробуємо класику...`);
 
-		chance: true,
-	};
+          const backupPayload = { ...payload, chat_uid: chatUid };
+          delete backupPayload.chance;
 
-	try {
-		const response = await fetch("https://alpha.date/api/chat/message", {
-			method: "POST",
+          const backupResponse = await fetch("https://alpha.date/api/chat/message", {
+              method: "POST", headers: getHeaders(token), body: JSON.stringify(backupPayload)
+          });
+          const backupData = await backupResponse.json();
 
-			headers: getHeaders(token),
-
-			body: JSON.stringify(bodyData),
-		});
-
-		const data = await response.json();
-
-		if (response.ok && data.status === true) {
-			return true;
-		} else {
-			// console.warn(`⚠️ Відмова інвайту для ID ${recipientId}:`, data);
-
-			return false;
-		}
-	} catch (error) {
-		// console.error(`❌ Помилка fetch при відправці інвайту:`, error);
-
-		return false;
-	}
+          if (backupResponse.ok && backupData.status === true) {
+              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
+              return true;
+          } else {
+              //console.error(`❌ ПОСТРІЛ НЕ ВДАВСЯ:`, backupData);
+              return false;
+          }
+       }
+    } catch (error) {
+       //console.error(`❌ Критична помилка fetch:`, error);
+       return false;
+    }
 }
 
 // Головна логіка (Інвайти + Листи + Розумні таймери + АНТИСПАМ)
@@ -649,17 +690,18 @@ async function startSendingProcess() {
     }
     window.alphaHeartbeatInterval = setInterval(() => {
         if (isRunning) {
+            localStorage.setItem("alphaLockTime", Date.now().toString()); // Оновлюємо замок
             sendHeartbeatToServer(profilesToProcess);
         } else {
-            // Якщо бот зупинений - відправляємо порожній список, щоб в Telegram показало "Немає активних"
             sendHeartbeatToServer([]);
             clearInterval(window.alphaHeartbeatInterval);
         }
-    }, 60000);
-    // --- КІНЕЦЬ НОВОГО КОДУ ---
+    }, 20000); // Keep-Alive кожні 20 секунд
 
-	for (let pIndex = 0; pIndex < profilesToProcess.length; pIndex++) {
-		if (!isRunning) break;
+	let startIndex = parseInt(localStorage.getItem("alphaCurrentPIndex") || "0");
+    for (let pIndex = startIndex; pIndex < profilesToProcess.length; pIndex++) {
+       localStorage.setItem("alphaCurrentPIndex", pIndex.toString());
+       if (!isRunning) break;
 
 		const currentProfile = profilesToProcess[pIndex];
 
@@ -676,22 +718,17 @@ async function startSendingProcess() {
 		let letterTemplates = [];
 
 		if (!useSiteTpl) {
-			// Беремо кастомні тексти з пам'яті
+          // Беремо ТІЛЬКИ кастомні тексти з пам'яті (без фоллбеку на сайт)
+          inviteTemplates = JSON.parse(localStorage.getItem(`alpha_invites_${currentProfile.id}`) || "[]");
+          letterTemplates = JSON.parse(localStorage.getItem(`alpha_letters_${currentProfile.id}`) || "[]");
 
-			const localInvites = JSON.parse(localStorage.getItem(`alpha_invites_${currentProfile.id}`) || "[]");
-
-			const localLetters = JSON.parse(localStorage.getItem(`alpha_letters_${currentProfile.id}`) || "[]");
-
-			// Якщо є свої - беремо їх. Якщо порожньо - робимо запит до сайту (Гнучкий режим)
-
-			inviteTemplates = localInvites.length > 0 ? localInvites : await getInviteTemplates(token, currentProfile.id);
-
-			letterTemplates = localLetters.length > 0 ? localLetters : await getTemplates(token, currentProfile.id);
-
-			// if (localInvites.length === 0) console.log(`⚠️ Для ${currentProfile.name} немає кастомних інвайтів. Взято з сайту.`);
-
-			// if (localLetters.length === 0) console.log(`⚠️ Для ${currentProfile.name} немає кастомних листів. Взято з сайту.`);
-		} else {
+          // Якщо для анкети немає ні інвайтів, ні листів — економимо час і йдемо до наступної
+          if (inviteTemplates.length === 0 && letterTemplates.length === 0) {
+             updatePopup(`Пропуск (немає текстів)`, false, profileNameDisplay);
+             await sleep(2000);
+             continue; // Перестрибуємо на наступну анкету
+          }
+       } else {
 			// Стандартний режим: беремо тільки з сайту
 
 			inviteTemplates = await getInviteTemplates(token, currentProfile.id);
@@ -777,7 +814,7 @@ async function startSendingProcess() {
 							// Якщо тексту ще немає в історії — відправляємо
 
 							if (!historyTexts.includes(normalizedText)) {
-								const success = await sendInvite(token, currentProfile.id, client.id, template);
+								const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
 								if (success) {
 									incrementStat("invites");
@@ -814,7 +851,7 @@ async function startSendingProcess() {
 						}
 
 						if (templateToSend) {
-							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend);
+							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
 							if (success) {
 								incrementStat("invites");
@@ -828,37 +865,37 @@ async function startSendingProcess() {
 						}
 					}
 				} else {
-					// --- ШАБЛОНИ З САЙТУ (Стандартний рандомний режим) ---
+                // --- ШАБЛОНИ З САЙТУ (Послідовний режим) ---
+                let templateToSend = null;
 
-					const randomTemplate = inviteTemplates[Math.floor(Math.random() * inviteTemplates.length)];
+                for (let t = 0; t < inviteTemplates.length; t++) {
+                   const normalizedText = String(inviteTemplates[t].message_content).trim().toLowerCase();
 
-					const normalizedText = String(randomTemplate.message_content).trim().toLowerCase();
+                   // Шукаємо перший інвайт, якого ще немає в історії
+                   if (!historyTexts.includes(normalizedText)) {
+                      templateToSend = inviteTemplates[t];
+                      break;
+                   }
+                }
 
-					if (historyTexts.includes(normalizedText)) {
-						//(`⏩ Пропуск Інвайту для ${client.id}: такий текст вже є в історії!`);
+                if (templateToSend) {
+                   const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
-						continue;
-					}
+                   if (success) {
+                      incrementStat("invites");
+                      updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                   }
 
-					const success = await sendInvite(token, currentProfile.id, client.id, randomTemplate);
-
-					if (success) {
-						incrementStat("invites");
-
-						updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-					}
-
-					if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
-				}
-			}
-		}
+                   if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
+              }
+           }
+        }
+    }
 
 		if (!isRunning) break;
 
 		// ==========================================
-
 		// ПАУЗА МІЖ ІНВАЙТАМИ ТА ЛИСТАМИ
-
 		// ==========================================
 
 		if (hasInvites && hasLetters && phaseDelayMinutes > 0 && clientsList.length > 0) {
@@ -925,14 +962,11 @@ async function startSendingProcess() {
 	}
 
 	if (isRunning) {
+	    localStorage.removeItem("alphaCurrentPIndex");
 		updatePopup(`Перерва ${breakTimeMinutes} хв...`, false, t("statusWaiting"));
-
 		const resumeTime = Date.now() + breakTimeMinutes * 60 * 1000;
-
 		localStorage.setItem("alphaBotState", "waiting");
-
 		localStorage.setItem("alphaBotResumeTime", resumeTime.toString());
-
 		startWaitCountdown(resumeTime);
 	}
 }
@@ -958,24 +992,30 @@ function startWaitCountdown(resumeTime) {
 
 			startSendingProcess(); // Запуск нового кола без аргументів!
 		} else {
-			const min = Math.floor(left / 60000);
-
-			const sec = Math.floor((left % 60000) / 1000);
-
-			updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
-		}
+          const minLeft = Math.ceil(left / 60000);
+          updatePopup(`Перерва: ${minLeft} хв`, false, "Очікування...");
+       }
 	}, 1000);
 }
 
 // ==========================================
-
 // ЗМІННІ ДЛЯ АВТОВІДПОВІДАЧА
-
 // ==========================================
 
 let currentSelectedProfile = null;
-
 let currentSelectedTab = "like";
+
+// Винесли сюди, щоб усі функції "бачили" ці дані
+let currentWinkPhrase = "default";
+const winkPhrases = [
+    { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
+    { id: "Send a wink 😉", text: "Send a wink 😉" },
+    { id: "I would like to know more about you!", text: "I would like to know more about you!" },
+    { id: "Tell me more about yourself", text: "Tell me more about yourself" },
+    { id: "How is your day going?", text: "How is your day going?" },
+    { id: "What are you up to?", text: "What are you up to?" },
+    { id: "Don't you mind talking a bit?", text: "Don't you mind talking a bit?" }
+];
 
 // ==========================================
 // ВІЗУАЛЬНИЙ ІНТЕРФЕЙС ТА ІНТЕГРАЦІЯ В МЕНЮ (ОНОВЛЕНИЙ DASHBOARD)
@@ -1037,6 +1077,38 @@ function injectBotUI() {
 
         /* Списки збереженого */
         .alpha-list-item { display: flex; justify-content: space-between; align-items: flex-start; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 8px; font-size: 13px; }
+
+        /* Глобальний селектор анкет */
+        .alpha-global-selector { position: relative; width: 280px; user-select: none; }
+        .alpha-gs-btn { display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: #f8f9fa; border: 1px solid #cdd5df; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .alpha-gs-btn:hover { background: #fff; border-color: #1976d2; }
+        .alpha-gs-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: #e1e8ed; flex-shrink: 0; border: 1px solid #ccc; }
+        .alpha-gs-info { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .alpha-gs-name { font-size: 14px; font-weight: bold; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+        .alpha-gs-id { font-size: 11px; color: #888; margin-top: 2px; }
+        .alpha-gs-arrow { font-size: 12px; color: #999; transition: transform 0.3s; }
+
+        /* Випадаюче меню селектора */
+        .alpha-gs-dropdown { position: absolute; top: 100%; left: 0; width: 100%; margin-top: 8px; background: #fff; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); border: 1px solid #e1e8ed; z-index: 9999; display: none; flex-direction: column; max-height: 450px; overflow: hidden; }
+        .alpha-gs-search { padding: 10px; border-bottom: 1px solid #eee; background: #fdfdfd; }
+        .alpha-gs-search input { width: 100%; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; transition: 0.2s; }
+        .alpha-gs-search input:focus { border-color: #1976d2; box-shadow: 0 0 0 3px rgba(25,118,210,0.1); }
+        .alpha-gs-list { overflow-y: auto; flex: 1; padding: 5px 0; }
+        .alpha-gs-item { display: flex; align-items: center; gap: 12px; padding: 10px 15px; cursor: pointer; transition: 0.15s; border-left: 3px solid transparent; }
+        .alpha-gs-item:hover { background: #f5f8fa; border-left-color: #1976d2; }
+        .alpha-gs-item.active { background: #e3f2fd; border-left-color: #1976d2; }
+        .alpha-gs-item-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #e1e8ed; }
+
+        /* Двопанельний режим Вінок (Master-Detail) */
+        .alpha-md-container { display: flex; flex: 1; overflow: hidden; border: 1px solid #e1e8ed; border-radius: 8px; margin-top: 15px; }
+        .alpha-wink-sidebar { width: 230px; background: #fafafa; border-right: 1px solid #e1e8ed; display: none; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        .alpha-wink-content { flex: 1; display: flex; flex-direction: column; padding: 15px; background: #fff; overflow-y: auto; }
+        .alpha-wp-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer; border-bottom: 1px solid #e1e8ed; transition: 0.2s; }
+        .alpha-wp-item:hover { background: #f0f4f8; }
+        .alpha-wp-item.active { background: #e3f2fd; border-left: 4px solid #1976d2; padding-left: 8px; }
+        .alpha-wp-text { font-size: 12px; color: #333; line-height: 1.4; flex: 1; margin-right: 10px; }
+        .alpha-wp-badge { font-size: 10px; font-weight: bold; background: #e1e8ed; color: #666; padding: 3px 7px; border-radius: 12px; }
+        .alpha-wp-badge.has-items { background: #4caf50; color: white; }
     `;
 
     const styleEl = document.createElement("style");
@@ -1072,10 +1144,29 @@ function injectBotUI() {
 
             <div class="alpha-content">
                 <div class="alpha-topbar">
+                    <div class="alpha-global-selector" id="alphaGlobalSelector">
+                        <div class="alpha-gs-btn" id="alphaGsBtn">
+                            <img src="https://via.placeholder.com/40" class="alpha-gs-avatar" id="alphaGsAvatar">
+                            <div class="alpha-gs-info">
+                                <div class="alpha-gs-name" id="alphaGsName">Оберіть анкету</div>
+                                <div class="alpha-gs-id" id="alphaGsId">Для налаштування текстів</div>
+                            </div>
+                            <div class="alpha-gs-arrow" id="alphaGsArrow">▼</div>
+                        </div>
+
+                        <div class="alpha-gs-dropdown" id="alphaGsDropdown">
+                            <div class="alpha-gs-search">
+                                <input type="text" id="alphaGsSearchInput" placeholder="Пошук за ім'ям або ID...">
+                            </div>
+                            <div class="alpha-gs-list" id="alphaGsList">
+                                </div>
+                        </div>
+                    </div>
+
                     <div class="alpha-status-badges">
-                        <div><span data-lang="statusLabel">Статус:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666; font-weight: bold;">Очікування...</span></div>
+                        <div><span data-lang="statusLabel">Бот:</span> <span id="uiStatusText" data-lang="statusWaiting" style="color: #666; font-weight: bold;">Очікування...</span></div>
                         <div style="width: 1px; background: #ccc; margin: 0 10px;"></div>
-                        <div><span data-lang="profileLabel">Анкета:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
+                        <div><span>В роботі:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
                     </div>
                     <span id="uiCloseBtn" class="alpha-close">&times;</span>
                 </div>
@@ -1119,27 +1210,17 @@ function injectBotUI() {
                     </div>
 
                     <div id="tabContentInvites" style="display: none;">
-                        <div class="alpha-col" style="margin-bottom: 20px;">
-                            <label data-lang="invitesProfileLabel" class="alpha-label">Оберіть анкету:</label>
-                            <select id="invitesProfileSelect" class="alpha-select">
-                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                            </select>
-                        </div>
+                        <select id="invitesProfileSelect" style="display: none;"></select>
                         <div id="invitesWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
                             <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="margin-bottom: 20px;">💾 Зберегти Інвайт</button>
                             <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
                         </div>
-                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати інвайти</div>
+                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати інвайти</div>
                     </div>
 
                     <div id="tabContentLetters" style="display: none;">
-                        <div class="alpha-col" style="margin-bottom: 20px;">
-                            <label data-lang="lettersProfileLabel" class="alpha-label">Оберіть анкету:</label>
-                            <select id="lettersProfileSelect" class="alpha-select">
-                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                            </select>
-                        </div>
+                        <select id="lettersProfileSelect" style="display: none;"></select>
                         <div id="lettersWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="lettersMessageInput" data-lang="lettersPlaceholder" class="alpha-textarea" placeholder="Текст листа..." style="margin-bottom: 15px;"></textarea>
                             <div style="display: flex; gap: 15px; margin-bottom: 20px;">
@@ -1148,50 +1229,39 @@ function injectBotUI() {
                             </div>
                             <div id="lettersSavedList" style="display: flex; flex-direction: column; max-height: 300px; overflow-y: auto;"></div>
                         </div>
-                        <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати листи</div>
+                        <div id="lettersEmptyState" data-lang="lettersEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати листи</div>
                     </div>
 
-                    <div id="tabContentWinks" style="display: none;">
-                        <div class="alpha-col" style="margin-bottom: 20px;">
-                            <label data-lang="respProfileLabel" class="alpha-label">Оберіть анкету:</label>
-                            <select id="respProfileSelect" class="alpha-select">
-                                <option value="" data-lang="loadingProfiles">Завантаження анкет...</option>
-                            </select>
-                        </div>
-                        <div id="respTabsArea" style="display: none; flex-direction: column;">
-                            <div class="alpha-subtabs">
+                    <div id="tabContentWinks" style="display: none; flex-direction: column; height: 100%;">
+                        <select id="respProfileSelect" style="display: none;"></select>
+                        <div id="respTabsArea" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
+                            <div class="alpha-subtabs" style="margin-bottom: 0;">
                                 <div id="respTabLike" data-lang="respTabLike" class="alpha-subtab active">Лайки</div>
                                 <div id="respTabWink" data-lang="respTabWink" class="alpha-subtab">Вінки</div>
                             </div>
 
-                            <div class="alpha-row">
-                                <div class="alpha-col" style="flex: 2;">
-                                    <div id="respWinkTypeContainer" style="display: none; margin-bottom: 15px;">
-                                        <label class="alpha-label">На яку фразу відповідаємо?</label>
-                                        <select id="respWinkPhraseSelect" class="alpha-select">
-                                            <option value="default">✨ Стандартна (На будь-яку іншу вінку)</option>
-                                            <option value="I would like to know more about you!">I would like to know more about you!</option>
-                                            <option value="Tell me more about yourself">Tell me more about yourself</option>
-                                            <option value="How is your day going?">How is your day going?</option>
-                                            <option value="What are you up to?">What are you up to?</option>
-                                            <option value="Don't you mind talking a bit?">Don't you mind talking a bit?</option>
-                                        </select>
+                            <div class="alpha-md-container">
+                                <div class="alpha-wink-sidebar" id="winkSidebar">
                                     </div>
-                                    <textarea id="respMessageInput" data-lang="respPlaceholder" class="alpha-textarea" placeholder="Введіть текст відповіді..."></textarea>
-                                </div>
-                                <div class="alpha-col" style="flex: 1; border-left: 1px solid #eee; padding-left: 20px;">
-                                    <label data-lang="respSpeedLabel" class="alpha-label">Швидкість відповіді (сек):</label>
-                                    <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="10">
-                                    <small data-lang="respSpeedSub" style="color: #999; font-size: 11px;">Імітація друку</small>
 
-                                    <button id="respSaveBtn" data-lang="respSaveBtn" class="alpha-btn-success" style="margin-top: auto;">Зберегти</button>
+                                <div class="alpha-wink-content">
+                                    <div class="alpha-row" style="margin-bottom: 15px;">
+                                        <div class="alpha-col" style="flex: 2;">
+                                            <textarea id="respMessageInput" data-lang="respPlaceholder" class="alpha-textarea" placeholder="Введіть текст відповіді..." style="height: 95px;"></textarea>
+                                        </div>
+                                        <div class="alpha-col" style="flex: 1; border-left: 1px solid #eee; padding-left: 15px;">
+                                            <label data-lang="respSpeedLabel" class="alpha-label">Швидкість (сек):</label>
+                                            <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="10">
+                                            <button id="respSaveBtn" data-lang="respSaveBtn" class="alpha-btn-success" style="margin-top: auto;">Зберегти текст</button>
+                                        </div>
+                                    </div>
+
+                                    <div style="font-weight: bold; margin: 10px 0; font-size: 13px; color: #555;" id="respListTitle">Збережені лайки:</div>
+                                    <div id="respSavedList" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding-right: 5px;"></div>
                                 </div>
                             </div>
-
-                            <div style="font-weight: bold; margin: 20px 0 10px; font-size: 13px; color: #555;">Збережені відповіді:</div>
-                            <div id="respSavedList" style="display: flex; flex-direction: column; max-height: 250px; overflow-y: auto;"></div>
                         </div>
-                        <div id="respEmptyState" data-lang="respEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету, щоб додати тексти</div>
+                        <div id="respEmptyState" data-lang="respEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати тексти</div>
                     </div>
 
                     <div id="tabContentVip" style="display: none;">
@@ -1261,7 +1331,15 @@ function injectBotUI() {
        });
        activeTabBtn.classList.add("active");
        const activeTab = tabs.find((t) => t.btn === activeTabBtn);
-       if (activeTab) activeTab.content.style.display = "block";
+
+       if (activeTab) {
+           // 🔥 Фікс: Для вінок повертаємо flex, для інших - стандартний block
+           if (activeTab.content.id === "tabContentWinks") {
+               activeTab.content.style.display = "flex";
+           } else {
+               activeTab.content.style.display = "block";
+           }
+       }
     }
 
     tabs[0].btn.onclick = () => switchMainTab(tabs[0].btn);
@@ -1307,27 +1385,369 @@ function injectBotUI() {
        updateToggleVisuals(isChecked);
     };
 
-    // 3. Внутрішні таби Лайки/Вінки
+    // ==========================================
+    // ВІДНОВЛЕНІ ОБРОБНИКИ ПОДІЙ (ЯКІ БУЛИ ПРОПУЩЕНІ)
+    // ==========================================
+
+    // --- Логіка галереї (Відкрити/Закрити) ---
+    const galleryBtn = document.getElementById("lettersGalleryBtn");
+    if(galleryBtn) galleryBtn.onclick = () => (galleryModal.style.display = "flex");
+    const closeGal = document.getElementById("closeGalleryBtn");
+    if(closeGal) closeGal.onclick = () => (galleryModal.style.display = "none");
+    const confGal = document.getElementById("confirmGalleryBtn");
+    if(confGal) confGal.onclick = () => (galleryModal.style.display = "none");
+
+    // --- Логіка Вінки/Лайки (Master-Detail) ---
+
+    // Функція малювання бокової панелі з бейджами
+    window.renderWinkSidebar = function() {
+        const sidebar = document.getElementById("winkSidebar");
+        if(!sidebar) return;
+        sidebar.innerHTML = "";
+
+        if(!currentSelectedProfile) return;
+
+        const customKey = `resp_${currentSelectedProfile}_wink_custom`;
+        const defKey = `resp_${currentSelectedProfile}_wink`;
+        const customWinks = JSON.parse(localStorage.getItem(customKey) || "{}");
+        const defWinks = JSON.parse(localStorage.getItem(defKey) || "[]");
+
+        winkPhrases.forEach(wp => {
+            const count = wp.id === "default" ? defWinks.length : (customWinks[wp.id] ? customWinks[wp.id].length : 0);
+
+            const item = document.createElement("div");
+            item.className = `alpha-wp-item ${currentWinkPhrase === wp.id ? 'active' : ''}`;
+            item.innerHTML = `
+                <div class="alpha-wp-text">${wp.text}</div>
+                <div class="alpha-wp-badge ${count > 0 ? 'has-items' : ''}">${count}</div>
+            `;
+            item.onclick = () => {
+                currentWinkPhrase = wp.id;
+                window.renderWinkSidebar(); // Оновлюємо підсвітку
+                renderSavedMessages();      // Оновлюємо тексти справа
+            };
+            sidebar.appendChild(item);
+        });
+    };
+
+    // Перемикання вкладок
     const tabLike = document.getElementById("respTabLike");
     const tabWink = document.getElementById("respTabWink");
-    const winkTypeContainer = document.getElementById("respWinkTypeContainer");
+    const winkSidebar = document.getElementById("winkSidebar");
 
     if(tabLike && tabWink) {
         tabLike.onclick = () => {
-            if(typeof currentSelectedTab !== "undefined") currentSelectedTab = "like";
+            currentSelectedTab = "like";
             tabLike.classList.add("active");
             tabWink.classList.remove("active");
-            if (winkTypeContainer) winkTypeContainer.style.display = "none";
+            winkSidebar.style.display = "none"; // Ховаємо фрази
             if(typeof renderSavedMessages === "function") renderSavedMessages();
         };
 
         tabWink.onclick = () => {
-            if(typeof currentSelectedTab !== "undefined") currentSelectedTab = "wink";
+            currentSelectedTab = "wink";
+            currentWinkPhrase = "default"; // Скидаємо на стандартну при переході
             tabWink.classList.add("active");
             tabLike.classList.remove("active");
-            if (winkTypeContainer) winkTypeContainer.style.display = "block";
+            winkSidebar.style.display = "flex"; // Показуємо фрази
+            window.renderWinkSidebar();
             if(typeof renderSavedMessages === "function") renderSavedMessages();
         };
+    }
+
+    const respProfSel = document.getElementById("respProfileSelect");
+    if (respProfSel) {
+        respProfSel.addEventListener("change", (e) => {
+            currentSelectedProfile = e.target.value;
+            if (currentSelectedProfile) {
+                document.getElementById("respTabsArea").style.display = "flex";
+                document.getElementById("respEmptyState").style.display = "none";
+                if(currentSelectedTab === "wink") window.renderWinkSidebar();
+                if(typeof renderSavedMessages === "function") renderSavedMessages();
+            } else {
+                document.getElementById("respTabsArea").style.display = "none";
+                document.getElementById("respEmptyState").style.display = "block";
+            }
+        });
+    }
+
+    // Збереження тексту
+    const respSave = document.getElementById("respSaveBtn");
+    if(respSave) {
+        respSave.onclick = () => {
+            const text = document.getElementById("respMessageInput").value.trim();
+            if (!text || !currentSelectedProfile) return;
+
+            if (currentSelectedTab === "wink" && currentWinkPhrase !== "default") {
+                const key = `resp_${currentSelectedProfile}_wink_custom`;
+                let savedObj = JSON.parse(localStorage.getItem(key) || "{}");
+                if (!savedObj[currentWinkPhrase]) savedObj[currentWinkPhrase] = [];
+                savedObj[currentWinkPhrase].push(text);
+                localStorage.setItem(key, JSON.stringify(savedObj));
+            } else {
+                const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+                let saved = JSON.parse(localStorage.getItem(key) || "[]");
+                saved.push(text);
+                localStorage.setItem(key, JSON.stringify(saved));
+            }
+
+            document.getElementById("respMessageInput").value = "";
+            if(currentSelectedTab === "wink") window.renderWinkSidebar();
+            if(typeof renderSavedMessages === "function") renderSavedMessages();
+        };
+    }
+
+    // --- Логіка ІНВАЙТІВ ---
+    const invProfSel = document.getElementById("invitesProfileSelect");
+    if (invProfSel) {
+        invProfSel.addEventListener("change", (e) => {
+            if (e.target.value) {
+                document.getElementById("invitesWorkArea").style.display = "flex";
+                document.getElementById("invitesEmptyState").style.display = "none";
+                if(typeof renderCustomInvites === "function") renderCustomInvites();
+            } else {
+                document.getElementById("invitesWorkArea").style.display = "none";
+                document.getElementById("invitesEmptyState").style.display = "block";
+            }
+        });
+    }
+
+    const invSave = document.getElementById("invitesSaveBtn");
+    if (invSave) {
+        invSave.onclick = () => {
+            const text = document.getElementById("invitesMessageInput").value.trim();
+            const profileId = document.getElementById("invitesProfileSelect").value;
+            if (!text || !profileId) return;
+            const key = `alpha_invites_${profileId}`;
+            let saved = JSON.parse(localStorage.getItem(key) || "[]");
+            saved.push({ message_content: text, message_type: "SENT_TEXT" });
+            localStorage.setItem(key, JSON.stringify(saved));
+            document.getElementById("invitesMessageInput").value = "";
+            if(typeof renderCustomInvites === "function") renderCustomInvites();
+        };
+    }
+
+    // --- Логіка ЛИСТІВ ---
+    const letProfSel = document.getElementById("lettersProfileSelect");
+    if(letProfSel) {
+        letProfSel.addEventListener("change", async (e) => {
+            const profileId = e.target.value;
+            if (profileId) {
+                document.getElementById("lettersWorkArea").style.display = "flex";
+                document.getElementById("lettersEmptyState").style.display = "none";
+                const galleryGrid = document.getElementById("galleryGrid");
+                galleryGrid.innerHTML = '<span style="color: #666; font-size: 12px; grid-column: 1 / -1; text-align: center;">Завантаження фото...</span>';
+                let token = localStorage.getItem("token");
+                if (token) {
+                    token = token.replace(/^"|"$/g, "");
+                    const imageMap = await getProfileGallery(token, profileId);
+                    galleryGrid.innerHTML = "";
+                    window.selectedCustomImages = [];
+                    document.getElementById("lettersGalleryBtn").innerHTML = "📷";
+                    if (Object.keys(imageMap).length === 0) {
+                        galleryGrid.innerHTML = '<span style="color: #999; font-size: 12px; grid-column: 1 / -1; text-align: center;">У цієї анкети немає фото.</span>';
+                    } else {
+                        for (const [link, id] of Object.entries(imageMap)) {
+                            const img = document.createElement("img");
+                            img.src = link;
+                            img.dataset.id = id;
+                            img.style.cssText = `width: 100%; height: 80px; object-fit: cover; border-radius: 5px; cursor: pointer; border: 3px solid transparent; transition: .2s; box-sizing: border-box;`;
+                            img.onclick = () => {
+                                const idx = window.selectedCustomImages.findIndex((imgObj) => imgObj.id === id);
+                                if (idx > -1) {
+                                    window.selectedCustomImages.splice(idx, 1);
+                                    img.style.borderColor = "transparent";
+                                    img.style.opacity = "1";
+                                } else {
+                                    window.selectedCustomImages.push({ id: id, link: link });
+                                    img.style.borderColor = "#4caf50";
+                                    img.style.opacity = "0.8";
+                                }
+                                const btn = document.getElementById("lettersGalleryBtn");
+                                const count = window.selectedCustomImages.length;
+                                btn.style.position = "relative";
+                                btn.innerHTML = count > 0 ? `📷<span style="position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${count}</span>` : "📷";
+                            };
+                            galleryGrid.appendChild(img);
+                        }
+                    }
+                    if(typeof renderCustomLetters === "function") renderCustomLetters();
+                }
+            } else {
+                document.getElementById("lettersWorkArea").style.display = "none";
+                document.getElementById("lettersEmptyState").style.display = "block";
+            }
+        });
+    }
+
+    const letSave = document.getElementById("lettersSaveBtn");
+    if(letSave) {
+        letSave.onclick = () => {
+            const text = document.getElementById("lettersMessageInput").value.trim();
+            const profileId = document.getElementById("lettersProfileSelect").value;
+            if (!text || !profileId) return;
+            const key = `alpha_letters_${profileId}`;
+            let saved = JSON.parse(localStorage.getItem(key) || "[]");
+            const attachments = window.selectedCustomImages ? [...window.selectedCustomImages] : [];
+            saved.push({ message_content: text, message_type: "SENT_TEXT", attachments: attachments });
+            localStorage.setItem(key, JSON.stringify(saved));
+            document.getElementById("lettersMessageInput").value = "";
+            window.selectedCustomImages = [];
+            document.getElementById("lettersGalleryBtn").innerHTML = "📷";
+            const galleryGrid = document.getElementById("galleryGrid");
+            if (galleryGrid) {
+                const imgs = galleryGrid.getElementsByTagName("img");
+                for (let img of imgs) {
+                    img.style.borderColor = "transparent";
+                    img.style.opacity = "1";
+                }
+            }
+            if (typeof renderCustomLetters === "function") renderCustomLetters();
+        };
+    }
+
+    // --- Логіка VIP РАДАРУ ---
+    const vipAddBtn = document.getElementById("vipAddRuleBtn");
+    if (vipAddBtn) {
+        vipAddBtn.onclick = () => {
+            let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+            rules.push({ vip_id: "", profile_id: "", auto_disable: false });
+            localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            if(typeof window.renderVipRules === "function") window.renderVipRules();
+        };
+    }
+
+    window.renderVipRules = function() {
+        const vipRulesList = document.getElementById("vipRulesList");
+        if(!vipRulesList) return;
+        vipRulesList.innerHTML = "";
+        let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+
+        if (rules.length === 0) {
+            vipRulesList.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoRules") + '</span>';
+            return;
+        }
+
+        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">' + t("dynSelectProfile") + '</option>';
+
+        rules.forEach((rule, index) => {
+            const container = document.createElement("div");
+            container.style.cssText = `display: flex; flex-direction: column; gap: 8px; background: #f9f9f9; padding: 10px; border: 1px solid #e0e0e0; border-radius: 6px;`;
+
+            const topRow = document.createElement("div");
+            topRow.style.cssText = `display: flex; gap: 10px; align-items: center;`;
+
+            const inputVip = document.createElement("input");
+            inputVip.type = "text";
+            inputVip.placeholder = "ID мужика";
+            inputVip.value = rule.vip_id || "";
+            inputVip.className = "alpha-input";
+            inputVip.style.cssText = `width: 90px; padding: 6px; font-size: 12px;`;
+            inputVip.oninput = (e) => {
+                rules[index].vip_id = e.target.value.trim();
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            const arrow = document.createElement("span");
+            arrow.innerHTML = "➔";
+            arrow.style.color = "#999";
+
+            const selectProfile = document.createElement("select");
+            selectProfile.innerHTML = profileOptionsHtml;
+            selectProfile.value = rule.profile_id || "";
+            selectProfile.className = "alpha-select";
+            selectProfile.style.cssText = `flex: 1; padding: 6px; font-size: 12px;`;
+            selectProfile.onchange = (e) => {
+                rules[index].profile_id = e.target.value;
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            const delBtn = document.createElement("span");
+            delBtn.innerHTML = "❌";
+            delBtn.style.cssText = `cursor: pointer; font-size: 14px; margin-left: 5px;`;
+            delBtn.onclick = () => {
+                rules.splice(index, 1);
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+                window.renderVipRules();
+            };
+
+            topRow.appendChild(inputVip);
+            topRow.appendChild(arrow);
+            topRow.appendChild(selectProfile);
+            topRow.appendChild(delBtn);
+
+            const bottomRow = document.createElement("label");
+            bottomRow.style.cssText = `display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; cursor: pointer;`;
+
+            const autoDisableCheckbox = document.createElement("input");
+            autoDisableCheckbox.type = "checkbox";
+            autoDisableCheckbox.checked = rule.auto_disable === true;
+            autoDisableCheckbox.onchange = (e) => {
+                rules[index].auto_disable = e.target.checked;
+                localStorage.setItem("alphaVipRules", JSON.stringify(rules));
+            };
+
+            bottomRow.appendChild(autoDisableCheckbox);
+            bottomRow.appendChild(document.createTextNode(t("dynAutoDisable")));
+
+            container.appendChild(topRow);
+            container.appendChild(bottomRow);
+            vipRulesList.appendChild(container);
+        });
+    };
+
+    // --- ГЛОБАЛЬНИЙ СЕЛЕКТОР АНКЕТ: Анімація відкриття ---
+    const gsBtn = document.getElementById("alphaGsBtn");
+    if (gsBtn) {
+        gsBtn.onclick = () => {
+            const dp = document.getElementById("alphaGsDropdown");
+            const arr = document.getElementById("alphaGsArrow");
+            const searchInput = document.getElementById("alphaGsSearchInput");
+            if (dp.style.display === "flex") {
+                dp.style.display = "none";
+                arr.style.transform = "rotate(0deg)";
+            } else {
+                dp.style.display = "flex";
+                arr.style.transform = "rotate(180deg)";
+                if (searchInput) searchInput.focus();
+            }
+        };
+    }
+
+    document.addEventListener("click", (e) => {
+        const selectorBlock = document.getElementById("alphaGlobalSelector");
+        if (selectorBlock && !selectorBlock.contains(e.target)) {
+            const dp = document.getElementById("alphaGsDropdown");
+            const arr = document.getElementById("alphaGsArrow");
+            if (dp && dp.style.display === "flex") {
+                dp.style.display = "none";
+                if(arr) arr.style.transform = "rotate(0deg)";
+            }
+        }
+    });
+
+    // ==========================================
+    // ЛОГІКА МУЛЬТИМОВНОСТІ
+    // ==========================================
+    const langUaBtn = document.getElementById("langUaBtn");
+    const langRuBtn = document.getElementById("langRuBtn");
+
+    function applyTranslations(lang) {
+        localStorage.setItem("alphaLang", lang);
+
+        langUaBtn.style.opacity = lang === "ua" ? "1" : "0.4";
+        langRuBtn.style.opacity = lang === "ru" ? "1" : "0.4";
+
+        document.querySelectorAll("[data-lang]").forEach(el => {
+            const key = el.getAttribute("data-lang");
+            if (alphaDict[lang] && alphaDict[lang][key]) {
+                if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+                    el.placeholder = alphaDict[lang][key];
+                } else {
+                    el.innerText = alphaDict[lang][key];
+                }
+            }
+        });
     }
 
     langUaBtn.onclick = () => applyTranslations("ua");
@@ -1340,87 +1760,140 @@ function injectBotUI() {
 
 	document.getElementById("uiStartBtn").onclick = () => {
 		if (isRunning) return;
-
 		isRunning = true;
+		localStorage.removeItem("alphaCurrentPIndex");
 
 		const delay = parseInt(document.getElementById("uiDelay").value);
-
 		const phaseDelay = parseInt(document.getElementById("uiPhaseDelay").value);
-
 		const breakTime = parseInt(document.getElementById("uiBreakTime").value);
-
 		const inviteMode = document.getElementById("uiInviteMode") ? document.getElementById("uiInviteMode").value : "batch";
-
 		localStorage.setItem("alphaBotSettings", JSON.stringify({ delay, phaseDelay, breakTime, inviteMode }));
-
 		localStorage.setItem("alphaBotState", "running");
-
 		document.getElementById("uiStartBtn").style.display = "none";
-
 		document.getElementById("uiStopBtn").style.display = "block";
-
 		updatePopup("Запуск...", false);
-
 		startSendingProcess();
 	};
 
 	document.getElementById("uiStopBtn").onclick = () => {
 		isRunning = false;
-
 		clearInterval(botLoopTimer);
-
 		localStorage.setItem("alphaBotState", "stopped");
-
 		updatePopup("Зупинено", true, "-");
+		localStorage.removeItem("alphaLockTime");
 	};
 
 	checkBotMemory();
-
 	loadDailyStats();
+	loadProfilesForUI();
 }
 
 // ДОПОМІЖНІ ФУНКЦІЇ ДЛЯ АВТОВІДПОВІДАЧА
 
 async function loadProfilesForUI() {
-	const selectEl = document.getElementById("respProfileSelect");
+    if (window.profilesLoadedForUI) return; // Завантажуємо лише один раз
 
-	if (selectEl.options.length > 1) return; // Вже завантажено
+    let token = localStorage.getItem("token");
+    if (!token) return;
+    token = token.replace(/^"|"$/g, "");
 
-	let token = localStorage.getItem("token");
+    const profiles = await getAllProfiles(token);
 
-	if (!token) return;
+    const listEl = document.getElementById("alphaGsList");
+    const searchInput = document.getElementById("alphaGsSearchInput");
+    if (!listEl) return;
 
-	token = token.replace(/^"|"$/g, "");
+    listEl.innerHTML = "";
 
-	selectEl.innerHTML = '<option value="">Завантаження...</option>';
+    // 1. Заповнюємо невидимі оригінальні селектори (для підкапотної логіки)
+    const respSel = document.getElementById("respProfileSelect");
+    const invSel = document.getElementById("invitesProfileSelect");
+    const letSel = document.getElementById("lettersProfileSelect");
 
-	const profiles = await getAllProfiles(token); // Беремо анкети з сервера
+    [respSel, invSel, letSel].forEach(sel => {
+        if(sel) {
+            sel.innerHTML = '<option value="">--</option>';
+            profiles.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.external_id;
+                opt.innerText = p.name;
+                sel.appendChild(opt);
+            });
+        }
+    });
 
-	// 1. Спочатку заповнюємо головний список
+    // 2. Будуємо КРАСИВИЙ список з фотографіями та статусом Онлайн/Офлайн
+    profiles.forEach(p => {
+        const item = document.createElement("div");
+        item.className = "alpha-gs-item";
+        item.dataset.id = String(p.external_id);
+        item.dataset.name = p.name.toLowerCase();
 
-	selectEl.innerHTML = '<option value="">' + t("dynSelectProfile") + '</option>';
+        const photoUrl = p.photo_link || "https://via.placeholder.com/40";
+        const ageText = p.age ? `(${p.age} р.)` : "";
 
-	profiles.forEach((p) => {
-		const opt = document.createElement("option");
+        // Визначаємо статус
+        const isOnline = p.online === 1;
+        const statusColor = isOnline ? "#4caf50" : "#999"; // Зелений або Сірий
+        const statusText = isOnline ? "Онлайн" : "Офлайн";
+        const opacity = isOnline ? "1" : "0.6"; // Офлайн анкети робимо напівпрозорими
 
-		opt.value = p.external_id;
+        item.innerHTML = `
+            <div style="position: relative; flex-shrink: 0;">
+                <img src="${photoUrl}" class="alpha-gs-item-img" style="opacity: ${opacity};">
+                <span style="position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: ${statusColor}; border: 2px solid #fff; border-radius: 50%;"></span>
+            </div>
+            <div class="alpha-gs-info" style="opacity: ${opacity};">
+                <div class="alpha-gs-name">${p.name} <span style="color:#aaa; font-size:11px; font-weight:normal;">${ageText}</span></div>
+                <div class="alpha-gs-id">ID: ${p.external_id} <span style="color:${statusColor}; font-weight:bold; margin-left:5px; font-size: 10px;">• ${statusText}</span></div>
+            </div>
+        `;
 
-		opt.innerText = `${p.name} (${p.external_id})`;
+        // ЛОГІКА КЛІКУ ПО АНКЕТІ
+        item.onclick = () => {
+            // Оновлюємо візуал Головної Кнопки
+            document.getElementById("alphaGsAvatar").src = photoUrl;
+            document.getElementById("alphaGsName").innerText = p.name;
+            document.getElementById("alphaGsId").innerText = `ID: ${p.external_id}`;
 
-		selectEl.appendChild(opt);
-	});
+            // Ховаємо меню
+            document.getElementById("alphaGsDropdown").style.display = "none";
+            document.getElementById("alphaGsArrow").style.transform = "rotate(0deg)";
 
-	// 2. І тільки ТЕПЕР, коли він повний, копіюємо його в інші вкладки!
+            // Підсвічуємо активну
+            document.querySelectorAll(".alpha-gs-item").forEach(i => i.classList.remove("active"));
+            item.classList.add("active");
 
-	const invitesSelect = document.getElementById("invitesProfileSelect");
+            // Програмно перемикаємо всі старі приховані селектори
+            [respSel, invSel, letSel].forEach(sel => {
+                if(sel && sel.value !== String(p.external_id)) {
+                    sel.value = p.external_id;
+                    sel.dispatchEvent(new Event("change"));
+                }
+            });
+        };
 
-	if (invitesSelect) invitesSelect.innerHTML = selectEl.innerHTML;
+        listEl.appendChild(item);
+    });
 
-	const lettersSelect = document.getElementById("lettersProfileSelect");
+    // 3. Логіка Пошуку (Фільтрація на льоту)
+    if (searchInput) {
+        searchInput.oninput = (e) => {
+            const val = e.target.value.toLowerCase().trim();
+            document.querySelectorAll(".alpha-gs-item").forEach(item => {
+                const name = item.dataset.name;
+                const id = item.dataset.id;
+                if (name.includes(val) || id.includes(val)) {
+                    item.style.display = "flex";
+                } else {
+                    item.style.display = "none";
+                }
+            });
+        };
+    }
 
-	if (lettersSelect) lettersSelect.innerHTML = selectEl.innerHTML;
-
-	updateProfileColors();
+    window.profilesLoadedForUI = true;
+    if (typeof updateProfileColors === "function") updateProfileColors();
 }
 
 // --- МАЛЮЄМО КНОПКУ ПОШУКУ ТА ВІШАЄМО КЛІК ---
@@ -1464,30 +1937,22 @@ function injectSearchButton() {
             const textSpan = searchContainer.querySelector('.alpha-search-text');
             const progressFill = searchContainer.querySelector('.alpha-progress-fill');
 
-            // ЕТАП 2: Якщо вже завантажено, просто відкриваємо меню
-            if (isLoaded) {
-                window.alphaSmartSearch.open();
+            // Якщо ми вже завантажили історію САМЕ ДЛЯ ЦЬОГО чату — просто показуємо вікно
+            if (isLoaded && window.alphaSmartSearch.chatId === currentChatId) {
+                window.alphaSmartSearch.modal.style.display = "flex";
                 return;
             }
 
-            // ЕТАП 1: Якщо ще не завантажено, починаємо викачувати
-            if (!isLoading) {
-                isLoading = true;
-                textSpan.innerText = "Завантаження...";
+            // Якщо це перший клік або ми перейшли в інший чат — запускаємо нашу "дверну ручку"
+            window.alphaSmartSearch.openWithContext(currentChatId, token, 'chat');
 
-                // Передаємо функцію зворотного зв'язку, щоб smartSearch оновлював наш прогрес-бар
-                await window.alphaSmartSearch.preloadHistory(currentChatId, token, (percent) => {
-                    progressFill.style.width = `${percent}%`;
-                });
-
-                isLoading = false;
-                isLoaded = true;
-                textSpan.innerText = "Відкрити пошук";
-                textSpan.style.color = "#1976d2";
-                textSpan.style.fontWeight = "bold";
-                progressFill.style.background = "#bbdefb"; // Робимо фон більш контрастним
-                progressFill.style.width = "100%";
-            }
+            // Миттєво міняємо дизайн кнопки на "активний"
+            isLoaded = true;
+            textSpan.innerText = "Відкрити пошук";
+            textSpan.style.color = "#1976d2";
+            textSpan.style.fontWeight = "bold";
+            progressFill.style.background = "#bbdefb";
+            progressFill.style.width = "100%";
         });
 
         middleBlock.insertAdjacentElement('afterend', searchContainer);
@@ -1496,56 +1961,68 @@ function injectSearchButton() {
 
 setInterval(injectSearchButton, 2000);
 
+// Заміни початок функції renderSavedMessages на це:
 function renderSavedMessages() {
-	if (!currentSelectedProfile) return;
+    if (!currentSelectedProfile) return;
+    const listEl = document.getElementById("respSavedList");
+    if(!listEl) return;
+    listEl.innerHTML = "";
 
-	const listEl = document.getElementById("respSavedList");
+    let saved = [];
+    let isCustomWink = false;
+    let storageKey = "";
 
-	listEl.innerHTML = "";
+    if (currentSelectedTab === "wink" && currentWinkPhrase !== "default") {
+        isCustomWink = true;
+        storageKey = `resp_${currentSelectedProfile}_wink_custom`;
+        const customObj = JSON.parse(localStorage.getItem(storageKey) || "{}");
+        saved = customObj[currentWinkPhrase] || [];
+        document.getElementById("respListTitle").innerText = `Відповіді на: ${currentWinkPhrase}`;
+    } else {
+        storageKey = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+        saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        document.getElementById("respListTitle").innerText = currentSelectedTab === "like" ? "Збережені відповіді на Лайки:" : "Стандартні відповіді (Вінки):";
+    }
 
-	const key = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
+    if (saved.length === 0) {
+       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block; margin-top: 10px;">Ще немає відповідей</span>';
+       return;
+    }
 
-	let saved = JSON.parse(localStorage.getItem(key) || "[]");
+    saved.forEach((text, index) => {
+       const item = document.createElement("div");
+       item.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px 12px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;`;
 
-	if (saved.length === 0) {
-		listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoMessages") + '</span>';
+       const textSpan = document.createElement("span");
+       textSpan.innerText = text;
+       textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
 
-		return;
-	}
+       const delBtn = document.createElement("span");
+       delBtn.innerHTML = "❌";
+       delBtn.style.cssText = `cursor: pointer; font-size: 12px; margin-left: 10px; opacity: 0.7; transition: 0.2s;`;
 
-	saved.forEach((text, index) => {
-		const item = document.createElement("div");
+       delBtn.onclick = () => {
+          if (isCustomWink) {
+              const obj = JSON.parse(localStorage.getItem(storageKey) || "{}");
+              if (obj[currentWinkPhrase]) {
+                  obj[currentWinkPhrase].splice(index, 1);
+                  localStorage.setItem(storageKey, JSON.stringify(obj));
+              }
+          } else {
+              const arr = JSON.parse(localStorage.getItem(storageKey) || "[]");
+              arr.splice(index, 1);
+              localStorage.setItem(storageKey, JSON.stringify(arr));
+          }
+          if(currentSelectedTab === "wink") window.renderWinkSidebar();
+          renderSavedMessages();
+       };
 
-		item.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
+       item.appendChild(textSpan);
+       item.appendChild(delBtn);
+       listEl.appendChild(item);
+    });
 
-		const textSpan = document.createElement("span");
-
-		textSpan.innerText = text;
-
-		textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
-
-		const delBtn = document.createElement("span");
-
-		delBtn.innerHTML = "&times;";
-
-		delBtn.style.cssText = `color: #d32f2f; cursor: pointer; font-size: 18px; font-weight: bold; margin-left: 10px; line-height: 1;`;
-
-		delBtn.onclick = () => {
-			saved.splice(index, 1);
-
-			localStorage.setItem(key, JSON.stringify(saved));
-
-			renderSavedMessages();
-		};
-
-		item.appendChild(textSpan);
-
-		item.appendChild(delBtn);
-
-		listEl.appendChild(item);
-	});
-
-	updateProfileColors();
+    if(typeof updateProfileColors === "function") updateProfileColors();
 }
 
 // --- ВІДОБРАЖЕННЯ КАСТОМНИХ ІНВАЙТІВ ---
@@ -1571,21 +2048,17 @@ function renderCustomInvites() {
 
 	saved.forEach((item, index) => {
 		const div = document.createElement("div");
-
 		div.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
 
 		// Додаємо нумерацію для наочності
 
 		const textSpan = document.createElement("span");
-
 		textSpan.innerText = `${index + 1}. ${item.message_content}`;
-
 		textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
 
 		// Контейнер для кнопок управління
 
 		const controlsDiv = document.createElement("div");
-
 		controlsDiv.style.cssText = `display: flex; align-items: center; gap: 8px; margin-left: 10px;`;
 
 		// Кнопка ВГОРУ (не показуємо для першого елемента)
@@ -1801,6 +2274,14 @@ function updateProfileColors() {
 		});
 	}
 }
+
+// Ловимо екстрену зупинку від лоадера (якщо впав фон)
+window.addEventListener("AlphaBackgroundCrash", () => {
+    if (isRunning) {
+        document.getElementById("uiStopBtn").click(); // Емулюємо натискання Стоп
+        showSystemAlert("⚠️ Збій розширення", "Зв'язок з ядром втрачено (можливо через сторонні розширення). Розсилку безпечно зупинено.", "#f44336");
+    }
+});
 
 // ==========================================
 
@@ -2112,6 +2593,15 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 // Функція sendAutoMessage залишається без змін...
 
 async function sendAutoMessage(profileId, manId, text) {
+    // --- MUTEX LOCK: Захист від паралельних вкладок ---
+    const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
+    if (Date.now() - lastActive < 15000 && !isRunning) {
+        showSystemAlert("⛔ Помилка", "Розсилка вже працює в іншій вкладці! Зупиніть її там.", "#f44336");
+        document.getElementById("uiStartBtn").style.display = "block";
+        document.getElementById("uiStopBtn").style.display = "none";
+        return;
+    }
+    // --------------------------------------------------
 	let token = localStorage.getItem("token");
 
 	if (!token) return;
