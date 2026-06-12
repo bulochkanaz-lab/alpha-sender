@@ -243,16 +243,22 @@ async function fetchTemplates(token, profileId, mailType) {
     }
 }
 
-// Оновлена функція Heartbeat (Пінг)
 async function sendHeartbeatToServer(profilesList = []) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
     if (!currentKey) return;
+
+    // Читаємо статистику за сьогодні
+    const d = new Date();
+    const todayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    const stats = JSON.parse(localStorage.getItem("alphaStats_" + todayKey) || '{"invites": 0, "letters": 0}');
 
     // Кидаємо подію в межах сторінки, щоб її спіймав content.js
     window.dispatchEvent(new CustomEvent("AlphaPing", {
         detail: {
             key: currentKey,
-            profiles: profilesList.map(p => p.id)
+            profiles: profilesList.map(p => p.id),
+            stats_invites: stats.invites, // <-- Додали в посилку
+            stats_letters: stats.letters  // <-- Додали в посилку
         }
     }));
 }

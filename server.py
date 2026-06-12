@@ -101,7 +101,11 @@ async def authenticate(request: AuthRequest):
 
 @app.post("/heartbeat")
 async def heartbeat(request: HeartbeatRequest):
+    print(
+        f"[ДЕБАГ] Пінг від {request.access_key}: Інвайти={request.stats_invites}, Листи={request.stats_letters}")  # <--- ДОДАЙ ЦЕ
+
     key = request.access_key.replace('"', '').strip()
+    # ... далі твій код ...
     hwid = request.hwid.strip()
 
     db = database_fs if request.team == "fs" else database

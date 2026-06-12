@@ -16,7 +16,7 @@
           <th>HWID</th>
           <th>Баланс</th>
           <th>Бан</th>
-          <th>Дії</th>
+          <th>Інвайти</th> <th>Листи</th>   <th>Статус</th>  <th>Дії</th>
         </tr>
       </thead>
       <tbody>
@@ -27,6 +27,12 @@
           <td>{{ user.balance }}</td>
           <td :style="{ color: user.is_banned ? '#ff4d4f' : '#52c41a', fontWeight: 'bold' }">
             {{ user.is_banned ? 'Так' : 'Ні' }}
+          </td>
+          <td style="font-weight: bold; color: #f57c00;">{{ user.stats_invites || 0 }}</td>
+          <td style="font-weight: bold; color: #2e7d32;">{{ user.stats_letters || 0 }}</td>
+          <td>
+            <span v-if="isOnline(user.last_ping)" style="color: #52c41a; font-weight: bold;">🟢 Онлайн</span>
+            <span v-else style="color: #999;">🕒 {{ formatTime(user.last_ping) }}</span>
           </td>
           <td>
             <button @click="toggleBan(user.access_key)" style="margin-right: 5px; padding: 5px 10px; cursor: pointer;">
@@ -65,6 +71,27 @@ const logout = () => {
   authStore.logout()
   router.push('/login')
 }
+
+// ==========================================
+// ФУНКЦІЇ ДЛЯ ЧАСУ ТА СТАТУСУ (Винесли назовні!)
+// ==========================================
+
+// Перевіряє, чи був пінг менше 2 хвилин тому (120000 мілісекунд)
+const isOnline = (timestamp) => {
+  if (!timestamp) return false
+  const pingTime = new Date(timestamp + 'Z').getTime()
+  const now = Date.now()
+  return (now - pingTime) < 120000
+}
+
+// Красиво форматує час (наприклад: 14:25)
+const formatTime = (timestamp) => {
+  if (!timestamp) return 'Офлайн'
+  const date = new Date(timestamp + 'Z')
+  return date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
+}
+
+// ==========================================
 
 const fetchUsers = async () => {
   try {
