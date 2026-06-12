@@ -2588,47 +2588,52 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 
 // Функція sendAutoMessage залишається без змін...
 
-async function sendAutoMessage(profileId, manId, text) {
-    // --- MUTEX LOCK: Захист від паралельних вкладок залишаємо ---
-    const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
-    if (Date.now() - lastActive < 15000 && !isRunning) {
-        return; // Просто тихо виходимо, якщо є інша активна вкладка
+async function handleAutoReply(profileId, manId, type, exactText = "") {
+    console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
+
+    const lockKey = `${profileId}_${manId}_${type}`;
+    if (autoReplyLocks.has(lockKey)) {
+        console.log(`[ДЕБАГ] Блок! Цей мужик вже щойно отримав відповідь (захист від спаму).`);
+        return;
     }
-    // --------------------------------------------------
 
-    let token = localStorage.getItem("token");
-    if (!token) return;
-    token = token.replace(/^"|"$/g, "");
+    autoReplyLocks.add(lockKey);
+    setTimeout(() => autoReplyLocks.delete(lockKey), 60000);
 
-    const payload = {
-       sender_id: Number(profileId),
-       recipient_id: Number(manId),
-       message_content: text,
-       message_type: "SENT_TEXT",
-       filename: "",
-       chance: true, // Пробуємо як перший шанс
-    };
+    let savedTexts = [];
 
-    try {
-       const response = await fetch("https://alpha.date/api/chat/message", {
-          method: "POST",
-          headers: getHeaders(token),
-          body: JSON.stringify(payload),
-       });
-       const data = await response.json();
-
-       // Якщо шанс не пройшов, стріляємо класичним повідомленням
-       if (!response.ok || data.status !== true) {
-          const backupPayload = { ...payload };
-          delete backupPayload.chance;
-
-          await fetch("https://alpha.date/api/chat/message", {
-              method: "POST",
-              headers: getHeaders(token),
-              body: JSON.stringify(backupPayload)
-          });
-       }
-    } catch (error) {
-       // Тиха помилка, щоб не спамити в консоль
+    // 1. Спроба знайти КАСТОМНУ відповідь
+    if (type === "wink" && exactText !== "") {
+        try {
+            const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
+            if (customWinks[exactText] && customWinks[exactText].length > 0) {
+                savedTexts = customWinks[exactText];
+                console.log(`[ДЕБАГ] Знайдено кастомні тексти для цієї вінки:`, savedTexts);
+            }
+        } catch(e) {}
     }
+
+    // 2. Беремо СТАНДАРТНУ
+    if (savedTexts.length === 0) {
+        const key = `resp_${profileId}_${type}`;
+        savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
+        console.log(`[ДЕБАГ] Шукаємо тексти в пам'яті за ключем: ${key}. Знайшли:`, savedTexts);
+    }
+
+    // Якщо взагалі нічого немає — ігноруємо
+    if (savedTexts.length === 0) {
+        console.log(`[ДЕБАГ] 🛑 Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
+        return;
+    }
+
+    const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
+    console.log(`[ДЕБАГ] Вибрано текст: "${randomText}". Робимо паузу для імітації друку...`);
+
+    const speedSec = parseInt(localStorage.getItem("alphaBotReplySpeed") || "3");
+    const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+    console.log(`[ДЕБАГ] 🚀 Стріляємо повідомленням на сервер!`);
+    await sendAutoMessage(profileId, manId, randomText);
 }
