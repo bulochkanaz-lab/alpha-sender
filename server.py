@@ -195,21 +195,25 @@ def encrypt_payload(payload: str, key: str) -> str:
     return base64.b64encode(nonce + ct).decode('utf-8')
 
 
+class InviteAnalyticsLogRequest(BaseModel):
+    access_key: str
+    invite_text: str = ""  # Тепер необов'язково для reply
+    action: str  # "sent" або "reply"
+    chat_uid: str = ""
+    team: str = "alpha"
+
+
 @app.post("/api/analytics/log_invite")
 async def log_invite(request: InviteAnalyticsLogRequest):
     key = request.access_key.replace('"', '').strip()
     db = database_fs if request.team == "fs" else database
 
-    # Захист від порожніх текстів
-    if not request.invite_text.strip():
-        return {"status": "error", "message": "Текст порожній"}
-
     conn = db.get_connection()
     cursor = conn.cursor()
 
     try:
-        if request.action == "sent":
-            # Якщо тексту ще немає — створюємо із sent_count=1. Якщо є — плюсуємо 1.
+        if request.action == "sent" and request.invite_text.strip():
+            # 1. Плюсуємо відправку в загальну статистику
             cursor.execute("""
                 INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
                 VALUES (?, ?, 1, 0)
@@ -217,18 +221,33 @@ async def log_invite(request: InviteAnalyticsLogRequest):
                 DO UPDATE SET sent_count = sent_count + 1
             """, (key, request.invite_text.strip()))
 
-        elif request.action == "reply":
-            # Якщо прийшла відповідь, плюсуємо в reply_count
-            cursor.execute("""
-                INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
-                VALUES (?, ?, 0, 1)
-                ON CONFLICT(access_key, invite_text) 
-                DO UPDATE SET reply_count = reply_count + 1
-            """, (key, request.invite_text.strip()))
+            # 2. Запам'ятовуємо, що в цей чат полетів інвайт (створюємо "квиток")
+            if request.chat_uid:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO pending_invites (chat_uid, access_key, invite_text)
+                    VALUES (?, ?, ?)
+                """, (request.chat_uid, key, request.invite_text.strip()))
+
+        elif request.action == "reply" and request.chat_uid:
+            # 1. Шукаємо цей чат серед тих, куди ми кидали інвайти
+            cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
+            row = cursor.fetchone()
+
+            if row:
+                saved_text = row[0]
+                # 2. Якщо знайшли — плюсуємо відповідь саме цьому тексту
+                cursor.execute("""
+                    UPDATE invite_analytics SET reply_count = reply_count + 1
+                    WHERE access_key = ? AND invite_text = ?
+                """, (key, saved_text))
+
+                # 3. Видаляємо "квиток", щоб подальша ручна переписка не крутила стату
+                cursor.execute("DELETE FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
 
         conn.commit()
         return {"status": "success"}
     except Exception as e:
+        print(f"Помилка логування: {e}")
         return {"status": "error", "message": str(e)}
     finally:
         conn.close()

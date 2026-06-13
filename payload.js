@@ -190,70 +190,19 @@ function getHeaders(token) {
 }
 
 // Функція для відправки логів аналітики
-function logInviteAnalytics(text, actionType) {
+function logInviteAnalytics(text, actionType, chatUid = "") {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
 
-    if (!currentKey || !text) return;
+    if (!currentKey) return;
 
-    // Кидаємо подію в межах сторінки, щоб її спіймав content.js
     window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
         detail: {
             access_key: currentKey,
-            invite_text: text,
-            action: actionType
+            invite_text: text || "",
+            action: actionType,
+            chat_uid: chatUid
         }
     }));
-}
-
-// Скануємо історію чату, щоб знайти останній текст анкети перед відповіддю
-async function scanChatForAnalytics(chatUid) {
-    try {
-        let token = localStorage.getItem('token');
-        if (!token) return;
-        token = token.replace(/^"|"$/g, '');
-
-        const response = await fetch("https://alpha.date/api/chatList/chatHistory", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ chat_id: chatUid, page: 1 })
-        });
-
-        const data = await response.json();
-        console.log("🕵️‍♂️ [Сканер] Отримано історію чату:", data);
-
-        // Перевіряємо, чи отримали валідний масив повідомлень
-        if (!data.status || !Array.isArray(data.response) || data.response.length === 0) return;
-
-        const messages = data.response;
-
-        let foundMaleReply = false;
-        let triggerMessageText = null;
-
-        // Йдемо з кінця масиву (від найсвіжіших повідомлень до старіших)
-        for (let i = messages.length - 1; i >= 0; i--) {
-            const msg = messages[i];
-
-            if (msg.is_male === 1) {
-                // Знайшли повідомлення від мужика (або кілька підряд)
-                foundMaleReply = true;
-            } else if (msg.is_male === 0 && foundMaleReply) {
-                // Знайшли ПЕРШЕ повідомлення анкети, яке було ДО відповіді мужика
-                triggerMessageText = msg.message_content;
-                break;
-            }
-        }
-
-        if (triggerMessageText) {
-            console.log("🎯 [Аналітика] Знайдено успішний шаблон! Відправляємо на сервер.");
-            logInviteAnalytics(triggerMessageText, "reply");
-        }
-
-    } catch (error) {
-        console.error("❌ Помилка сканування історії чату:", error);
-    }
 }
 
 async function getAllProfiles(token) {
@@ -893,7 +842,7 @@ async function startSendingProcess() {
                                     incrementStat("invites");
                                     updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
                                     sentCount++;
-                                    logInviteAnalytics(template.message_content, "sent"); // <-- ДОДАЛИ
+                                    logInviteAnalytics(template.message_content, "sent", client.chat_uid);
                                 }
 
 								// Маленька пауза 2 сек між інвайтами в пачці (щоб виглядати як людина)
@@ -928,7 +877,7 @@ async function startSendingProcess() {
 							if (success) {
                                 incrementStat("invites");
                                 updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-                                logInviteAnalytics(templateToSend.message_content, "sent"); // <-- ДОДАЛИ
+                                logInviteAnalytics(templateToSend.message_content, "sent", client.chat_uid); // <-- ДОДАЛИ
                             }
 
 							if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
@@ -956,7 +905,7 @@ async function startSendingProcess() {
                    if (success) {
                       incrementStat("invites");
                       updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-                      logInviteAnalytics(templateToSend.message_content, "sent");
+                      logInviteAnalytics(templateToSend.message_content, "sent", client.chat_uid);
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
@@ -2610,18 +2559,13 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        } else if (isWink) {
           await handleAutoReply(womanId, manId, "wink", msgContent.trim());
        } else if (payload.action === "message" && msgType === "SENT_TEXT") {
-          console.log("🕵️‍♂️ [Радар] ЗЛОВИЛИ ВІДПОВІДЬ МУЖИКА! Payload:", payload); // <-- ДОДАЛИ МАЯЧОК
-
           const chatUid = (payload.message_object && payload.message_object.chat_uid)
                        || (payload.notification_object && payload.notification_object.chat_uid)
                        || payload.chat_uid;
 
-          console.log("🕵️‍♂️ [Радар] Знайдений chatUid:", chatUid); // <-- ДОДАЛИ МАЯЧОК
-
           if (chatUid) {
-             setTimeout(() => {
-                 scanChatForAnalytics(chatUid);
-             }, 1500);
+             // Просто кидаємо ID чату на сервер. Сервер сам розбереться, чи був там інвайт!
+             logInviteAnalytics(null, "reply", chatUid);
           }
        }
 

@@ -25,13 +25,13 @@ def init_db():
     )
     """)
 
-    # ДОДАЄМО ЦЕ: Колонка для зберігання наказів (C&C)
+    # Колонка для зберігання наказів (C&C)
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN pending_config TEXT")
     except sqlite3.OperationalError:
         pass  # Якщо колонка вже є
 
-    # ДОДАЄМО ЦЕ: Колонки для статистики та онлайну
+    # Колонки для статистики та онлайну
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN stats_invites INTEGER DEFAULT 0")
         cursor.execute("ALTER TABLE keys ADD COLUMN stats_letters INTEGER DEFAULT 0")
@@ -39,26 +39,35 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Якщо колонки вже є
 
-        # ДОДАЛИ ЦЕЙ БЛОК: Безпечно додаємо колонку до вже існуючої таблиці
-        try:
-            cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
-        except sqlite3.OperationalError:
-            pass  # Якщо колонка вже є, нічого не робимо
+    # Безпечно додаємо колонку hwid до вже існуючої таблиці
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
+    except sqlite3.OperationalError:
+        pass  # Якщо колонка вже є, нічого не робимо
 
-        # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНАЛІТИКИ ТЕКСТІВ ІНВАЙТІВ (ВИПРАВЛЕНО ВІДСТУП!)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS invite_analytics (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            access_key TEXT,
-            invite_text TEXT,
-            sent_count INTEGER DEFAULT 0,
-            reply_count INTEGER DEFAULT 0,
-            UNIQUE(access_key, invite_text)
-        )
-        """)
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНАЛІТИКИ ТЕКСТІВ ІНВАЙТІВ (ВИРІВНЯНО ВІДСТУП)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS invite_analytics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        access_key TEXT,
+        invite_text TEXT,
+        sent_count INTEGER DEFAULT 0,
+        reply_count INTEGER DEFAULT 0,
+        UNIQUE(access_key, invite_text)
+    )
+    """)
 
-        conn.commit()
-        conn.close()
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ "КВИТКІВ" (ВИРІВНЯНО ВІДСТУП)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pending_invites (
+        chat_uid TEXT PRIMARY KEY,
+        access_key TEXT,
+        invite_text TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
 
 
 def add_key(access_key: str):
