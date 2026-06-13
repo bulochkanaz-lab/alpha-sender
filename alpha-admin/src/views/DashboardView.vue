@@ -110,7 +110,7 @@
           </div>
 
           <div class="profile-card" style="grid-column: 1 / -1;">
-            <h3>Ефективність шаблонів (В розробці)</h3>
+            <h3>Ефективність шаблонів</h3>
             <table class="admin-table">
               <thead>
                 <tr>
@@ -121,8 +121,20 @@
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td colspan="4" style="text-align: center; color: #999;">Дані збираються... Необхідно оновити базу даних.</td>
+                <tr v-if="!selectedUser.invite_analytics || selectedUser.invite_analytics.length === 0">
+                  <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
+                    Дані збираються... Розширення ще не відправило жодного інвайту.
+                  </td>
+                </tr>
+                <tr v-for="(stat, idx) in selectedUser.invite_analytics" :key="idx">
+                  <td style="text-align: left; max-width: 450px; white-space: normal; word-break: break-word;">
+                    {{ stat.text }}
+                  </td>
+                  <td style="font-weight: bold; color: #f57c00;">{{ stat.sent }}</td>
+                  <td style="font-weight: bold; color: #2e7d32;">{{ stat.replied }}</td>
+                  <td :style="{ color: stat.conversion >= 10 ? '#52c41a' : '#faad14', fontWeight: 'bold' }">
+                    {{ stat.conversion }}%
+                  </td>
                 </tr>
               </tbody>
             </table>

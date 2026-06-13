@@ -839,12 +839,11 @@ async function startSendingProcess() {
 								const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
 								if (success) {
-									incrementStat("invites");
-
-									updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-
-									sentCount++;
-								}
+                                    incrementStat("invites");
+                                    updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                                    sentCount++;
+                                    logInviteAnalytics(template.message_content, "sent"); // <-- ДОДАЛИ
+                                }
 
 								// Маленька пауза 2 сек між інвайтами в пачці (щоб виглядати як людина)
 
@@ -876,10 +875,10 @@ async function startSendingProcess() {
 							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
 							if (success) {
-								incrementStat("invites");
-
-								updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-							}
+                                incrementStat("invites");
+                                updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                                logInviteAnalytics(templateToSend.message_content, "sent"); // <-- ДОДАЛИ
+                            }
 
 							if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
 						} else {
@@ -906,6 +905,7 @@ async function startSendingProcess() {
                    if (success) {
                       incrementStat("invites");
                       updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                      logInviteAnalytics(templateToSend.message_content, "sent");
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
