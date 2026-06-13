@@ -41,6 +41,12 @@ class AuthRequest(BaseModel):
     profiles: list = []
     team: str = "alpha"
 
+class InviteAnalyticsLogRequest(BaseModel):
+    access_key: str
+    invite_text: str
+    action: str  # "sent" або "reply"
+    team: str = "alpha"
+
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
     hwid: str = ""
@@ -189,36 +195,102 @@ def encrypt_payload(payload: str, key: str) -> str:
     return base64.b64encode(nonce + ct).decode('utf-8')
 
 
+@app.post("/api/analytics/log_invite")
+async def log_invite(request: InviteAnalyticsLogRequest):
+    key = request.access_key.replace('"', '').strip()
+    db = database_fs if request.team == "fs" else database
+
+    # Захист від порожніх текстів
+    if not request.invite_text.strip():
+        return {"status": "error", "message": "Текст порожній"}
+
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    try:
+        if request.action == "sent":
+            # Якщо тексту ще немає — створюємо із sent_count=1. Якщо є — плюсуємо 1.
+            cursor.execute("""
+                INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
+                VALUES (?, ?, 1, 0)
+                ON CONFLICT(access_key, invite_text) 
+                DO UPDATE SET sent_count = sent_count + 1
+            """, (key, request.invite_text.strip()))
+
+        elif request.action == "reply":
+            # Якщо прийшла відповідь, плюсуємо в reply_count
+            cursor.execute("""
+                INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
+                VALUES (?, ?, 0, 1)
+                ON CONFLICT(access_key, invite_text) 
+                DO UPDATE SET reply_count = reply_count + 1
+            """, (key, request.invite_text.strip()))
+
+        conn.commit()
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
 # ==========================================
 # ADMIN API (Тільки для Vue.js)
 # ==========================================
 
 @app.get("/admin/keys")
 async def get_admin_keys(team: str = "alpha", authorized: bool = Depends(verify_admin)):
-    """Віддає всі ключі для таблиці у Vue"""
     db = database_fs if team == "fs" else database
 
     conn = db.get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT access_key, hwid, is_banned, profiles, pending_config, stats_invites, stats_letters, last_ping FROM keys")
+
+    # 1. Отримуємо користувачів
+    cursor.execute(
+        "SELECT access_key, hwid, is_banned, profiles, pending_config, stats_invites, stats_letters, last_ping FROM keys")
     rows = cursor.fetchall()
-    conn.close()
 
     keys_list = []
     for index, row in enumerate(rows, start=1):
+        user_key = row[0]
+
+        # 2. Для кожного користувача дістаємо його аналітику інвайтів
+        cursor.execute("""
+            SELECT invite_text, sent_count, reply_count 
+            FROM invite_analytics 
+            WHERE access_key = ?
+            ORDER BY reply_count DESC
+        """, (user_key,))
+        analytics_rows = cursor.fetchall()
+
+        invite_analytics = []
+        for a_row in analytics_rows:
+            sent = a_row[1] or 0
+            replied = a_row[2] or 0
+            # Рахуємо конверсію відсотках
+            conversion = round((replied / sent) * 100, 1) if sent > 0 else 0
+
+            invite_analytics.append({
+                "text": a_row[0],
+                "sent": sent,
+                "replied": replied,
+                "conversion": conversion
+            })
+
         keys_list.append({
-            "id": index,  # Порядковий номер для таблиці Vue
-            "access_key": row[0],
+            "id": index,
+            "access_key": user_key,
             "hwid": row[1],
-            "balance": 0,  # Заглушка (або підтягуй з бази, якщо додаси таку колонку)
+            "balance": 0,
             "is_banned": bool(row[2]),
             "profiles": json.loads(row[3]) if row[3] else [],
             "pending_config": json.loads(row[4]) if row[4] else None,
-            "stats_invites": row[5] or 0,  # <--- Додали
-            "stats_letters": row[6] or 0,  # <--- Додали
-            "last_ping": row[7]  # <--- Додали
+            "stats_invites": row[5] or 0,
+            "stats_letters": row[6] or 0,
+            "last_ping": row[7],
+            "invite_analytics": invite_analytics  # <--- Передаємо масив з топом інвайтів у Vue
         })
 
+    conn.close()
     return {"status": "success", "keys": keys_list}
 
 
