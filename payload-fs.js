@@ -189,6 +189,22 @@ function getHeaders(token) {
     };
 }
 
+// Функція для відправки логів аналітики
+function logInviteAnalytics(text, actionType) {
+    const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+    if (!currentKey || !text) return;
+
+    fetch("http://178.105.190.180:8001/api/analytics/log_invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            access_key: currentKey,
+            invite_text: text,
+            action: actionType
+        })
+    }).catch(() => {}); // Тихий кетч, щоб не засмічувати консоль, якщо щось піде не так
+}
+
 async function getAllProfiles(token) {
     try {
         const response = await fetch("https://alpha.date/api/operator/profiles", {
@@ -243,16 +259,22 @@ async function fetchTemplates(token, profileId, mailType) {
     }
 }
 
-// Оновлена функція Heartbeat (Пінг)
 async function sendHeartbeatToServer(profilesList = []) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
     if (!currentKey) return;
+
+    // Читаємо статистику за сьогодні
+    const d = new Date();
+    const todayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    const stats = JSON.parse(localStorage.getItem("alphaStats_" + todayKey) || '{"invites": 0, "letters": 0}');
 
     // Кидаємо подію в межах сторінки, щоб її спіймав content.js
     window.dispatchEvent(new CustomEvent("AlphaPing", {
         detail: {
             key: currentKey,
-            profiles: profilesList.map(p => p.id)
+            profiles: profilesList.map(p => p.id),
+            stats_invites: stats.invites, // <-- Додали в посилку
+            stats_letters: stats.letters  // <-- Додали в посилку
         }
     }));
 }
@@ -986,16 +1008,15 @@ function startWaitCountdown(resumeTime) {
 		const left = resumeTime - Date.now();
 
 		if (left <= 0) {
-			clearInterval(botLoopTimer);
-
-			localStorage.setItem("alphaBotState", "running");
-
-			startSendingProcess(); // Запуск нового кола без аргументів!
-		} else {
-          const minLeft = Math.ceil(left / 60000);
-          updatePopup(`Перерва: ${minLeft} хв`, false, "Очікування...");
+          clearInterval(botLoopTimer);
+          localStorage.setItem("alphaBotState", "running");
+          startSendingProcess(); // Запуск нового кола без аргументів!
+       } else {
+          const min = Math.floor(left / 60000);
+          const sec = Math.floor((left % 60000) / 1000);
+          updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
        }
-	}, 1000);
+    }, 1000);
 }
 
 // ==========================================
@@ -1125,7 +1146,7 @@ function injectBotUI() {
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
                     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Fire Snakes</div>
+                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro</div>
                     <div class="alpha-lang-switch">
                         <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
                         <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
@@ -2048,17 +2069,21 @@ function renderCustomInvites() {
 
 	saved.forEach((item, index) => {
 		const div = document.createElement("div");
+
 		div.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
 
 		// Додаємо нумерацію для наочності
 
 		const textSpan = document.createElement("span");
+
 		textSpan.innerText = `${index + 1}. ${item.message_content}`;
+
 		textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
 
 		// Контейнер для кнопок управління
 
 		const controlsDiv = document.createElement("div");
+
 		controlsDiv.style.cssText = `display: flex; align-items: center; gap: 8px; margin-left: 10px;`;
 
 		// Кнопка ВГОРУ (не показуємо для першого елемента)
@@ -2501,13 +2526,6 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
        }
 
-       if (!isRunning) return; // 🛑 Блокуємо розсилку та автовідповідач, якщо на паузі
-
-       // ==========================================
-       // 🛑 УВАГА: Далі йде автовідповідач (Лайки/Вінки).
-       // Він МАЄ блокуватися, якщо бот зупинений!
-       if (!isRunning) return;
-
        // ==========================================
        // РОЗУМНИЙ АВТОВІДПОВІДАЧ (Лайки / Кастомні Вінки)
        // ==========================================
@@ -2592,51 +2610,52 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 
 // Функція sendAutoMessage залишається без змін...
 
-async function sendAutoMessage(profileId, manId, text) {
-    // --- MUTEX LOCK: Захист від паралельних вкладок ---
-    const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
-    if (Date.now() - lastActive < 15000 && !isRunning) {
-        showSystemAlert("⛔ Помилка", "Розсилка вже працює в іншій вкладці! Зупиніть її там.", "#f44336");
-        document.getElementById("uiStartBtn").style.display = "block";
-        document.getElementById("uiStopBtn").style.display = "none";
+async function handleAutoReply(profileId, manId, type, exactText = "") {
+    console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
+
+    const lockKey = `${profileId}_${manId}_${type}`;
+    if (autoReplyLocks.has(lockKey)) {
+        console.log(`[ДЕБАГ] Блок! Цей мужик вже щойно отримав відповідь (захист від спаму).`);
         return;
     }
-    // --------------------------------------------------
-	let token = localStorage.getItem("token");
 
-	if (!token) return;
+    autoReplyLocks.add(lockKey);
+    setTimeout(() => autoReplyLocks.delete(lockKey), 60000);
 
-	token = token.replace(/^"|"$/g, "");
+    let savedTexts = [];
 
-	const bodyData = {
-		sender_id: Number(profileId),
+    // 1. Спроба знайти КАСТОМНУ відповідь
+    if (type === "wink" && exactText !== "") {
+        try {
+            const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
+            if (customWinks[exactText] && customWinks[exactText].length > 0) {
+                savedTexts = customWinks[exactText];
+                console.log(`[ДЕБАГ] Знайдено кастомні тексти для цієї вінки:`, savedTexts);
+            }
+        } catch(e) {}
+    }
 
-		recipient_id: Number(manId),
+    // 2. Беремо СТАНДАРТНУ
+    if (savedTexts.length === 0) {
+        const key = `resp_${profileId}_${type}`;
+        savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
+        console.log(`[ДЕБАГ] Шукаємо тексти в пам'яті за ключем: ${key}. Знайшли:`, savedTexts);
+    }
 
-		message_content: text,
+    // Якщо взагалі нічого немає — ігноруємо
+    if (savedTexts.length === 0) {
+        console.log(`[ДЕБАГ] 🛑 Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
+        return;
+    }
 
-		message_type: "SENT_TEXT",
+    const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
+    console.log(`[ДЕБАГ] Вибрано текст: "${randomText}". Робимо паузу для імітації друку...`);
 
-		filename: "",
+    const speedSec = parseInt(localStorage.getItem("alphaBotReplySpeed") || "3");
+    const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
 
-		chance: true,
-	};
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-	try {
-		const response = await fetch("https://alpha.date/api/chat/message", {
-			method: "POST",
-
-			headers: getHeaders(token), // Функція getHeaders вже є у твоєму файлі вище
-
-			body: JSON.stringify(bodyData),
-		});
-
-		const data = await response.json();
-
-		if (response.ok && data.status === true) {
-			// console.log(`✅ УСПІХ! Автовідповідь надіслана: "${text}"`);
-		}
-	} catch (error) {
-		//console.error("Помилка автовідповіді", error);
-	}
+    console.log(`[ДЕБАГ] 🚀 Стріляємо повідомленням на сервер!`);
+    await sendAutoMessage(profileId, manId, randomText);
 }
