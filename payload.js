@@ -189,6 +189,22 @@ function getHeaders(token) {
     };
 }
 
+// Функція для відправки логів аналітики
+function logInviteAnalytics(text, actionType) {
+    const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+    if (!currentKey || !text) return;
+
+    fetch("http://178.105.190.180:8001/api/analytics/log_invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            access_key: currentKey,
+            invite_text: text,
+            action: actionType
+        })
+    }).catch(() => {}); // Тихий кетч, щоб не засмічувати консоль, якщо щось піде не так
+}
+
 async function getAllProfiles(token) {
     try {
         const response = await fetch("https://alpha.date/api/operator/profiles", {
