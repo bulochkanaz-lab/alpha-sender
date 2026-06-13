@@ -1132,7 +1132,7 @@ function injectBotUI() {
                     <div id="tabBtnInvites" data-lang="tabInvites" class="alpha-nav-btn" style="display: none;">📩 Інвайти</div>
                     <div id="tabBtnLetters" data-lang="tabLetters" class="alpha-nav-btn" style="display: none;">📝 Листи</div>
                     <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
-                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">🚨 VIP Радар</div>
+                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">Повідомлення</div>
                     <div id="tabBtnStats" data-lang="tabStats" class="alpha-nav-btn">📊 Статистика</div>
                 </div>
             </div>
