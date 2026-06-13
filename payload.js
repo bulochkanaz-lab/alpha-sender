@@ -205,6 +205,56 @@ function logInviteAnalytics(text, actionType) {
     }).catch(() => {}); // Тихий кетч, щоб не засмічувати консоль, якщо щось піде не так
 }
 
+// Скануємо історію чату, щоб знайти останній текст анкети перед відповіддю
+async function scanChatForAnalytics(chatUid) {
+    try {
+        let token = localStorage.getItem('token');
+        if (!token) return;
+        token = token.replace(/^"|"$/g, '');
+
+        const response = await fetch("https://alpha.date/api/chatList/chatHistory", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ chat_id: chatUid, page: 1 })
+        });
+
+        const data = await response.json();
+
+        // Перевіряємо, чи отримали валідний масив повідомлень
+        if (!data.status || !Array.isArray(data.response) || data.response.length === 0) return;
+
+        const messages = data.response;
+
+        let foundMaleReply = false;
+        let triggerMessageText = null;
+
+        // Йдемо з кінця масиву (від найсвіжіших повідомлень до старіших)
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+
+            if (msg.is_male === 1) {
+                // Знайшли повідомлення від мужика (або кілька підряд)
+                foundMaleReply = true;
+            } else if (msg.is_male === 0 && foundMaleReply) {
+                // Знайшли ПЕРШЕ повідомлення анкети, яке було ДО відповіді мужика
+                triggerMessageText = msg.message_content;
+                break;
+            }
+        }
+
+        if (triggerMessageText) {
+            console.log("🎯 [Аналітика] Знайдено успішний шаблон! Відправляємо на сервер.");
+            logInviteAnalytics(triggerMessageText, "reply");
+        }
+
+    } catch (error) {
+        console.error("❌ Помилка сканування історії чату:", error);
+    }
+}
+
 async function getAllProfiles(token) {
     try {
         const response = await fetch("https://alpha.date/api/operator/profiles", {
@@ -2557,8 +2607,20 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        if (isLike) {
           await handleAutoReply(womanId, manId, "like", "");
        } else if (isWink) {
-          // Передаємо конкретний текст вінки у функцію (прибираємо зайві пробіли)
           await handleAutoReply(womanId, manId, "wink", msgContent.trim());
+       } else if (payload.action === "message" && msgType === "SENT_TEXT") {
+          // 🎯 ЛОВЕЦЬ ВІДПОВІДЕЙ ДЛЯ АНАЛІТИКИ
+          // Витягуємо унікальний ID чату з об'єкта повідомлення
+          const chatUid = (payload.message_object && payload.message_object.chat_uid)
+                       || (payload.notification_object && payload.notification_object.chat_uid)
+                       || payload.chat_uid;
+
+          if (chatUid) {
+             // Запускаємо сканер з невеликою затримкою
+             setTimeout(() => {
+                 scanChatForAnalytics(chatUid);
+             }, 1500);
+          }
        }
 
     } catch (err) {

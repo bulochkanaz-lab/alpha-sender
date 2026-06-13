@@ -64,7 +64,8 @@
       </div>
 
       <div v-if="activeTab === 'stats'">
-        <h2>Глобальна аналітика</h2>
+        <h2>Глобальна аналітика команди</h2>
+
         <div class="stats-grid">
           <div class="stat-card">
             <h3>Всього інвайтів за сьогодні</h3>
@@ -75,8 +76,36 @@
             <div class="stat-number">{{ totalLetters }}</div>
           </div>
         </div>
-        <div style="margin-top: 30px; padding: 20px; background: #fff; border-radius: 8px; border: 1px dashed #ccc;">
-          <p style="color: #666; text-align: center;">Тут будуть красиві графіки Chart.js (відправки по годинах та конверсія текстів)</p>
+
+        <div class="profile-card" style="margin-top: 20px;">
+          <h3>Топ найефективніших інвайтів (Глобально)</h3>
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Текст інвайту</th>
+                <th>Відправлено (Усі ключі)</th>
+                <th>Відповідей</th>
+                <th>Конверсія (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="globalAnalytics.length === 0">
+                <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
+                  Дані ще збираються...
+                </td>
+              </tr>
+              <tr v-for="(stat, idx) in globalAnalytics" :key="idx">
+                <td style="text-align: left; max-width: 450px; white-space: normal; word-break: break-word;">
+                  {{ stat.text }}
+                </td>
+                <td style="font-weight: bold; color: #f57c00;">{{ stat.sent }}</td>
+                <td style="font-weight: bold; color: #2e7d32;">{{ stat.replied }}</td>
+                <td :style="{ color: stat.conversion >= 10 ? '#52c41a' : '#faad14', fontWeight: 'bold' }">
+                  {{ stat.conversion }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -163,6 +192,7 @@ const selectedUser = ref(null)
 const users = ref([])
 const loading = ref(true)
 const error = ref('')
+const globalAnalytics = ref([])
 
 // ==========================================
 // ФУНКЦІЇ ДЛЯ ЧАСУ ТА СТАТУСУ
@@ -226,6 +256,19 @@ const fetchUsers = async () => {
   }
 }
 
+const fetchGlobalStats = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/admin/global_stats`, {
+      headers: { 'admin-token': authStore.token }
+    })
+    if (response.data.status === 'success') {
+      globalAnalytics.value = response.data.stats
+    }
+  } catch (e) {
+    console.error("Не вдалося завантажити глобальну статистику", e)
+  }
+}
+
 const toggleBan = async (key) => {
   try {
     await axios.post(`${SERVER_URL}/admin/toggle_ban`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
@@ -251,8 +294,9 @@ const deleteKey = async (key) => {
 
 onMounted(() => {
   fetchUsers()
-  // Оновлюємо дані кожні 10 секунд (щоб онлайн світився актуально)
+  fetchGlobalStats() // <--- Додали
   setInterval(fetchUsers, 10000)
+  setInterval(fetchGlobalStats, 30000) // Оновлюємо топ кожні 30 сек
 })
 </script>
 

@@ -294,6 +294,39 @@ async def get_admin_keys(team: str = "alpha", authorized: bool = Depends(verify_
     return {"status": "success", "keys": keys_list}
 
 
+@app.get("/admin/global_stats")
+async def get_global_stats(team: str = "alpha", authorized: bool = Depends(verify_admin)):
+    """Віддає топ найефективніших інвайтів по всій команді"""
+    db = database_fs if team == "fs" else database
+
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    # Групуємо всі записи за текстом, сумуємо відправки та відповіді
+    cursor.execute("""
+        SELECT invite_text, SUM(sent_count), SUM(reply_count)
+        FROM invite_analytics 
+        GROUP BY invite_text
+        ORDER BY SUM(reply_count) DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    global_stats = []
+    for row in rows:
+        sent = row[1] or 0
+        replied = row[2] or 0
+        conversion = round((replied / sent) * 100, 1) if sent > 0 else 0
+
+        global_stats.append({
+            "text": row[0],
+            "sent": sent,
+            "replied": replied,
+            "conversion": conversion
+        })
+
+    return {"status": "success", "stats": global_stats}
+
 @app.post("/admin/config")
 async def update_user_config(request: AdminConfigUpdateRequest, authorized: bool = Depends(verify_admin)):
     """Записує новий наказ (інвайти/налаштування) для розширення"""
