@@ -769,15 +769,7 @@ async function startSendingProcess() {
 		const hasLetters = letterTemplates && letterTemplates.length > 0;
 
 		// ==========================================
-
 		// ФАЗА 1: ІНВАЙТИ
-
-		// ==========================================
-
-		// ==========================================
-
-		// ФАЗА 1: ІНВАЙТИ
-
 		// ==========================================
 
 		if (hasInvites) {
@@ -992,9 +984,12 @@ function startWaitCountdown(resumeTime) {
 
 			startSendingProcess(); // Запуск нового кола без аргументів!
 		} else {
-          const minLeft = Math.ceil(left / 60000);
-          updatePopup(`Перерва: ${minLeft} хв`, false, "Очікування...");
-       }
+			const min = Math.floor(left / 60000);
+
+			const sec = Math.floor((left % 60000) / 1000);
+
+			updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
+		}
 	}, 1000);
 }
 
@@ -1125,7 +1120,7 @@ function injectBotUI() {
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
                     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Fire Snakes</div>
+                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro</div>
                     <div class="alpha-lang-switch">
                         <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
                         <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
@@ -2048,17 +2043,21 @@ function renderCustomInvites() {
 
 	saved.forEach((item, index) => {
 		const div = document.createElement("div");
+
 		div.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
 
 		// Додаємо нумерацію для наочності
 
 		const textSpan = document.createElement("span");
+
 		textSpan.innerText = `${index + 1}. ${item.message_content}`;
+
 		textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
 
 		// Контейнер для кнопок управління
 
 		const controlsDiv = document.createElement("div");
+
 		controlsDiv.style.cssText = `display: flex; align-items: center; gap: 8px; margin-left: 10px;`;
 
 		// Кнопка ВГОРУ (не показуємо для першого елемента)
@@ -2501,13 +2500,6 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
        }
 
-       if (!isRunning) return; // 🛑 Блокуємо розсилку та автовідповідач, якщо на паузі
-
-       // ==========================================
-       // 🛑 УВАГА: Далі йде автовідповідач (Лайки/Вінки).
-       // Він МАЄ блокуватися, якщо бот зупинений!
-       if (!isRunning) return;
-
        // ==========================================
        // РОЗУМНИЙ АВТОВІДПОВІДАЧ (Лайки / Кастомні Вінки)
        // ==========================================
@@ -2593,50 +2585,46 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 // Функція sendAutoMessage залишається без змін...
 
 async function sendAutoMessage(profileId, manId, text) {
-    // --- MUTEX LOCK: Захист від паралельних вкладок ---
+    // --- MUTEX LOCK: Захист від паралельних вкладок залишаємо ---
     const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
     if (Date.now() - lastActive < 15000 && !isRunning) {
-        showSystemAlert("⛔ Помилка", "Розсилка вже працює в іншій вкладці! Зупиніть її там.", "#f44336");
-        document.getElementById("uiStartBtn").style.display = "block";
-        document.getElementById("uiStopBtn").style.display = "none";
-        return;
+        return; // Просто тихо виходимо, якщо є інша активна вкладка
     }
     // --------------------------------------------------
-	let token = localStorage.getItem("token");
 
-	if (!token) return;
+    let token = localStorage.getItem("token");
+    if (!token) return;
+    token = token.replace(/^"|"$/g, "");
 
-	token = token.replace(/^"|"$/g, "");
+    const payload = {
+       sender_id: Number(profileId),
+       recipient_id: Number(manId),
+       message_content: text,
+       message_type: "SENT_TEXT",
+       filename: "",
+       chance: true, // Пробуємо як перший шанс
+    };
 
-	const bodyData = {
-		sender_id: Number(profileId),
+    try {
+       const response = await fetch("https://alpha.date/api/chat/message", {
+          method: "POST",
+          headers: getHeaders(token),
+          body: JSON.stringify(payload),
+       });
+       const data = await response.json();
 
-		recipient_id: Number(manId),
+       // Якщо шанс не пройшов, стріляємо класичним повідомленням
+       if (!response.ok || data.status !== true) {
+          const backupPayload = { ...payload };
+          delete backupPayload.chance;
 
-		message_content: text,
-
-		message_type: "SENT_TEXT",
-
-		filename: "",
-
-		chance: true,
-	};
-
-	try {
-		const response = await fetch("https://alpha.date/api/chat/message", {
-			method: "POST",
-
-			headers: getHeaders(token), // Функція getHeaders вже є у твоєму файлі вище
-
-			body: JSON.stringify(bodyData),
-		});
-
-		const data = await response.json();
-
-		if (response.ok && data.status === true) {
-			// console.log(`✅ УСПІХ! Автовідповідь надіслана: "${text}"`);
-		}
-	} catch (error) {
-		//console.error("Помилка автовідповіді", error);
-	}
+          await fetch("https://alpha.date/api/chat/message", {
+              method: "POST",
+              headers: getHeaders(token),
+              body: JSON.stringify(backupPayload)
+          });
+       }
+    } catch (error) {
+       // Тиха помилка, щоб не спамити в консоль
+    }
 }
