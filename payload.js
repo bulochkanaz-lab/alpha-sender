@@ -192,7 +192,13 @@ function getHeaders(token) {
 // Функція для відправки логів аналітики
 function logInviteAnalytics(text, actionType) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
-    if (!currentKey || !text) return;
+
+    console.log(`📊 [Аналітика] Спроба логування. Тип: ${actionType}, Текст: "${text ? text.substring(0, 30) + '...' : 'ПУСТО'}"`);
+
+    if (!currentKey || !text) {
+        console.warn(`🛑 [Аналітика] Відміна: немає ключа або тексту! Ключ: ${currentKey}`);
+        return;
+    }
 
     fetch("http://178.105.190.180:8001/api/analytics/log_invite", {
         method: "POST",
@@ -202,7 +208,10 @@ function logInviteAnalytics(text, actionType) {
             invite_text: text,
             action: actionType
         })
-    }).catch(() => {}); // Тихий кетч, щоб не засмічувати консоль, якщо щось піде не так
+    })
+    .then(res => res.json())
+    .then(data => console.log(`✅ [Аналітика] Відповідь сервера:`, data))
+    .catch(err => console.error(`❌ [Аналітика] Помилка запиту на сервер:`, err));
 }
 
 // Скануємо історію чату, щоб знайти останній текст анкети перед відповіддю
@@ -222,6 +231,7 @@ async function scanChatForAnalytics(chatUid) {
         });
 
         const data = await response.json();
+        console.log("🕵️‍♂️ [Сканер] Отримано історію чату:", data);
 
         // Перевіряємо, чи отримали валідний масив повідомлень
         if (!data.status || !Array.isArray(data.response) || data.response.length === 0) return;
@@ -2609,14 +2619,15 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        } else if (isWink) {
           await handleAutoReply(womanId, manId, "wink", msgContent.trim());
        } else if (payload.action === "message" && msgType === "SENT_TEXT") {
-          // 🎯 ЛОВЕЦЬ ВІДПОВІДЕЙ ДЛЯ АНАЛІТИКИ
-          // Витягуємо унікальний ID чату з об'єкта повідомлення
+          console.log("🕵️‍♂️ [Радар] ЗЛОВИЛИ ВІДПОВІДЬ МУЖИКА! Payload:", payload); // <-- ДОДАЛИ МАЯЧОК
+
           const chatUid = (payload.message_object && payload.message_object.chat_uid)
                        || (payload.notification_object && payload.notification_object.chat_uid)
                        || payload.chat_uid;
 
+          console.log("🕵️‍♂️ [Радар] Знайдений chatUid:", chatUid); // <-- ДОДАЛИ МАЯЧОК
+
           if (chatUid) {
-             // Запускаємо сканер з невеликою затримкою
              setTimeout(() => {
                  scanChatForAnalytics(chatUid);
              }, 1500);
