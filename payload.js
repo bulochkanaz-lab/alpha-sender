@@ -193,25 +193,16 @@ function getHeaders(token) {
 function logInviteAnalytics(text, actionType) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
 
-    console.log(`📊 [Аналітика] Спроба логування. Тип: ${actionType}, Текст: "${text ? text.substring(0, 30) + '...' : 'ПУСТО'}"`);
+    if (!currentKey || !text) return;
 
-    if (!currentKey || !text) {
-        console.warn(`🛑 [Аналітика] Відміна: немає ключа або тексту! Ключ: ${currentKey}`);
-        return;
-    }
-
-    fetch("http://178.105.190.180:8001/api/analytics/log_invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+    // Кидаємо подію в межах сторінки, щоб її спіймав content.js
+    window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
+        detail: {
             access_key: currentKey,
             invite_text: text,
             action: actionType
-        })
-    })
-    .then(res => res.json())
-    .then(data => console.log(`✅ [Аналітика] Відповідь сервера:`, data))
-    .catch(err => console.error(`❌ [Аналітика] Помилка запиту на сервер:`, err));
+        }
+    }));
 }
 
 // Скануємо історію чату, щоб знайти останній текст анкети перед відповіддю
