@@ -928,7 +928,7 @@ async function startSendingProcess() {
                                     // 1. Беремо ID мужика
                                     const targetManId = String(client.external_id || client.user_id || client.id);
                                     // 2. Беремо ID анкети (зазвичай він лежить у localStorage як user_id)
-                                    const myProfileId = String(localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+                                        const myProfileId = String(currentProfile.id);
                                     // 3. Зклеюємо їх
                                     const smartUid = `${myProfileId}_${targetManId}`;
 
