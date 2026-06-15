@@ -923,7 +923,20 @@ async function startSendingProcess() {
                                     incrementStat("invites");
                                     updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
                                     sentCount++;
-                                    logInviteAnalytics(template.message_content, "sent", client.chat_uid);
+
+                                    // --- СТВОРЮЄМО БРОНЬОВАНИЙ КЛЮЧ ---
+                                    // 1. Беремо ID мужика
+                                    const targetManId = String(client.external_id || client.user_id || client.id);
+                                    // 2. Беремо ID анкети (зазвичай він лежить у localStorage як user_id)
+                                    const myProfileId = String(localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+                                    // 3. Зклеюємо їх
+                                    const smartUid = `${myProfileId}_${targetManId}`;
+
+                                    // --- ЛОГУЄМО З НОВИМ КЛЮЧЕМ ---
+                                    logInviteAnalytics(template.message_content, "sent", smartUid);
+                                    markChatAsInvited(smartUid);
+
+                                    console.log(`🛠 [Дебаг Відправки] Записали в пам'ять ключ: ${smartUid}`);
                                 }
 
 								// Маленька пауза 2 сек між інвайтами в пачці (щоб виглядати як людина)
