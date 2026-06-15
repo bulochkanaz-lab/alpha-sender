@@ -43,9 +43,17 @@ class AuthRequest(BaseModel):
 
 class InviteAnalyticsLogRequest(BaseModel):
     access_key: str
-    invite_text: str
+    invite_text: str = ""
     action: str  # "sent" або "reply"
+    chat_uid: str = ""
     team: str = "alpha"
+    # --- НОВІ ПОЛЯ ДЛЯ СТРАТЕГІЇ 2 (Лінивий збір) ---
+    profile_id: str = ""
+    lead_age: int = 0
+    lead_country: str = ""
+    lead_interests: str = ""
+    lead_bio: str = ""  # <--- ДОДАЛИ
+    lead_photo: str = ""  # <--- ДОДАЛИ
 
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
@@ -213,35 +221,66 @@ async def log_invite(request: InviteAnalyticsLogRequest):
 
     try:
         if request.action == "sent" and request.invite_text.strip():
-            # 1. Плюсуємо відправку в загальну статистику
+            new_text = request.invite_text.strip()
+            final_text_to_log = new_text
+
+            if request.chat_uid:
+                # 1. Шукаємо, чи є вже квиток для цього чату (чи це добивка?)
+                cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
+                row = cursor.fetchone()
+
+                if row:
+                    old_text = row[0]
+                    # Це добивка! Створюємо комбо-текст
+                    final_text_to_log = f"{old_text} \n {new_text}"
+
+                    # Віднімаємо 1 бал відправки у старого (короткого) тексту
+                    cursor.execute("""
+                        UPDATE invite_analytics 
+                        SET sent_count = MAX(0, sent_count - 1) 
+                        WHERE access_key = ? AND invite_text = ?
+                    """, (key, old_text))
+
+            # 2. Плюсуємо відправку для фінального тексту (нового або склеєного комбо)
             cursor.execute("""
                 INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
                 VALUES (?, ?, 1, 0)
                 ON CONFLICT(access_key, invite_text) 
                 DO UPDATE SET sent_count = sent_count + 1
-            """, (key, request.invite_text.strip()))
+            """, (key, final_text_to_log))
 
-            # 2. Запам'ятовуємо, що в цей чат полетів інвайт (створюємо "квиток")
+            # 3. Оновлюємо квиток новим фінальним текстом
             if request.chat_uid:
                 cursor.execute("""
                     INSERT OR REPLACE INTO pending_invites (chat_uid, access_key, invite_text)
                     VALUES (?, ?, ?)
-                """, (request.chat_uid, key, request.invite_text.strip()))
+                """, (request.chat_uid, key, final_text_to_log))
 
         elif request.action == "reply" and request.chat_uid:
-            # 1. Шукаємо цей чат серед тих, куди ми кидали інвайти
+            # 1. Шукаємо квиток
             cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
             row = cursor.fetchone()
 
             if row:
                 saved_text = row[0]
-                # 2. Якщо знайшли — плюсуємо відповідь саме цьому тексту
+                # 2. Плюсуємо відповідь
                 cursor.execute("""
                     UPDATE invite_analytics SET reply_count = reply_count + 1
                     WHERE access_key = ? AND invite_text = ?
                 """, (key, saved_text))
 
-                # 3. Видаляємо "квиток", щоб подальша ручна переписка не крутила стату
+                # 3. ЗБЕРІГАЄМО ДОСЬЄ МУЖИКА (Якщо розширення його прислало)
+                # 3. ЗБЕРІГАЄМО ДОСЬЄ МУЖИКА
+                if request.lead_age > 0 or request.lead_country:
+                    cursor.execute("""
+                        INSERT INTO leads_analytics 
+                        (access_key, chat_uid, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (key, request.chat_uid, request.profile_id, saved_text,
+                            request.lead_age, request.lead_country, request.lead_interests,
+                            request.lead_bio, request.lead_photo))
+
+                # 4. Видаляємо квиток
                 cursor.execute("DELETE FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
 
         conn.commit()
@@ -345,6 +384,39 @@ async def get_global_stats(team: str = "alpha", authorized: bool = Depends(verif
         })
 
     return {"status": "success", "stats": global_stats}
+
+@app.get("/admin/leads")
+async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(verify_admin)):
+    """Віддає список зібраних досьє на тих, хто відповів"""
+    db = database_fs if team == "fs" else database
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    # Дістаємо останні 100 зібраних досьє
+    cursor.execute("""
+        SELECT access_key, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, timestamp 
+        FROM leads_analytics 
+        ORDER BY timestamp DESC 
+        LIMIT 100
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    leads = []
+    for row in rows:
+        leads.append({
+            "key": row[0],
+            "man_id": row[1],
+            "text": row[2],
+            "age": row[3],
+            "country": row[4],
+            "interests": row[5],
+            "bio": row[6],
+            "photo": row[7],
+            "time": row[8]
+        })
+
+    return {"status": "success", "leads": leads}
 
 @app.post("/admin/config")
 async def update_user_config(request: AdminConfigUpdateRequest, authorized: bool = Depends(verify_admin)):

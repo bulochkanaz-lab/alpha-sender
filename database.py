@@ -66,6 +66,23 @@ def init_db():
     )
     """)
 
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ ДОСЬЄ (ОНОВЛЕНО З ФОТО ТА БІО)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS leads_analytics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        access_key TEXT,
+        chat_uid TEXT,
+        profile_id TEXT,
+        invite_text TEXT,
+        lead_age INTEGER,
+        lead_country TEXT,
+        lead_interests TEXT,
+        lead_bio TEXT,
+        lead_photo TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
     conn.commit()
     conn.close()
 

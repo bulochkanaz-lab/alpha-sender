@@ -13,6 +13,7 @@
           @click="openTab('stats')">
           📈 Глобальна статистика
         </button>
+        <button :class="{ active: activeTab === 'leads' }" @click="activeTab = 'leads'">База Лідів (Досьє)</button>
       </nav>
       <button class="logout-btn" @click="logout">🚪 Вийти</button>
     </aside>
@@ -61,6 +62,48 @@
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div v-if="activeTab === 'leads'">
+        <h2>Зібрані профілі (Ті, хто відповів)</h2>
+
+        <div class="profile-card" style="margin-top: 20px; overflow-x: auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Фото</th>
+                <th>Вік / Країна</th>
+                <th>ID Чоловіка</th>
+                <th>Який текст спрацював?</th>
+                <th>Інтереси</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="leadsAnalytics.length === 0">
+                <td colspan="5" style="text-align: center; color: #999; padding: 20px;">
+                  Досьє ще збираються...
+                </td>
+              </tr>
+              <tr v-for="(lead, idx) in leadsAnalytics" :key="idx">
+                <td>
+                  <img v-if="lead.photo" :src="lead.photo" alt="avatar" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />
+                  <div v-else style="width: 50px; height: 50px; border-radius: 50%; background: #eee; display: inline-block;"></div>
+                </td>
+                <td style="font-weight: bold;">
+                  {{ lead.age }} р. <br/>
+                  <span style="font-size: 0.85em; color: #666;">{{ lead.country }}</span>
+                </td>
+                <td>{{ lead.man_id }}</td>
+                <td style="text-align: left; max-width: 300px; white-space: normal; color: #2e7d32; font-style: italic;">
+                  "{{ lead.text }}"
+                </td>
+                <td style="text-align: left; max-width: 250px; font-size: 0.9em; color: #555;">
+                  {{ lead.interests }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div v-if="activeTab === 'stats'">
@@ -181,6 +224,23 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import axios from 'axios'
 
+const leadsAnalytics = ref([])
+
+const fetchLeads = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/admin/leads`, {
+      headers: { 'admin-token': authStore.token }
+    })
+    if (response.data.status === 'success') {
+      leadsAnalytics.value = response.data.leads
+    }
+  } catch (e) {
+    console.error("Не вдалося завантажити досьє", e)
+  }
+}
+
+// Не забудь додати fetchLeads() у onMounted, там де в тебе fetchUsers() !
+
 const router = useRouter()
 const authStore = useAuthStore()
 const SERVER_URL = 'http://178.105.190.180:8001'
@@ -294,6 +354,7 @@ const deleteKey = async (key) => {
 
 onMounted(() => {
   fetchUsers()
+  fetchLeads()
   fetchGlobalStats() // <--- Додали
   setInterval(fetchUsers, 10000)
   setInterval(fetchGlobalStats, 30000) // Оновлюємо топ кожні 30 сек

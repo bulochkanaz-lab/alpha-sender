@@ -205,6 +205,86 @@ function logInviteAnalytics(text, actionType, chatUid = "") {
     }));
 }
 
+// Записуємо чат у пам'ять (тримаємо тільки останні 1500)
+function markChatAsInvited(chatUid) {
+    if (!chatUid) return;
+    try {
+        let invited = JSON.parse(localStorage.getItem('alpha_recent_invites') || '[]');
+        if (!invited.includes(chatUid)) {
+            invited.push(chatUid);
+            // Якщо масив розрісся, обрізаємо старі записи (щоб сайт ніколи не виснув)
+            if (invited.length > 1500) {
+                invited.shift();
+            }
+            localStorage.setItem('alpha_recent_invites', JSON.stringify(invited));
+        }
+    } catch (e) {}
+}
+
+// Перевіряємо, чи є чат у нашій пам'яті
+function wasChatInvited(chatUid) {
+    if (!chatUid) return false;
+    try {
+        let invited = JSON.parse(localStorage.getItem('alpha_recent_invites') || '[]');
+        return invited.includes(chatUid);
+    } catch (e) {
+        return false;
+    }
+}
+
+async function fetchLeadProfileAndLog(manId, chatUid) {
+    try {
+        let token = localStorage.getItem('token');
+        if (!token) return;
+        token = token.replace(/^"|"$/g, '');
+
+        // Робимо прихований запит на профіль
+        const url = `https://alpha.date/api/operator/myProfile?user_id=${manId}&activeProfile=false`;
+        const res = await fetch(url, {
+            headers: { "authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.status && data.user_info) {
+            const info = data.user_info;
+
+            // Безпечно витягуємо дані (якщо чогось немає, ставимо дефолт)
+            const age = info.user_detail?.age || 0;
+            const country = info.user_detail?.country_name || "Unknown";
+            const photo = info.user_detail?.photo_link || "";
+            const bio = info.user_reference?.summary || "";
+
+            // Збираємо інтереси, якщо вони є (з масиву user_hobby або user_hobby_match)
+            let interests = "Not Specified";
+            if (info.user_hobby && info.user_hobby.length > 0) {
+                interests = info.user_hobby.map(h => h.name || "").join(", ");
+            }
+
+            console.log("🕵️‍♂️ [Аналітика] Досьє зібрано! Відправляємо на сервер.");
+
+            // Відправляємо повний пакет на наш сервер
+            const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+            if (!currentKey) return;
+
+            window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
+                detail: {
+                    access_key: currentKey,
+                    action: "reply",
+                    chat_uid: chatUid,
+                    profile_id: String(manId),
+                    lead_age: age,
+                    lead_country: country,
+                    lead_interests: interests,
+                    lead_bio: bio,
+                    lead_photo: photo
+                }
+            }));
+        }
+    } catch (err) {
+        console.error("❌ Помилка збору досьє:", err);
+    }
+}
+
 async function getAllProfiles(token) {
     try {
         const response = await fetch("https://alpha.date/api/operator/profiles", {
@@ -878,6 +958,7 @@ async function startSendingProcess() {
                                 incrementStat("invites");
                                 updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
                                 logInviteAnalytics(templateToSend.message_content, "sent", client.chat_uid); // <-- ДОДАЛИ
+                                markChatAsInvited(client.chat_uid);
                             }
 
 							if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
@@ -2563,9 +2644,21 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                        || (payload.notification_object && payload.notification_object.chat_uid)
                        || payload.chat_uid;
 
-          if (chatUid) {
-             // Просто кидаємо ID чату на сервер. Сервер сам розбереться, чи був там інвайт!
-             logInviteAnalytics(null, "reply", chatUid);
+          const manId = (payload.message_object && payload.message_object.sender_external_id)
+                     || (payload.notification_object && payload.notification_object.sender_external_id);
+
+          if (chatUid && manId) {
+             // ФІЛЬТР У ДІЇ:
+             if (wasChatInvited(chatUid)) {
+                 // 1. Це наша людина! Робимо запит за досьє і відправляємо на сервер
+                 console.log("🎯 [Радар] Відповідь на наш інвайт! Збираємо досьє...");
+                 fetchLeadProfileAndLog(manId, chatUid);
+             } else {
+                 // 2. Це хтось інший (старий чат). Сайт не чіпаємо, просто кидаємо сліпий лог на бекенд
+                 // (Бекенд сам подивиться, чи є цей чат у його базі, і якщо немає - проігнорує)
+                 console.log("🕵️‍♂️ [Радар] Звичайна переписка. Кидаємо сліпий сигнал.");
+                 logInviteAnalytics(null, "reply", chatUid);
+             }
           }
        }
 
