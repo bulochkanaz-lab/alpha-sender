@@ -257,12 +257,14 @@ async def log_invite(request: InviteAnalyticsLogRequest):
                 """, (request.chat_uid, key, final_text_to_log))
 
         elif request.action == "reply" and request.chat_uid:
+            print(f"🛠 [Сервер Дебаг] Отримано запит 'reply' для чату: {request.chat_uid}")  # ДОДАНО
             # 1. Шукаємо квиток
             cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
             row = cursor.fetchone()
 
             if row:
                 saved_text = row[0]
+                print(f"✅ [Сервер Дебаг] Квиток знайдено! Текст: '{saved_text}'. Плюсуємо відповідь.")  # ДОДАНО
                 # 2. Плюсуємо відповідь
                 cursor.execute("""
                     UPDATE invite_analytics SET reply_count = reply_count + 1
@@ -282,6 +284,9 @@ async def log_invite(request: InviteAnalyticsLogRequest):
 
                 # 4. Видаляємо квиток
                 cursor.execute("DELETE FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
+
+            else:
+                print(f"❌ [Сервер Дебаг] Квиток для чату {request.chat_uid} НЕ ЗНАЙДЕНО у pending_invites!")
 
         conn.commit()
         return {"status": "success"}

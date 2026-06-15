@@ -233,6 +233,7 @@ function wasChatInvited(chatUid) {
 }
 
 async function fetchLeadProfileAndLog(manId, chatUid) {
+    console.log(`🛠 [Дебаг Збирача] Почали збір досьє для ID: ${manId}`);
     try {
         let token = localStorage.getItem('token');
         if (!token) return;
@@ -2640,6 +2641,8 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        } else if (isWink) {
           await handleAutoReply(womanId, manId, "wink", msgContent.trim());
        } else if (payload.action === "message" && msgType === "SENT_TEXT") {
+          console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload); // ДОДАНО
+
           const chatUid = (payload.message_object && payload.message_object.chat_uid)
                        || (payload.notification_object && payload.notification_object.chat_uid)
                        || payload.chat_uid;
@@ -2647,18 +2650,21 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           const manId = (payload.message_object && payload.message_object.sender_external_id)
                      || (payload.notification_object && payload.notification_object.sender_external_id);
 
+          console.log(`🛠 [Дебаг Радара] chatUid: ${chatUid}, manId: ${manId}`); // ДОДАНО
+
           if (chatUid && manId) {
-             // ФІЛЬТР У ДІЇ:
-             if (wasChatInvited(chatUid)) {
-                 // 1. Це наша людина! Робимо запит за досьє і відправляємо на сервер
+             const inMemory = wasChatInvited(chatUid);
+             console.log(`🛠 [Дебаг Радара] Чи є цей чат у пам'яті (wasChatInvited)? ->`, inMemory); // ДОДАНО
+
+             if (inMemory) {
                  console.log("🎯 [Радар] Відповідь на наш інвайт! Збираємо досьє...");
                  fetchLeadProfileAndLog(manId, chatUid);
              } else {
-                 // 2. Це хтось інший (старий чат). Сайт не чіпаємо, просто кидаємо сліпий лог на бекенд
-                 // (Бекенд сам подивиться, чи є цей чат у його базі, і якщо немає - проігнорує)
                  console.log("🕵️‍♂️ [Радар] Звичайна переписка. Кидаємо сліпий сигнал.");
                  logInviteAnalytics(null, "reply", chatUid);
              }
+          } else {
+             console.log("❌ [Дебаг Радара] НЕ ЗНАЙДЕНО chatUid або manId у пакеті сокета!"); // ДОДАНО
           }
        }
 
