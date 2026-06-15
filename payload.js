@@ -974,7 +974,7 @@ async function startSendingProcess() {
 
                                 // --- БРОНЬОВАНИЙ КЛЮЧ ДЛЯ LOOP ---
                                 const targetManId = String(client.external_id || client.user_id || client.id);
-                                const myProfileId = String(localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+                                const myProfileId = String(currentProfile.id);
                                 const smartUid = `${myProfileId}_${targetManId}`;
 
                                 logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
