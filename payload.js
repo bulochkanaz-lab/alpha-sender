@@ -966,19 +966,26 @@ async function startSendingProcess() {
 						}
 
 						if (templateToSend) {
-							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
+                            const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
-							if (success) {
+                            if (success) {
                                 incrementStat("invites");
                                 updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-                                logInviteAnalytics(templateToSend.message_content, "sent", client.chat_uid); // <-- ДОДАЛИ
-                                markChatAsInvited(client.chat_uid);
+
+                                // --- БРОНЬОВАНИЙ КЛЮЧ ДЛЯ LOOP ---
+                                const targetManId = String(client.external_id || client.user_id || client.id);
+                                const myProfileId = String(localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+                                const smartUid = `${myProfileId}_${targetManId}`;
+
+                                logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
+                                markChatAsInvited(smartUid);
+                                console.log(`🛠 [Дебаг LOOP] Записали в пам'ять ключ: ${smartUid}`);
                             }
 
-							if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
-						} else {
-							// console.log(`⏩ Пропуск Інвайту для ${client.id}: всі ваші інвайти вже відправлені раніше!`);
-						}
+                            if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
+                        } else {
+                            // console.log(`⏩ Пропуск Інвайту...`);
+                        }
 					}
 				} else {
                 // --- ШАБЛОНИ З САЙТУ (Послідовний режим) ---
@@ -1000,7 +1007,15 @@ async function startSendingProcess() {
                    if (success) {
                       incrementStat("invites");
                       updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-                      logInviteAnalytics(templateToSend.message_content, "sent", client.chat_uid);
+
+                      // --- БРОНЬОВАНИЙ КЛЮЧ ДЛЯ SITE TEMPLATES ---
+                      const targetManId = String(client.external_id || client.user_id || client.id);
+                      const myProfileId = String(localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+                      const smartUid = `${myProfileId}_${targetManId}`;
+
+                      logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
+                      markChatAsInvited(smartUid);
+                      console.log(`🛠 [Дебаг SITE_TPL] Записали в пам'ять ключ: ${smartUid}`);
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
@@ -2654,30 +2669,32 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        } else if (isWink) {
           await handleAutoReply(womanId, manId, "wink", msgContent.trim());
        } else if (payload.action === "message" && msgType === "SENT_TEXT") {
-          console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload); // ДОДАНО
+          console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload);
 
-          const chatUid = (payload.message_object && payload.message_object.chat_uid)
-                       || (payload.notification_object && payload.notification_object.chat_uid)
-                       || payload.chat_uid;
+          const manId = String((payload.message_object && payload.message_object.sender_external_id)
+                     || (payload.notification_object && payload.notification_object.sender_external_id));
 
-          const manId = (payload.message_object && payload.message_object.sender_external_id)
-                     || (payload.notification_object && payload.notification_object.sender_external_id);
+          // Беремо ID нашої анкети з сокета
+          const myProfileId = String(payload.external_id || localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
 
-          console.log(`🛠 [Дебаг Радара] chatUid: ${chatUid}, manId: ${manId}`); // ДОДАНО
+          console.log(`🛠 [Дебаг Радара] Анкета: ${myProfileId}, Мужик: ${manId}`);
 
-          if (chatUid && manId) {
-             const inMemory = wasChatInvited(chatUid);
-             console.log(`🛠 [Дебаг Радара] Чи є цей чат у пам'яті (wasChatInvited)? ->`, inMemory); // ДОДАНО
+          if (manId && manId !== "undefined") {
+             // Збираємо ключ для перевірки
+             const smartUid = `${myProfileId}_${manId}`;
+
+             const inMemory = wasChatInvited(smartUid);
+             console.log(`🛠 [Дебаг Радара] Шукаємо ключ [${smartUid}] у пам'яті ->`, inMemory);
 
              if (inMemory) {
                  console.log("🎯 [Радар] Відповідь на наш інвайт! Збираємо досьє...");
-                 fetchLeadProfileAndLog(manId, chatUid);
+                 fetchLeadProfileAndLog(manId, smartUid);
              } else {
                  console.log("🕵️‍♂️ [Радар] Звичайна переписка. Кидаємо сліпий сигнал.");
-                 logInviteAnalytics(null, "reply", chatUid);
+                 logInviteAnalytics(null, "reply", smartUid);
              }
           } else {
-             console.log("❌ [Дебаг Радара] НЕ ЗНАЙДЕНО chatUid або manId у пакеті сокета!"); // ДОДАНО
+             console.log("❌ [Дебаг Радара] НЕ ЗНАЙДЕНО manId у пакеті сокета!");
           }
        }
 
