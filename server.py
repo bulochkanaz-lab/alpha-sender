@@ -171,25 +171,42 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
     success, msg = db.verify_and_bind_key(key, hwid)
     if success:
         try:
+            # 1. Задаємо список модулів у правильному порядку завантаження
+            modules = [
+                "smart_search.js",  # Твій старий розумний пошук залишається першим
+                "core.js",  # Ядро: глобальні змінні, допоміжні функції, аналітика
+                "api.js",  # Зв'язок із сайтом: всі fetch-запити
+                "ui.js",  # Інтерфейс: відмальовка меню та кнопок
+                "sender.js",  # Мотор: логіка розсилки інвайтів та листів
+                "radar.js"  # Слухач: сокети, автовідповідач, VIP-радар
+            ]
+
+            # (Опціонально) Якщо команда fs ще не перейшла на модулі, залишаємо їм старий файл
             if team == "fs":
-                current_payload_path = os.path.join(BASE_DIR, "payload-fs.js")
-            else:
-                current_payload_path = os.path.join(BASE_DIR, "payload.js")
+                modules = ["smart_search.js", "payload-fs.js"]
 
-            with open(SMART_SEARCH_PATH, "r", encoding="utf-8") as f_search:
-                smart_search_js = f_search.read()
+            raw_js = ""
 
-            with open(current_payload_path, "r", encoding="utf-8") as f_payload:
-                main_payload_js = f_payload.read()
+            # 2. По черзі читаємо кожен файл і склеюємо їх
+            for module in modules:
+                file_path = os.path.join(BASE_DIR, module)
+                if os.path.exists(file_path):
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        # Додаємо коментар-розділювач для зручності дебагу в браузері
+                        raw_js += f"\n\n// ==========================================\n"
+                        raw_js += f"// --- MODULE: {module} ---\n"
+                        raw_js += f"// ==========================================\n\n"
+                        raw_js += f.read()
+                else:
+                    print(f"[УВАГА] Файл модуля не знайдено: {module}")
 
-            raw_js = smart_search_js + "\n\n" + main_payload_js
-
+            # 3. Шифруємо весь зібраний "франкенштейн" і віддаємо розширенню
             encrypted_js = encrypt_payload(raw_js, key)
             return Response(content=encrypted_js, media_type="text/plain")
 
         except Exception as e:
-            print(f"[ERROR] Помилка читання або шифрування файлів: {e}")
-            return Response(content="console.error('Payload error');", media_type="application/javascript")
+            print(f"[ERROR] Помилка читання або шифрування модулів: {e}")
+            return Response(content="console.error('Payload compilation error');", media_type="application/javascript")
 
     return Response(content="console.error('Access Denied');", media_type="application/javascript")
 
