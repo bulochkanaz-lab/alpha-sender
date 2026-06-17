@@ -210,10 +210,20 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
            console.log(`🛠 [Пастка Відповідача] Action: ${payload.action}, MsgType: ${msgType}, Текст: "${msgContent}"`);
        }
 
+       // Витягуємо chat_uid з різних місць payload (сайт може віддавати в різних об'єктах)
+       let chatUid = null;
+       if (payload.chat_list_object && payload.chat_list_object.chat_uid) {
+          chatUid = payload.chat_list_object.chat_uid;
+       } else if (payload.message_object && payload.message_object.chat_uid) {
+          chatUid = payload.message_object.chat_uid;
+       } else if (payload.notification_object && payload.notification_object.chat_uid) {
+          chatUid = payload.notification_object.chat_uid;
+       }
+
        if (isLike) {
-          await handleAutoReply(womanId, manId, "like", "");
+          await handleAutoReply(womanId, manId, "like", "", chatUid);
        } else if (isWink) {
-          await handleAutoReply(womanId, manId, "wink", msgContent.trim());
+          await handleAutoReply(womanId, manId, "wink", msgContent.trim(), chatUid);
        } else if (payload.action === "message" && msgType === "SENT_TEXT") {
 
           console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload);
