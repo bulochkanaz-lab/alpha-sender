@@ -2,35 +2,75 @@
 // РАДАР (Слухач сокетів, Автовідповідач, VIP-радар)
 // ==========================================
 
-// Функція для відправки текстової відповіді автовідповідачем
+// ==================== ОНОВЛЕНА ВЕРСІЯ З ДЕТАЛЬНИМ ЛОГУВАННЯМ ====================
+
 async function sendAutoMessage(profileId, manId, text) {
+    console.log(`[ДЕБАГ][sendAutoMessage] Старт. profileId=${profileId}, manId=${manId}`);
+
     let token = localStorage.getItem("token");
-    if (!token) return false;
+    if (!token) {
+        console.warn(`[ДЕБАГ][sendAutoMessage] Токен відсутній у localStorage`);
+        return false;
+    }
     token = token.replace(/^"|"$/g, "");
+    console.log(`[ДЕБАГ][sendAutoMessage] Токен отримано (довжина: ${token.length})`);
+
+    // Логуємо, чи існує getHeaders
+    if (typeof getHeaders !== 'function') {
+        console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА: getHeaders не є функцією!`);
+        return false;
+    }
+
+    let headers;
+    try {
+        headers = getHeaders(token);
+        console.log(`[ДЕБАГ][sendAutoMessage] Заголовки отримано від getHeaders`);
+    } catch (e) {
+        console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА при виклику getHeaders:`, e);
+        return false;
+    }
 
     const payload = {
-       sender_id: Number(profileId),
-       recipient_id: Number(manId),
-       message_content: text,
-       message_type: "SENT_TEXT",
-       filename: ""
+        sender_id: Number(profileId),
+        recipient_id: Number(manId),
+        message_content: text,
+        message_type: "SENT_TEXT",
+        filename: ""
     };
 
+    console.log(`[ДЕБАГ][sendAutoMessage] Підготовлено payload:`, payload);
+
     try {
-       const response = await fetch("https://alpha.date/api/chat/message", {
-          method: "POST",
-          headers: getHeaders(token),
-          body: JSON.stringify(payload)
-       });
-       const data = await response.json();
-       return response.ok && data.status === true;
+        console.log(`[ДЕБАГ][sendAutoMessage] Виконую fetch...`);
+        const response = await fetch("https://alpha.date/api/chat/message", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify(payload)
+        });
+
+        console.log(`[ДЕБАГ][sendAutoMessage] Fetch завершено. status=${response.status}, ok=${response.ok}`);
+
+        let data;
+        try {
+            data = await response.json();
+            console.log(`[ДЕБАГ][sendAutoMessage] Відповідь сервера (JSON):`, data);
+        } catch (jsonErr) {
+            const text = await response.text();
+            console.error(`[ДЕБАГ][sendAutoMessage] Не вдалося розпарсити JSON. Текст відповіді:`, text);
+            return false;
+        }
+
+        const success = response.ok && data.status === true;
+        console.log(`[ДЕБАГ][sendAutoMessage] Результат: ${success ? 'УСПІХ' : 'НЕУСПІХ'}`);
+        return success;
+
     } catch (error) {
-       console.error("❌ Помилка автовідповідача:", error);
-       return false;
+        console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА під час fetch:`, error);
+        return false;
     }
 }
 
-// Логіка автовідповідача (вибір тексту, затримки)
+
 async function handleAutoReply(profileId, manId, type, exactText = "") {
     console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
 
@@ -45,7 +85,7 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 
     let savedTexts = [];
 
-    // 1. Спроба знайти КАСТОМНУ відповідь
+    // 1. Кастомна відповідь на вінку
     if (type === "wink" && exactText !== "") {
         try {
             const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
@@ -56,16 +96,15 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
         } catch(e) {}
     }
 
-    // 2. Беремо СТАНДАРТНУ
+    // 2. Стандартна відповідь
     if (savedTexts.length === 0) {
         const key = `resp_${profileId}_${type}`;
         savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
         console.log(`[ДЕБАГ] Шукаємо тексти в пам'яті за ключем: ${key}. Знайшли:`, savedTexts);
     }
 
-    // Якщо взагалі нічого немає — ігноруємо
     if (savedTexts.length === 0) {
-        console.log(`[ДЕБАГ] 🛑 Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
+        console.log(`[ДЕБАГ] Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
         return;
     }
 
@@ -75,10 +114,12 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
     const speedSec = parseInt(localStorage.getItem("alphaBotReplySpeed") || "3");
     const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
 
-    await sleep(delayMs); // Використовуємо sleep з core.js
+    await sleep(delayMs);
 
-    console.log(`[ДЕБАГ] 🚀 Стріляємо повідомленням на сервер!`);
-    await sendAutoMessage(profileId, manId, randomText);
+    console.log(`[ДЕБАГ] Стріляємо повідомленням на сервер!`);
+
+    const result = await sendAutoMessage(profileId, manId, randomText);
+    console.log(`[ДЕБАГ] Результат відправки автовідповідача: ${result ? 'УСПІШНО' : 'НЕ УСПІШНО'}`);
 }
 
 // ==========================================
