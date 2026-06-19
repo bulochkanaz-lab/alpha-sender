@@ -103,17 +103,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "sendAnalytics") {
-        // Фоновий скрипт має право слати HTTP запити
-        fetch('http://178.105.190.180:8001/api/analytics/log_invite', {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request.data)
-        })
-            .catch(err => console.error("Помилка відправки аналітики на бекенд:", err));
+    console.log("[Background] Отримано sendAnalytics. action:", request.data?.action, "chat_uid:", request.data?.chat_uid);
 
-        sendResponse({ status: "ok" });
-        return true;
-    }
+    const backendUrl = 'http://178.105.190.180:8001/api/analytics/log_invite';
+
+    fetch(backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request.data)
+    })
+        .then(res => res.json().catch(() => ({})))
+        .then(result => {
+            console.log("[Background] Відповідь бекенду на аналітику:", result);
+        })
+        .catch(err => {
+            console.error("[Background] Помилка відправки аналітики на бекенд:", err);
+        });
+
+    sendResponse({ status: "ok" });
+    return true;
+}
 
     if (request.action === "validateAndLoad") {
         const SERVER_URL = "http://178.105.190.180:8001"; // ТЕСТОВИЙ СЕРВЕР

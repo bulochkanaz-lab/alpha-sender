@@ -207,8 +207,15 @@ function incrementStat(type) {
 // АНАЛІТИКА ТА ПАМ'ЯТЬ (БРОНЬОВАНІ КЛЮЧІ)
 // ==========================================
 function logInviteAnalytics(text, actionType, chatUid = "") {
+    console.log(`[Дебаг Аналітика] logInviteAnalytics викликано. action=${actionType}, chatUid=${chatUid}`);
+
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
-    if (!currentKey) return;
+    if (!currentKey) {
+        console.warn(`[Дебаг Аналітика] Немає access_key — не відправляємо`);
+        return;
+    }
+
+    console.log(`[Дебаг Аналітика] Диспатчимо AlphaAnalyticsLog (action=${actionType})`);
 
     window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
         detail: {
@@ -245,17 +252,26 @@ function wasChatInvited(chatUid) {
 }
 
 async function fetchLeadProfileAndLog(manId, chatUid) {
-    console.log(`🛠 [Дебаг Збирача] Почали збір досьє для ID: ${manId}`);
+    console.log(`[Дебаг Збирача] Почали збір досьє для ID: ${manId}`);
     try {
         let token = localStorage.getItem('token');
-        if (!token) return;
+        if (!token) {
+            console.warn(`[Дебаг Збирача] Немає токена в localStorage`);
+            return;
+        }
         token = token.replace(/^"|"$/g, '');
+        console.log(`[Дебаг Збирача] Токен отримано`);
 
         const url = `https://alpha.date/api/operator/myProfile?user_id=${manId}&activeProfile=false`;
+        console.log(`[Дебаг Збирача] Робимо запит на: ${url}`);
+
         const res = await fetch(url, {
             headers: { "authorization": `Bearer ${token}` }
         });
+        console.log(`[Дебаг Збирача] Відповідь від alpha.date, status: ${res.status}`);
+
         const data = await res.json();
+        console.log(`[Дебаг Збирача] data.status = ${data.status}`);
 
         if (data.status && data.user_info) {
             const info = data.user_info;
@@ -270,10 +286,16 @@ async function fetchLeadProfileAndLog(manId, chatUid) {
                 interests = info.user_hobby.map(h => h.name || "").join(", ");
             }
 
-            console.log("🕵️‍♂️ [Аналітика] Досьє зібрано! Відправляємо на сервер.");
+            console.log("[Аналітика] Досьє зібрано! Відправляємо на сервер.");
+            console.log(`[Дебаг Збирача] Данні: age=${age}, country=${country}, interests=${interests}`);
 
             const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
-            if (!currentKey) return;
+            if (!currentKey) {
+                console.warn(`[Дебаг Збирача] Немає access_key`);
+                return;
+            }
+
+            console.log(`[Дебаг Збирача] Диспатчимо AlphaAnalyticsLog з chat_uid=${chatUid}`);
 
             window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
                 detail: {
@@ -288,8 +310,39 @@ async function fetchLeadProfileAndLog(manId, chatUid) {
                     lead_photo: photo
                 }
             }));
+        } else {
+            console.warn(`[Дебаг Збирача] Немає data.user_info або status=false`);
         }
     } catch (err) {
-        console.error("❌ Помилка збору досьє:", err);
+        console.error("Помилка збору досьє:", err);
+    }
+}
+
+// ==================== ВІДПРАВКА АНАЛІТИКИ НА СЕРВЕР ====================
+async function sendAnalyticsToServer(detail) {
+    console.log(`[Аналітика] Готуємося відправити на бекенд. action=${detail.action}, chat_uid=${detail.chat_uid}`);
+
+    // TODO: заміни на адресу твого тестового сервера (або зроби змінну)
+    const backendUrl = "http://твій-test-сервер:8001/api/analytics/log_invite";
+
+    try {
+        const res = await fetch(backendUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(detail)
+        });
+
+        const result = await res.json();
+        console.log(`[Аналітика] Відповідь від бекенду:`, result);
+
+        if (res.ok && result.status === "success") {
+            console.log(`[Аналітика] ✅ Аналітика успішно збережена на сервері`);
+        } else {
+            console.warn(`[Аналітика] ⚠️ Бекенд повернув помилку`);
+        }
+    } catch (err) {
+        console.error(`[Аналітика] Помилка відправки на бекенд:`, err);
     }
 }
