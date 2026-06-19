@@ -4,7 +4,7 @@
 
 // ==================== ОНОВЛЕНА ВЕРСІЯ З ДЕТАЛЬНИМ ЛОГУВАННЯМ ====================
 
-async function sendAutoMessage(profileId, manId, text) {
+async function sendAutoMessage(profileId, manId, text, chatUid = null) {
     console.log(`[ДЕБАГ][sendAutoMessage] Старт. profileId=${profileId}, manId=${manId}`);
 
     let token = localStorage.getItem("token");
@@ -35,7 +35,8 @@ async function sendAutoMessage(profileId, manId, text) {
         recipient_id: Number(manId),
         message_content: text,
         message_type: "SENT_TEXT",
-        filename: ""
+        filename: "",
+        chat_uid: chatUid
     };
 
     console.log(`[ДЕБАГ][sendAutoMessage] Підготовлено payload:`, payload);
@@ -71,7 +72,7 @@ async function sendAutoMessage(profileId, manId, text) {
 }
 
 
-async function handleAutoReply(profileId, manId, type, exactText = "") {
+async function handleAutoReply(profileId, manId, type, exactText = "", chatUid = null) {
     console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
 
     const lockKey = `${profileId}_${manId}_${type}`;
@@ -116,9 +117,9 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
 
     await sleep(delayMs);
 
-    console.log(`[ДЕБАГ] Стріляємо повідомленням на сервер!`);
+    console.log(`[ДЕБАГ] Стріляємо повідомленням на сервер! chatUid=${chatUid}`);
 
-    const result = await sendAutoMessage(profileId, manId, randomText);
+    const result = await sendAutoMessage(profileId, manId, randomText, chatUid);
     console.log(`[ДЕБАГ] Результат відправки автовідповідача: ${result ? 'УСПІШНО' : 'НЕ УСПІШНО'}`);
 }
 
