@@ -862,95 +862,96 @@ function setupUIEvents(overlay, galleryModal) {
     }
 
     // Кнопка "Обрати файли"
-    if (gallerySelectBtn && galleryFileInput) {
-        gallerySelectBtn.addEventListener('click', (e) => {
-            e.stopImmediatePropagation();
-            galleryFileInput.click();
-        });
+        if (gallerySelectBtn && galleryFileInput) {
+            gallerySelectBtn.addEventListener('click', (e) => {
+                e.stopImmediatePropagation();
+                galleryFileInput.click();
+            });
 
-        galleryFileInput.addEventListener('change', () => {
-            if (galleryFileInput.files.length > 0) {
-                handleGalleryFiles(galleryFileInput.files);
-            }
-        });
-    }
-}
-
-// Кнопка "Почати завантаження"
-if (galleryUploadBtn) {
-    galleryUploadBtn.addEventListener('click', async () => {
-        if (gallerySelectedFiles.length === 0) return;
-
-        // Отримуємо поточну анкету з глобального селектора
-        const currentProfileId = window.currentSelectedProfileId ||
-                                document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
-
-        if (!currentProfileId) {
-            alert('Спочатку оберіть анкету у верхньому селекторі');
-            return;
+            galleryFileInput.addEventListener('change', () => {
+                if (galleryFileInput.files.length > 0) {
+                    handleGalleryFiles(galleryFileInput.files);
+                }
+            });
         }
+        // ТУТ ДУЖКУ ВИДАЛИЛИ
 
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert('Токен не знайдено. Спочатку авторизуйтесь.');
-            return;
-        }
+        // Кнопка "Почати завантаження"
+        if (galleryUploadBtn) {
+            galleryUploadBtn.addEventListener('click', async () => {
+                if (gallerySelectedFiles.length === 0) return;
 
-        // Підготовка UI
-        galleryUploadBtn.style.display = 'none';
-        galleryProgressContainer.style.display = 'block';
-        galleryErrorLog.style.display = 'none';
-        galleryErrorList.innerHTML = '';
-        galleryProgressText.textContent = `Завантажено 0 з ${gallerySelectedFiles.length}`;
-        galleryProgressBar.style.width = '0%';
+                // Отримуємо поточну анкету з глобального селектора
+                const currentProfileId = window.currentSelectedProfileId ||
+                                        document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
 
-        let uploadedCount = 0;
-        const totalFiles = gallerySelectedFiles.length;
+                if (!currentProfileId) {
+                    alert('Спочатку оберіть анкету у верхньому селекторі');
+                    return;
+                }
 
-        // Функція оновлення прогресу
-        const onProgress = (done, total) => {
-            uploadedCount = done;
-            galleryProgressText.textContent = `Завантажено ${done} з ${total}`;
-            const percent = Math.round((done / total) * 100);
-            galleryProgressBar.style.width = `${percent}%`;
-        };
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    alert('Токен не знайдено. Спочатку авторизуйтесь.');
+                    return;
+                }
 
-        // Функція для помилок
-        const onFileError = (filename, errorMsg) => {
-            galleryErrorLog.style.display = 'block';
-            const errorItem = document.createElement('div');
-            errorItem.style.cssText = 'margin-bottom: 6px; font-size: 13px; color: #c62828;';
-            errorItem.innerHTML = `❌ <b>${filename}</b>: ${errorMsg}`;
-            galleryErrorList.appendChild(errorItem);
-        };
-
-        try {
-            const result = await bulkUploadPhotos(
-                token.replace(/^"|"$/g, ''),
-                currentProfileId,
-                gallerySelectedFiles,
-                onProgress,
-                onFileError
-            );
-
-            // Після завершення
-            setTimeout(() => {
-                alert(`Завантаження завершено!\nУспішно: ${result.uploaded} з ${result.total}`);
-
-                // Скидаємо стан
-                gallerySelectedFiles = [];
+                // Підготовка UI
                 galleryUploadBtn.style.display = 'none';
-                galleryProgressContainer.style.display = 'none';
-                galleryDropZone.style.borderColor = '#1976d2';
-                galleryDropZone.style.background = '#f8f9fa';
-            }, 800);
+                galleryProgressContainer.style.display = 'block';
+                galleryErrorLog.style.display = 'none';
+                galleryErrorList.innerHTML = '';
+                galleryProgressText.textContent = `Завантажено 0 з ${gallerySelectedFiles.length}`;
+                galleryProgressBar.style.width = '0%';
 
-        } catch (err) {
-            console.error('[Галерея] Критична помилка:', err);
-            alert('Сталася помилка під час завантаження. Дивіться консоль.');
+                let uploadedCount = 0;
+                const totalFiles = gallerySelectedFiles.length;
+
+                // Функція оновлення прогресу
+                const onProgress = (done, total) => {
+                    uploadedCount = done;
+                    galleryProgressText.textContent = `Завантажено ${done} з ${total}`;
+                    const percent = Math.round((done / total) * 100);
+                    galleryProgressBar.style.width = `${percent}%`;
+                };
+
+                // Функція для помилок
+                const onFileError = (filename, errorMsg) => {
+                    galleryErrorLog.style.display = 'block';
+                    const errorItem = document.createElement('div');
+                    errorItem.style.cssText = 'margin-bottom: 6px; font-size: 13px; color: #c62828;';
+                    errorItem.innerHTML = `❌ <b>${filename}</b>: ${errorMsg}`;
+                    galleryErrorList.appendChild(errorItem);
+                };
+
+                try {
+                    const result = await bulkUploadPhotos(
+                        token.replace(/^"|"$/g, ''),
+                        currentProfileId,
+                        gallerySelectedFiles,
+                        onProgress,
+                        onFileError
+                    );
+
+                    // Після завершення
+                    setTimeout(() => {
+                        alert(`Завантаження завершено!\nУспішно: ${result.uploaded} з ${result.total}`);
+
+                        // Скидаємо стан
+                        gallerySelectedFiles = [];
+                        galleryUploadBtn.style.display = 'none';
+                        galleryProgressContainer.style.display = 'none';
+                        galleryDropZone.style.borderColor = '#1976d2';
+                        galleryDropZone.style.background = '#f8f9fa';
+                    }, 800);
+
+                } catch (err) {
+                    console.error('[Галерея] Критична помилка:', err);
+                    alert('Сталася помилка під час завантаження. Дивіться консоль.');
+                }
+            });
         }
-    });
-}
+} // <========= ПЕРЕНЕСЛИ СЮДИ (Тепер вона правильно закриває всю функцію setupUIEvents)
 
 async function loadProfilesForUI() {
     if (window.profilesLoadedForUI) return;
