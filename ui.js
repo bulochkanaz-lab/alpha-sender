@@ -355,7 +355,8 @@ function setupUIEvents(overlay, galleryModal) {
        { btn: document.getElementById("tabBtnLetters"), content: document.getElementById("tabContentLetters") },
        { btn: document.getElementById("tabBtnWinks"), content: document.getElementById("tabContentWinks") },
        { btn: document.getElementById("tabBtnVip"), content: document.getElementById("tabContentVip") },
-       { btn: document.getElementById("tabBtnStats"), content: document.getElementById("tabContentStats") }
+       { btn: document.getElementById("tabBtnGallery"), content: document.getElementById("tabContentGallery") },
+       { btn: document.getElementById("tabBtnStats"), content: document.getElementById("tabContentStats") } // (це тепер індекс 6)
     ];
 
     function switchMainTab(activeTabBtn) {
@@ -371,12 +372,14 @@ function setupUIEvents(overlay, galleryModal) {
        }
     }
 
+    // Оновлюємо прив'язку кліків з урахуванням нових індексів:
     tabs[0].btn.onclick = () => switchMainTab(tabs[0].btn);
     tabs[1].btn.onclick = () => switchMainTab(tabs[1].btn);
     tabs[2].btn.onclick = () => switchMainTab(tabs[2].btn);
     tabs[3].btn.onclick = () => { switchMainTab(tabs[3].btn); loadProfilesForUI(); };
     tabs[4].btn.onclick = async () => { switchMainTab(tabs[4].btn); await loadProfilesForUI(); renderVipRules(); };
     tabs[5].btn.onclick = () => switchMainTab(tabs[5].btn);
+    tabs[6].btn.onclick = () => switchMainTab(tabs[6].btn);
 
     const toggleInput = document.getElementById("uiUseSiteToggle");
     const toggleTrack = document.getElementById("uiToggleTrack");
