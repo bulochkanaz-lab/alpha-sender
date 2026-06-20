@@ -358,3 +358,146 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
        return false;
     }
 }
+
+// =====================================================
+// МАСОВЕ ЗАВАНТАЖЕННЯ ФОТО В ГАЛЕРЕЮ (Bulk Gallery Upload)
+// =====================================================
+
+/**
+ * Генерує посилання для завантаження файлу на CDN
+ */
+async function generateUploadLink(token, filename, contentType = 'image/jpeg') {
+    try {
+        const response = await fetch('https://alpha.date/api/v3/click-history/aws/generate-link', {
+            method: 'POST',
+            headers: getHeaders(token),
+            body: JSON.stringify({
+                filename: filename,
+                content_type: contentType
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.status === true && data.success === true && data.data) {
+            return {
+                success: true,
+                uploadUrl: data.data.link || data.data.upload_url,
+                filename: data.data.filename,
+                raw: data.data
+            };
+        }
+
+        return { success: false, error: data };
+    } catch (error) {
+        console.error('[BulkUpload] Помилка generateUploadLink:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Реєструє завантажене фото в галереї анкети
+ */
+async function registerUploadedImage(token, externalId, uploadData) {
+    try {
+        const response = await fetch('https://alpha.date/api/files/image', {
+            method: 'POST',
+            headers: getHeaders(token),
+            body: JSON.stringify({
+                external_id: externalId,
+                link: uploadData.link || uploadData.filename,
+                filename: uploadData.filename,
+                content_type: 'image'
+            })
+        });
+
+        const data = await response.json();
+        return {
+            success: data.status === true,
+            image: data.image || null,
+            raw: data
+        };
+    } catch (error) {
+        console.error('[BulkUpload] Помилка registerUploadedImage:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Завантажує одне фото повністю (generate link → upload → register)
+ */
+async function uploadSinglePhoto(token, externalId, file, onProgress = null) {
+    const filename = file.name || `photo_${Date.now()}.jpg`;
+    const contentType = file.type || 'image/jpeg';
+
+    // Крок 1: Генеруємо посилання
+    const linkResult = await generateUploadLink(token, filename, contentType);
+    if (!linkResult.success) {
+        return { success: false, filename, error: 'Не вдалося згенерувати посилання для завантаження' };
+    }
+
+    try {
+        // Крок 2: Завантажуємо файл на CDN (пряме завантаження)
+        const uploadResponse = await fetch(linkResult.uploadUrl, {
+            method: 'PUT', // або POST, залежно від того, що повертає generate-link
+            headers: {
+                'Content-Type': contentType
+            },
+            body: file
+        });
+
+        if (!uploadResponse.ok) {
+            return { success: false, filename, error: `Помилка завантаження файлу (status ${uploadResponse.status})` };
+        }
+
+        // Крок 3: Реєструємо фото в галереї
+        const registerResult = await registerUploadedImage(token, externalId, {
+            link: linkResult.raw?.link || linkResult.uploadUrl,
+            filename: filename
+        });
+
+        if (registerResult.success) {
+            if (onProgress) onProgress(filename, true);
+            return { success: true, filename, imageId: registerResult.image?.id };
+        } else {
+            return { success: false, filename, error: 'Не вдалося зареєструвати фото в галереї' };
+        }
+
+    } catch (error) {
+        console.error('[BulkUpload] Помилка uploadSinglePhoto:', error);
+        return { success: false, filename, error: error.message };
+    }
+}
+
+/**
+ * Масове завантаження фото в галерею анкети
+ * @param {string} token
+ * @param {string|number} externalId - external_id анкети
+ * @param {File[]} files - масив файлів
+ * @param {function} onProgress - callback(завантажено, всього)
+ * @param {function} onFileError - callback(filename, errorMessage)
+ */
+async function bulkUploadPhotos(token, externalId, files, onProgress = null, onFileError = null) {
+    let uploaded = 0;
+    const total = files.length;
+
+    for (let i = 0; i < total; i++) {
+        const file = files[i];
+
+        const result = await uploadSinglePhoto(token, externalId, file);
+
+        if (result.success) {
+            uploaded++;
+            if (onProgress) onProgress(uploaded, total);
+        } else {
+            if (onFileError) onFileError(result.filename, result.error);
+        }
+
+        // Невелика пауза між файлами (щоб не навантажувати сервер)
+        if (i < total - 1) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
+    }
+
+    return { uploaded, total };
+}

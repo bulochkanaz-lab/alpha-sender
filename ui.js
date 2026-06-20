@@ -148,6 +148,7 @@ function injectBotUI() {
                     <div id="tabBtnLetters" data-lang="tabLetters" class="alpha-nav-btn" style="display: none;">📝 Листи</div>
                     <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
                     <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">🚨 VIP Радар</div>
+                    <div id="tabBtnGallery" class="alpha-nav-btn">📷 Галерея</div>
                     <div id="tabBtnStats" data-lang="tabStats" class="alpha-nav-btn">📊 Статистика</div>
                 </div>
             </div>
@@ -280,6 +281,38 @@ function injectBotUI() {
                         </div>
                     </div>
 
+                    <div id="tabContentGallery" style="display: none;">
+                        <!-- Тут буде весь інтерфейс завантаження фото -->
+                        <div style="padding: 20px;">
+                            <h3 style="margin-bottom: 20px; color: #1976d2;">📷 Завантаження фото в галерею</h3>
+
+                            <!-- Тут пізніше додамо селектор файлів, drag&drop, прогрес тощо -->
+                            <div id="galleryDropZone" style="border: 2px dashed #1976d2; border-radius: 12px; padding: 40px; text-align: center; margin-bottom: 20px; background: #f8f9fa; cursor: pointer;">
+                                <div style="font-size: 48px; margin-bottom: 10px;">📁</div>
+                                <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">Перетягніть фото сюди</div>
+                                <div style="color: #666; margin-bottom: 15px;">або</div>
+                                <button id="gallerySelectBtn" class="alpha-btn-primary" style="width: auto; padding: 12px 30px;">Обрати файли</button>
+                                <input type="file" id="galleryFileInput" multiple accept="image/*" style="display: none;">
+                            </div>
+
+                            <!-- Прогрес -->
+                            <div id="galleryProgressContainer" style="display: none; margin-bottom: 20px;">
+                                <div style="margin-bottom: 8px; font-weight: bold;" id="galleryProgressText">Завантажено 0 з 0</div>
+                                <div style="background: #e0e0e0; border-radius: 6px; height: 10px; overflow: hidden;">
+                                    <div id="galleryProgressBar" style="height: 100%; background: #4caf50; width: 0%; transition: width 0.3s;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Лог помилок -->
+                            <div id="galleryErrorLog" style="display: none; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; padding: 15px; max-height: 200px; overflow-y: auto;">
+                                <div style="font-weight: bold; margin-bottom: 10px; color: #e65100;">Помилки завантаження:</div>
+                                <div id="galleryErrorList"></div>
+                            </div>
+
+                            <button id="galleryUploadBtn" class="alpha-btn-primary" style="margin-top: 20px; display: none;">▶ Почати завантаження</button>
+                        </div>
+                    </div>
+
                     <div id="tabContentStats" style="display: none;">
                         <div class="alpha-row">
                             <div class="alpha-col" style="background: #fff3e0; padding: 25px; border-radius: 8px; border: 1px solid #ffe0b2; text-align: center;">
@@ -403,6 +436,26 @@ function setupUIEvents(overlay, galleryModal) {
                 renderSavedMessages();
             };
             sidebar.appendChild(item);
+        });
+    };
+
+    // ==================== ВКЛАДКА ГАЛЕРЕЯ ====================
+    const tabBtnGallery = document.getElementById('tabBtnGallery');
+    const tabContentGallery = document.getElementById('tabContentGallery');
+
+    if (tabBtnGallery && tabContentGallery) {
+        tabBtnGallery.addEventListener('click', () => {
+            // Ховаємо всі інші вкладки
+            document.querySelectorAll('.alpha-tab-area > div').forEach(el => el.style.display = 'none');
+
+            // Показуємо нашу вкладку
+            tabContentGallery.style.display = 'block';
+
+            // Знімаємо активний клас з усіх кнопок
+            document.querySelectorAll('.alpha-nav-btn').forEach(btn => btn.classList.remove('active'));
+
+            // Робимо активною нашу кнопку
+            tabBtnGallery.classList.add('active');
         });
     };
 
