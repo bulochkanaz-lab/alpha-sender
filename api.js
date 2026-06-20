@@ -444,15 +444,99 @@ async function uploadSinglePhoto(token, externalId, file, onProgress = null) {
     }
 }
 
-async function bulkUploadPhotos(token, externalId, files, onProgress = null, onFileError = null) {
+// =====================================================
+// ФУНКЦІЯ ЗАВАНТАЖЕННЯ ВІДЕО
+// =====================================================
+async function uploadSingleVideo(token, externalId, file, onProgress = null) {
+    const fileExt = file.name.split('.').pop().toLowerCase() || 'mp4';
+    const rawFileName = file.name.replace(/\.[^/.]+$/, "") || 'video';
+    const fileHash = generateHexHash();
+    const newFileName = `${fileHash}.${fileExt}`;
+
+    try {
+        const headers = getHeaders(token);
+        delete headers['content-type']; // Важливо для FormData
+
+        // 1. ЗАВАНТАЖУЄМО ВІДЕО НА AWS
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('newFileName', newFileName);
+        formData.append('fileName', rawFileName);
+        formData.append('dir', String(externalId));
+        formData.append('bucketName', 'chats-videos'); // Бакет для відео!
+
+        const uploadRes = await fetch('https://alpha.date/api/v3/video_converter/new-video-convert', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+
+        const uploadData = await uploadRes.json();
+
+        if (!uploadData.status || !uploadData.success || !uploadData.data) {
+            return { success: false, filename: file.name, error: 'Сервер відхилив відео' };
+        }
+
+        const cdnLink = uploadData.data.link;
+        const serverFilename = uploadData.filename || rawFileName; // Сервер повертає змінене ім'я
+
+        // 2. РЕЄСТРУЄМО ВІДЕО В ГАЛЕРЕЇ
+        const registerRes = await fetch('https://alpha.date/api/files/video', {
+            method: 'POST',
+            headers: getHeaders(token), // Повертаємо стандартні хедери
+            body: JSON.stringify({
+                external_id: Number(externalId),
+                filename: serverFilename,
+                link: cdnLink
+            })
+        });
+
+        const registerData = await registerRes.json();
+
+        // 3. ГЕНЕРУЄМО МІНІАТЮРУ (THUMBNAIL) ЩОБ НЕ БУЛО СІРОГО ФОНУ
+        if (registerData.status) {
+            try {
+                await fetch('https://alpha.date/api/v3/video_converter', {
+                    method: 'POST',
+                    headers: getHeaders(token),
+                    body: JSON.stringify({
+                        type: "link",
+                        data: cdnLink
+                    })
+                });
+            } catch (thumbErr) {
+                console.warn("[BulkUpload] Помилка генерації прев'ю відео, але відео завантажено", thumbErr);
+            }
+
+            if (onProgress) onProgress(file.name, true);
+            return { success: true, filename: file.name, videoId: registerData.video?.id };
+        } else {
+            return { success: false, filename: file.name, error: 'Не вдалося закріпити відео в галереї' };
+        }
+
+    } catch (error) {
+        console.error('[BulkUpload] Помилка завантаження відео:', error);
+        return { success: false, filename: file.name, error: error.message };
+    }
+}
+
+// =====================================================
+// РОЗУМНИЙ МАСОВИЙ ЗАГРУЗЧИК (ФОТО + ВІДЕО)
+// =====================================================
+async function bulkUploadMedia(token, externalId, files, onProgress = null, onFileError = null) {
     let uploaded = 0;
     const total = files.length;
 
     for (let i = 0; i < total; i++) {
         const file = files[i];
+        let result;
 
-        // Завантажуємо тільки оригінал
-        const result = await uploadSinglePhoto(token, externalId, file);
+        // Перевіряємо тип файлу: відео чи фото?
+        if (file.type.startsWith('video/')) {
+            result = await uploadSingleVideo(token, externalId, file);
+        } else {
+            result = await uploadSinglePhoto(token, externalId, file);
+        }
 
         if (result.success) {
             uploaded++;
@@ -461,7 +545,7 @@ async function bulkUploadPhotos(token, externalId, files, onProgress = null, onF
             if (onFileError) onFileError(result.filename, result.error);
         }
 
-        // Пауза між файлами 800мс, щоб сайт не заблокував нас за спам запитами
+        // Пауза 800мс
         if (i < total - 1) {
             await new Promise(resolve => setTimeout(resolve, 800));
         }

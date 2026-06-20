@@ -292,7 +292,7 @@ function injectBotUI() {
                                 <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">Перетягніть фото сюди</div>
                                 <div style="color: #666; margin-bottom: 15px;">або</div>
                                 <button id="gallerySelectBtn" class="alpha-btn-primary" style="width: auto; padding: 12px 30px;">Обрати файли</button>
-                                <input type="file" id="galleryFileInput" multiple accept="image/*" style="display: none;">
+                                <input type="file" id="galleryFileInput" multiple accept="image/*,video/*" style="display: none;">
                             </div>
 
                             <!-- Прогрес -->
