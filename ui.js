@@ -442,26 +442,6 @@ function setupUIEvents(overlay, galleryModal) {
         });
     };
 
-    // ==================== ВКЛАДКА ГАЛЕРЕЯ ====================
-    const tabBtnGallery = document.getElementById('tabBtnGallery');
-    const tabContentGallery = document.getElementById('tabContentGallery');
-
-    if (tabBtnGallery && tabContentGallery) {
-        tabBtnGallery.addEventListener('click', () => {
-            // Ховаємо всі інші вкладки
-            document.querySelectorAll('.alpha-tab-area > div').forEach(el => el.style.display = 'none');
-
-            // Показуємо нашу вкладку
-            tabContentGallery.style.display = 'block';
-
-            // Знімаємо активний клас з усіх кнопок
-            document.querySelectorAll('.alpha-nav-btn').forEach(btn => btn.classList.remove('active'));
-
-            // Робимо активною нашу кнопку
-            tabBtnGallery.classList.add('active');
-        });
-    };
-
     const tabLike = document.getElementById("respTabLike");
     const tabWink = document.getElementById("respTabWink");
     const winkSidebar = document.getElementById("winkSidebar");
