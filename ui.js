@@ -147,8 +147,8 @@ function injectBotUI() {
                     <div id="tabBtnInvites" data-lang="tabInvites" class="alpha-nav-btn" style="display: none;">📩 Інвайти</div>
                     <div id="tabBtnLetters" data-lang="tabLetters" class="alpha-nav-btn" style="display: none;">📝 Листи</div>
                     <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
-                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">🚨 VIP Радар</div>
-                    <div id="tabBtnGallery" class="alpha-nav-btn">📷 Галерея</div>
+                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">Повідомлення</div>
+                    <div id="tabBtnGallery" class="alpha-nav-btn">Галерея</div>
                     <div id="tabBtnStats" data-lang="tabStats" class="alpha-nav-btn">📊 Статистика</div>
                 </div>
             </div>
@@ -801,6 +801,155 @@ function setupUIEvents(overlay, galleryModal) {
     checkBotMemory();
     loadDailyStats();
     loadProfilesForUI();
+
+    // ==================== ЛОГІКА ВКЛАДКИ ГАЛЕРЕЯ ====================
+    const galleryDropZone = document.getElementById('galleryDropZone');
+    const galleryFileInput = document.getElementById('galleryFileInput');
+    const gallerySelectBtn = document.getElementById('gallerySelectBtn');
+    const galleryUploadBtn = document.getElementById('galleryUploadBtn');
+    const galleryProgressContainer = document.getElementById('galleryProgressContainer');
+    const galleryProgressText = document.getElementById('galleryProgressText');
+    const galleryProgressBar = document.getElementById('galleryProgressBar');
+    const galleryErrorLog = document.getElementById('galleryErrorLog');
+    const galleryErrorList = document.getElementById('galleryErrorList');
+
+    let gallerySelectedFiles = [];
+
+    // Функція оновлення UI після вибору файлів
+    function updateGalleryUI() {
+        if (gallerySelectedFiles.length > 0) {
+            galleryUploadBtn.style.display = 'block';
+            galleryDropZone.style.borderColor = '#4caf50';
+            galleryDropZone.style.background = '#e8f5e9';
+        } else {
+            galleryUploadBtn.style.display = 'none';
+            galleryDropZone.style.borderColor = '#1976d2';
+            galleryDropZone.style.background = '#f8f9fa';
+        }
+    }
+
+    // Обробка вибраних файлів
+    function handleGalleryFiles(files) {
+        gallerySelectedFiles = Array.from(files);
+        updateGalleryUI();
+
+        // Сховати попередні помилки
+        galleryErrorLog.style.display = 'none';
+        galleryErrorList.innerHTML = '';
+    }
+
+    // Drag & Drop
+    if (galleryDropZone) {
+        galleryDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            galleryDropZone.style.background = '#e3f2fd';
+            galleryDropZone.style.borderColor = '#1976d2';
+        });
+
+        galleryDropZone.addEventListener('dragleave', () => {
+            updateGalleryUI();
+        });
+
+        galleryDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            handleGalleryFiles(e.dataTransfer.files);
+        });
+
+        // Клік по зоні = відкрити вибір файлів
+        galleryDropZone.addEventListener('click', () => {
+            galleryFileInput.click();
+        });
+    }
+
+    // Кнопка "Обрати файли"
+    if (gallerySelectBtn && galleryFileInput) {
+        gallerySelectBtn.addEventListener('click', (e) => {
+            e.stopImmediatePropagation();
+            galleryFileInput.click();
+        });
+
+        galleryFileInput.addEventListener('change', () => {
+            if (galleryFileInput.files.length > 0) {
+                handleGalleryFiles(galleryFileInput.files);
+            }
+        });
+    }
+}
+
+// Кнопка "Почати завантаження"
+if (galleryUploadBtn) {
+    galleryUploadBtn.addEventListener('click', async () => {
+        if (gallerySelectedFiles.length === 0) return;
+
+        // Отримуємо поточну анкету з глобального селектора
+        const currentProfileId = window.currentSelectedProfileId ||
+                                document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
+
+        if (!currentProfileId) {
+            alert('Спочатку оберіть анкету у верхньому селекторі');
+            return;
+        }
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Токен не знайдено. Спочатку авторизуйтесь.');
+            return;
+        }
+
+        // Підготовка UI
+        galleryUploadBtn.style.display = 'none';
+        galleryProgressContainer.style.display = 'block';
+        galleryErrorLog.style.display = 'none';
+        galleryErrorList.innerHTML = '';
+        galleryProgressText.textContent = `Завантажено 0 з ${gallerySelectedFiles.length}`;
+        galleryProgressBar.style.width = '0%';
+
+        let uploadedCount = 0;
+        const totalFiles = gallerySelectedFiles.length;
+
+        // Функція оновлення прогресу
+        const onProgress = (done, total) => {
+            uploadedCount = done;
+            galleryProgressText.textContent = `Завантажено ${done} з ${total}`;
+            const percent = Math.round((done / total) * 100);
+            galleryProgressBar.style.width = `${percent}%`;
+        };
+
+        // Функція для помилок
+        const onFileError = (filename, errorMsg) => {
+            galleryErrorLog.style.display = 'block';
+            const errorItem = document.createElement('div');
+            errorItem.style.cssText = 'margin-bottom: 6px; font-size: 13px; color: #c62828;';
+            errorItem.innerHTML = `❌ <b>${filename}</b>: ${errorMsg}`;
+            galleryErrorList.appendChild(errorItem);
+        };
+
+        try {
+            const result = await bulkUploadPhotos(
+                token.replace(/^"|"$/g, ''),
+                currentProfileId,
+                gallerySelectedFiles,
+                onProgress,
+                onFileError
+            );
+
+            // Після завершення
+            setTimeout(() => {
+                alert(`Завантаження завершено!\nУспішно: ${result.uploaded} з ${result.total}`);
+
+                // Скидаємо стан
+                gallerySelectedFiles = [];
+                galleryUploadBtn.style.display = 'none';
+                galleryProgressContainer.style.display = 'none';
+                galleryDropZone.style.borderColor = '#1976d2';
+                galleryDropZone.style.background = '#f8f9fa';
+            }, 800);
+
+        } catch (err) {
+            console.error('[Галерея] Критична помилка:', err);
+            alert('Сталася помилка під час завантаження. Дивіться консоль.');
+        }
+    });
 }
 
 async function loadProfilesForUI() {
