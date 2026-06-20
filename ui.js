@@ -864,7 +864,16 @@ function setupUIEvents(overlay, galleryModal) {
             galleryUploadBtn.addEventListener('click', async () => {
                 if (gallerySelectedFiles.length === 0) return;
 
-                // Отримуємо поточну анкету з глобального селектора
+                // 🛑 ЖОРСТКИЙ БЛОК НА ЗМІШУВАННЯ ФОТО ТА ВІДЕО
+                const hasPhotos = gallerySelectedFiles.some(f => f.type.startsWith('image/'));
+                const hasVideos = gallerySelectedFiles.some(f => f.type.startsWith('video/'));
+
+                if (hasPhotos && hasVideos) {
+                    alert("⚠️ Увага: Будь ласка, завантажуйте фото та відео окремо! Змішувати різні типи файлів в одну чергу не можна.");
+                    return;
+                }
+
+        // Отримуємо поточну анкету з глобального селектора
                 const currentProfileId = window.currentSelectedProfileId ||
                                         document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
 
@@ -898,7 +907,7 @@ function setupUIEvents(overlay, galleryModal) {
                     galleryProgressBar.style.width = `${percent}%`;
                 };
 
-                // Функція для помилок
+             // Функція для помилок
                 const onFileError = (filename, errorMsg) => {
                     galleryErrorLog.style.display = 'block';
                     const errorItem = document.createElement('div');
@@ -908,7 +917,7 @@ function setupUIEvents(overlay, galleryModal) {
                 };
 
                 try {
-                    const result = await bulkUploadPhotos(
+                    const result = await bulkUploadMedia(
                         token.replace(/^"|"$/g, ''),
                         currentProfileId,
                         gallerySelectedFiles,
@@ -928,7 +937,7 @@ function setupUIEvents(overlay, galleryModal) {
                         galleryDropZone.style.background = '#f8f9fa';
                     }, 800);
 
-                } catch (err) {
+                        } catch (err) {
                     console.error('[Галерея] Критична помилка:', err);
                     alert('Сталася помилка під час завантаження. Дивіться консоль.');
                 }
