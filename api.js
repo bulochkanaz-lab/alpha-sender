@@ -360,6 +360,74 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
 }
 
 // =====================================================
+// ЕКСПЕРИМЕНТ: ПРИХОВУВАННЯ ПОВІДОМЛЕНЬ
+// =====================================================
+
+// 1. Прямий удар по API для приховування повідомлення
+async function hideMessageById(token, messageId) {
+    try {
+        const response = await fetch("https://alpha.date/api/chat/hideMessage", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify({ message_id: Number(messageId) })
+        });
+
+        const data = await response.json();
+
+        if (data.status === true) {
+            console.log(`✅ [Успіх] Повідомлення ${messageId} приховано! Сервер відповів:`, data.message);
+            return true;
+        } else {
+            console.warn(`❌ [Відмова] Сервер не дав приховати повідомлення ${messageId}. Відповідь:`, data);
+            return false;
+        }
+    } catch (error) {
+        console.error("❌ [Помилка] Збій запиту hideMessage:", error);
+        return false;
+    }
+}
+
+// 2. Розумна функція, яка сама знаходить твоє ОСТАННЄ повідомлення і ховає його
+async function hideMyLastMessage(token, chatUid, profileId) {
+    console.log(`🕵️‍♂️ [Експеримент] Шукаємо останнє повідомлення анкети ${profileId} у чаті ${chatUid}...`);
+
+    try {
+        // Запитуємо першу сторінку історії чату
+        const response = await fetch("https://alpha.date/api/chatList/chatHistory", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify({ chat_id: chatUid, page: 1 }),
+        });
+
+        const data = await response.json();
+        const messages = data.response || data.data || [];
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+            console.log("🤷‍♂️ [Експеримент] Історія чату порожня.");
+            return false;
+        }
+
+        // Шукаємо перше (найсвіжіше) повідомлення, яке було відправлене САМЕ НАМИ
+        // Масив зазвичай відсортований від нових до старих (або навпаки, тому шукаємо з кінця або початку залежно від сайту)
+        // На основі твоєї структури, беремо те, де sender_external_id співпадає з нашою анкетою
+        const myLastMsg = messages.find(m => String(m.sender_external_id) === String(profileId));
+
+        if (myLastMsg && myLastMsg.id) {
+            console.log(`🎯 [Експеримент] Знайдено ціль! Текст: "${myLastMsg.message_content}", ID: ${myLastMsg.id}`);
+            // Робимо постріл
+            return await hideMessageById(token, myLastMsg.id);
+        } else {
+            console.log("🤷‍♂️ [Експеримент] Не знайдено жодного твого повідомлення в останній історії.");
+            return false;
+        }
+
+    } catch (error) {
+        console.error("❌ [Помилка] Збій отримання історії для експерименту:", error);
+        return false;
+    }
+}
+
+// =====================================================
 // МАСОВЕ ЗАВАНТАЖЕННЯ ФОТО В ГАЛЕРЕЮ (Bulk Gallery Upload)
 // =====================================================
 

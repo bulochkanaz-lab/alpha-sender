@@ -1359,6 +1359,100 @@ function injectSearchButton() {
     });
 }
 
+// ==========================================
+// ІНЖЕКТОР КНОПОК HIDE В ЧАТІ (Адаптовано під HTML сайту)
+// ==========================================
+function injectHideButtons() {
+    // 1. Знаходимо всі блоки з контентом повідомлення
+    const myMessages = document.querySelectorAll('.styles_clmn_3_chat_message_content__uCgtO');
+
+    myMessages.forEach(msgNode => {
+        // Якщо наша хакерська кнопка вже є — пропускаємо
+        if (msgNode.querySelector('.alpha-hide-btn-inline')) return;
+
+        let msgId = null;
+
+        // 2. Витягуємо ID. Спочатку пробуємо взяти з блоку перекладача
+        const translatorDiv = msgNode.querySelector('[data-aht-content-id]');
+        if (translatorDiv) {
+            const rawId = translatorDiv.getAttribute('data-aht-content-id'); // "mess-1584560908"
+            msgId = rawId.replace('mess-', '');
+        }
+
+        // РЕЗЕРВ: Якщо перекладач вимкнено, шукаємо в батьківському елементі
+        if (!msgId) {
+            const parentWithId = msgNode.closest('[id*="15"], [data-id], [data-message-id]');
+            if (parentWithId) {
+                // Витягуємо тільки цифри
+                msgId = (parentWithId.id || parentWithId.getAttribute('data-id') || parentWithId.getAttribute('data-message-id') || "").replace(/\D/g, '');
+            }
+        }
+
+        if (!msgId) return; // Якщо зовсім не знайшли ID, пропускаємо
+
+        // 3. Створюємо нашу кнопку
+        const hideBtn = document.createElement('div');
+        hideBtn.className = 'alpha-hide-btn-inline';
+        hideBtn.innerHTML = '☠️'; // Черепок, щоб знати, що це наша безвідмовна кнопка
+        hideBtn.title = 'Хак-видалення (працює завжди)';
+
+        // Робимо її акуратною
+        hideBtn.style.cssText = `
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+            opacity: 0.5;
+            transition: 0.2s;
+            user-select: none;
+        `;
+
+        hideBtn.onmouseover = () => hideBtn.style.opacity = '1';
+        hideBtn.onmouseout = () => hideBtn.style.opacity = '0.5';
+
+        // 4. Логіка при кліку
+        hideBtn.onclick = async (e) => {
+            e.stopPropagation();
+
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            hideBtn.innerHTML = '⏳';
+            hideBtn.style.opacity = '1';
+
+            // Викликаємо функцію удару по API з api.js
+            const success = await hideMessageById(token.replace(/^"|"$/g, ''), msgId);
+
+            if (success) {
+                // Візуально знищуємо весь блок повідомлення (шукаємо найближчого великого батька)
+                const wrapper = msgNode.parentElement;
+                wrapper.style.transition = "opacity 0.3s, transform 0.3s";
+                wrapper.style.opacity = "0";
+                wrapper.style.transform = "scale(0.95)";
+                setTimeout(() => wrapper.remove(), 300);
+            } else {
+                hideBtn.innerHTML = '❌';
+                hideBtn.title = 'Сервер відхилив запит';
+                setTimeout(() => { hideBtn.innerHTML = '☠️'; hideBtn.style.opacity = '0.5'; }, 2000);
+            }
+        };
+
+        // 5. Знаходимо панель з часом і рідною кнопкою, щоб красиво вставити нашу поруч
+        const infoPanel = msgNode.querySelector('.styles_clmn_3_chat_message_info__XZa1d');
+        if (infoPanel) {
+            infoPanel.style.display = 'flex';
+            infoPanel.style.alignItems = 'center';
+            infoPanel.appendChild(hideBtn);
+        } else {
+            // Якщо панелі раптом немає, приліпимо збоку
+            msgNode.style.position = 'relative';
+            hideBtn.style.position = 'absolute';
+            hideBtn.style.right = '-25px';
+            hideBtn.style.bottom = '5px';
+            msgNode.appendChild(hideBtn);
+        }
+    });
+}
+
 // Ловимо екстрену зупинку від лоадера
 window.addEventListener("AlphaBackgroundCrash", () => {
     if (isRunning) {
@@ -1374,4 +1468,5 @@ setTimeout(() => {
     injectBotUI();
     setInterval(injectMenuButton, 500);
     setInterval(injectSearchButton, 2000);
+    setInterval(injectHideButtons, 1500);
 }, 200);
