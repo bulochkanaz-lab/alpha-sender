@@ -363,120 +363,73 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
 // МАСОВЕ ЗАВАНТАЖЕННЯ ФОТО В ГАЛЕРЕЮ (Bulk Gallery Upload)
 // =====================================================
 
-/**
- * Генерує посилання для завантаження файлу на CDN
- */
-async function generateUploadLink(token, filename, contentType = 'image/jpeg') {
-    try {
-        const response = await fetch('https://alpha.date/api/v3/click-history/aws/generate-link', {
-            method: 'POST',
-            headers: getHeaders(token),
-            body: JSON.stringify({
-                filename: filename,
-                content_type: contentType
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.status === true && data.success === true && data.data) {
-            return {
-                success: true,
-                uploadUrl: data.data.link || data.data.upload_url,
-                filename: data.data.filename,
-                raw: data.data
-            };
-        }
-
-        return { success: false, error: data };
-    } catch (error) {
-        console.error('[BulkUpload] Помилка generateUploadLink:', error);
-        return { success: false, error: error.message };
-    }
+// Функція-помічник для імітації їхнього 32-значного хеш-коду (як 671dfc5d59cfb2ea3ca2176307a62543)
+function generateHexHash() {
+    return [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 }
 
-/**
- * Реєструє завантажене фото в галереї анкети
- */
-async function registerUploadedImage(token, externalId, uploadData) {
-    try {
-        const response = await fetch('https://alpha.date/api/files/image', {
-            method: 'POST',
-            headers: getHeaders(token),
-            body: JSON.stringify({
-                external_id: externalId,
-                link: uploadData.link || uploadData.filename,
-                filename: uploadData.filename,
-                content_type: 'image'
-            })
-        });
-
-        const data = await response.json();
-        return {
-            success: data.status === true,
-            image: data.image || null,
-            raw: data
-        };
-    } catch (error) {
-        console.error('[BulkUpload] Помилка registerUploadedImage:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * Завантажує одне фото повністю (generate link → upload → register)
- */
 async function uploadSinglePhoto(token, externalId, file, onProgress = null) {
-    const filename = file.name || `photo_${Date.now()}.jpg`;
-    const contentType = file.type || 'image/jpeg';
+    // Витягуємо оригінальне ім'я та розширення
+    const fileExt = file.name.split('.').pop().toLowerCase() || 'png';
+    const rawFileName = file.name.replace(/\.[^/.]+$/, "") || 'image';
+    const fileHash = generateHexHash();
+    const newFileName = `${fileHash}.${fileExt}`;
 
-    // Крок 1: Генеруємо посилання
-    const linkResult = await generateUploadLink(token, filename, contentType);
-    if (!linkResult.success) {
-        return { success: false, filename, error: 'Не вдалося згенерувати посилання для завантаження' };
-    }
+    // Збираємо FormData (Саме цей формат очікує їхній бекенд!)
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('newFileName', newFileName);
+    formData.append('fileName', rawFileName);
+    formData.append('dir', String(externalId));
+    formData.append('bucketName', 'chats-images.cdndate.net');
 
     try {
-        // Крок 2: Завантажуємо файл на CDN (пряме завантаження)
-        const uploadResponse = await fetch(linkResult.uploadUrl, {
-            method: 'PUT', // або POST, залежно від того, що повертає generate-link
-            headers: {
-                'Content-Type': contentType
-            },
-            body: file
+        // УВАГА: Головний трюк! Для FormData нам треба видалити 'content-type',
+        // щоб браузер сам підставив 'multipart/form-data' з правильним boundary (межами файлу).
+        const headers = getHeaders(token);
+        delete headers['content-type'];
+
+        // 1. Заливаємо файл прямо на AWS через їхній "generate-link"
+        const uploadRes = await fetch('https://alpha.date/api/v3/click-history/aws/generate-link', {
+            method: 'POST',
+            headers: headers,
+            body: formData
         });
 
-        if (!uploadResponse.ok) {
-            return { success: false, filename, error: `Помилка завантаження файлу (status ${uploadResponse.status})` };
+        const uploadData = await uploadRes.json();
+
+        if (!uploadData.status || !uploadData.success || !uploadData.data) {
+            return { success: false, filename: file.name, error: 'Сервер відхилив файл' };
         }
 
-        // Крок 3: Реєструємо фото в галереї
-        const registerResult = await registerUploadedImage(token, externalId, {
-            link: linkResult.raw?.link || linkResult.uploadUrl,
-            filename: filename
+        const cdnLink = uploadData.data.link;
+
+        // 2. Реєструємо фото в галереї анкети (тут уже йде звичайний JSON)
+        const registerRes = await fetch('https://alpha.date/api/files/image', {
+            method: 'POST',
+            headers: getHeaders(token), // Тут повертаємо стандартні хедери з content-type
+            body: JSON.stringify({
+                external_id: Number(externalId),
+                filename: file.name,
+                link: cdnLink
+            })
         });
 
-        if (registerResult.success) {
-            if (onProgress) onProgress(filename, true);
-            return { success: true, filename, imageId: registerResult.image?.id };
+        const registerData = await registerRes.json();
+
+        if (registerData.status) {
+            if (onProgress) onProgress(file.name, true);
+            return { success: true, filename: file.name, imageId: registerData.image?.id };
         } else {
-            return { success: false, filename, error: 'Не вдалося зареєструвати фото в галереї' };
+            return { success: false, filename: file.name, error: 'Не вдалося закріпити фото в галереї' };
         }
 
     } catch (error) {
-        console.error('[BulkUpload] Помилка uploadSinglePhoto:', error);
-        return { success: false, filename, error: error.message };
+        console.error('[BulkUpload] Помилка:', error);
+        return { success: false, filename: file.name, error: error.message };
     }
 }
 
-/**
- * Масове завантаження фото в галерею анкети
- * @param {string} token
- * @param {string|number} externalId - external_id анкети
- * @param {File[]} files - масив файлів
- * @param {function} onProgress - callback(завантажено, всього)
- * @param {function} onFileError - callback(filename, errorMessage)
- */
 async function bulkUploadPhotos(token, externalId, files, onProgress = null, onFileError = null) {
     let uploaded = 0;
     const total = files.length;
@@ -484,6 +437,7 @@ async function bulkUploadPhotos(token, externalId, files, onProgress = null, onF
     for (let i = 0; i < total; i++) {
         const file = files[i];
 
+        // Завантажуємо тільки оригінал
         const result = await uploadSinglePhoto(token, externalId, file);
 
         if (result.success) {
@@ -493,7 +447,7 @@ async function bulkUploadPhotos(token, externalId, files, onProgress = null, onF
             if (onFileError) onFileError(result.filename, result.error);
         }
 
-        // Невелика пауза між файлами (щоб не навантажувати сервер)
+        // Пауза між файлами 800мс, щоб сайт не заблокував нас за спам запитами
         if (i < total - 1) {
             await new Promise(resolve => setTimeout(resolve, 800));
         }
