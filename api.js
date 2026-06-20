@@ -368,50 +368,64 @@ function generateHexHash() {
     return [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 }
 
+// =====================================================
+// ОНОВЛЕНА ФУНКЦІЯ ЗАВАНТАЖЕННЯ (З потрійним клонуванням)
+// =====================================================
+
 async function uploadSinglePhoto(token, externalId, file, onProgress = null) {
     // Витягуємо оригінальне ім'я та розширення
     const fileExt = file.name.split('.').pop().toLowerCase() || 'png';
     const rawFileName = file.name.replace(/\.[^/.]+$/, "") || 'image';
-    const fileHash = generateHexHash();
-    const newFileName = `${fileHash}.${fileExt}`;
 
-    // Збираємо FormData (Саме цей формат очікує їхній бекенд!)
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('newFileName', newFileName);
-    formData.append('fileName', rawFileName);
-    formData.append('dir', String(externalId));
-    formData.append('bucketName', 'chats-images.cdndate.net');
+    // Генеруємо ОДИН спільний хеш для всіх 3 версій файлу
+    const fileHash = generateHexHash();
+
+    // Три префікси, які вимагає сайт
+    const prefixes = ["w-250-h-250-", "w-1920-h-1280-", ""];
+    let finalCdnLink = "";
 
     try {
-        // УВАГА: Головний трюк! Для FormData нам треба видалити 'content-type',
-        // щоб браузер сам підставив 'multipart/form-data' з правильним boundary (межами файлу).
         const headers = getHeaders(token);
-        delete headers['content-type'];
+        delete headers['content-type']; // Важливо для FormData
 
-        // 1. Заливаємо файл прямо на AWS через їхній "generate-link"
-        const uploadRes = await fetch('https://alpha.date/api/v3/click-history/aws/generate-link', {
-            method: 'POST',
-            headers: headers,
-            body: formData
-        });
+        // 1. ЗАВАНТАЖУЄМО 3 КОПІЇ (Імітуємо нарізку сайту)
+        for (const prefix of prefixes) {
+            const newFileName = `${prefix}${fileHash}.${fileExt}`;
 
-        const uploadData = await uploadRes.json();
+            const formData = new FormData();
+            formData.append('file', file); // Відправляємо те саме оригінальне фото
+            formData.append('newFileName', newFileName);
+            formData.append('fileName', rawFileName);
+            formData.append('dir', String(externalId));
+            formData.append('bucketName', 'chats-images.cdndate.net');
 
-        if (!uploadData.status || !uploadData.success || !uploadData.data) {
-            return { success: false, filename: file.name, error: 'Сервер відхилив файл' };
+            const uploadRes = await fetch('https://alpha.date/api/v3/click-history/aws/generate-link', {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            const uploadData = await uploadRes.json();
+
+            if (!uploadData.status || !uploadData.success || !uploadData.data) {
+                return { success: false, filename: file.name, error: `Сервер відхилив копію: ${prefix}` };
+            }
+
+            // Якщо це оригінал (префікс ""), зберігаємо його лінк для фінальної реєстрації
+            if (prefix === "") {
+                finalCdnLink = uploadData.data.link;
+            }
         }
 
-        const cdnLink = uploadData.data.link;
-
-        // 2. Реєструємо фото в галереї анкети (тут уже йде звичайний JSON)
+        // 2. РЕЄСТРУЄМО ФОТО В ГАЛЕРЕЇ
+        // Реєструвати потрібно лише 1 раз, використовуючи посилання на оригінал
         const registerRes = await fetch('https://alpha.date/api/files/image', {
             method: 'POST',
             headers: getHeaders(token), // Тут повертаємо стандартні хедери з content-type
             body: JSON.stringify({
                 external_id: Number(externalId),
                 filename: file.name,
-                link: cdnLink
+                link: finalCdnLink
             })
         });
 
