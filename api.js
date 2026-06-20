@@ -363,22 +363,30 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
 // ЕКСПЕРИМЕНТ: ПРИХОВУВАННЯ ПОВІДОМЛЕНЬ
 // =====================================================
 
-// 1. Прямий удар по API для приховування повідомлення
+// 1. Оновлений удар по API (пробуємо через FormData)
 async function hideMessageById(token, messageId) {
     try {
+        console.log(`🛠 [Дебаг] Пробуємо приховати ID: ${messageId}`);
+
+        const formData = new FormData();
+        formData.append('message_id', messageId);
+
+        const headers = getHeaders(token);
+        delete headers['content-type']; // Дозволяємо браузеру самому поставити multipart/form-data
+
         const response = await fetch("https://alpha.date/api/chat/hideMessage", {
             method: "POST",
-            headers: getHeaders(token),
-            body: JSON.stringify({ message_id: Number(messageId) })
+            headers: headers,
+            body: formData
         });
 
         const data = await response.json();
 
         if (data.status === true) {
-            console.log(`✅ [Успіх] Повідомлення ${messageId} приховано! Сервер відповів:`, data.message);
+            console.log(`✅ [Успіх] Повідомлення ${messageId} приховано!`, data);
             return true;
         } else {
-            console.warn(`❌ [Відмова] Сервер не дав приховати повідомлення ${messageId}. Відповідь:`, data);
+            console.warn(`❌ [Відмова] Відповідь:`, data);
             return false;
         }
     } catch (error) {
