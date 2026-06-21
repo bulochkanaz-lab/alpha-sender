@@ -2447,12 +2447,9 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        // 🎯 VIP РАДАР
        if (eventName === "user_online" || (payload && (payload.action === "user_online" || payload.type === "user_online"))) {
-          //console.log("🛠️ [Дебаг Радара] 1. Це подія онлайну! Payload:", payload);
-
           let onlineId = null;
           let clientName = "Важливий клієнт";
 
-          // Бронебійний сканер
           function extractVipData(obj) {
               if (!obj || typeof obj !== 'object') return;
               if (obj.external_id && !onlineId) {
@@ -2465,22 +2462,15 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
           extractVipData(payload);
 
-          //console.log("🛠️ [Дебаг Радара] 2. Знайдений ID мужика:", onlineId);
-
           if (onlineId) {
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
-             //console.log("🛠️ [Дебаг Радара] 3. Правила в пам'яті бота:", rules);
-
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
-             //console.log("🛠️ [Дебаг Радара] 4. Збігів знайдено:", matchedRules.length);
 
              if (matchedRules.length > 0) {
-                //console.log("🛠️ [Дебаг Радара] 5. БІНГО! Виводимо пуш і перевіряємо вимкнення.");
                 showVipNotification(clientName, onlineId);
 
                 for (const rule of matchedRules) {
                     if (rule.auto_disable === true) {
-                        //console.log(`🛠️ [Дебаг Радара] 6. Вимикаємо анкету ${rule.profile_id}`);
                         disableProfile(rule.profile_id).then(success => {
                             if(success) {
                                 showSystemAlert("🔌 Анкета вимкнена", `Анкету <b>${rule.profile_id}</b> переведено в офлайн.`, "#f44336");
@@ -2488,15 +2478,9 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                                 showSystemAlert("⚠️ Помилка вимкнення", `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>.`, "#ff9800");
                             }
                         });
-                    } else {
-                        //console.log(`🛠️ [Дебаг Радара] 6. Галочка авто-вимкнення НЕ стоїть для анкети ${rule.profile_id}`);
                     }
                 }
-             } else {
-                 //console.log("🛠️ [Дебаг Радара] ❌ Цей мужик є онлайн, але його ID немає у ваших правилах!");
              }
-          } else {
-              //console.log("🛠️ [Дебаг Радара] ❌ Не змогли витягнути ID з Payload!");
           }
        }
 
@@ -2514,7 +2498,6 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        if (!manId || !womanId) return;
 
-       // Витягуємо тип та сам текст повідомлення
        const msgType = (payload.message_object && payload.message_object.message_type)
                     || (payload.notification_object && payload.notification_object.message_type);
 
@@ -2528,11 +2511,22 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        const isWink = (payload.action === "message" && winkTypes.includes(msgType));
        const isLike = (likeTypes.includes(payload.action) || (payload.action === "message" && likeTypes.includes(msgType)));
 
+       // 🔥 ВАШ ФІКС: Витягуємо chatUid для моноліту
+       let chatUid = null;
+       if (payload.chat_list_object && payload.chat_list_object.chat_uid) {
+          chatUid = payload.chat_list_object.chat_uid;
+       } else if (payload.message_object && payload.message_object.chat_uid) {
+          chatUid = payload.message_object.chat_uid;
+       } else if (payload.notification_object && payload.notification_object.chat_uid) {
+          chatUid = payload.notification_object.chat_uid;
+       }
+
        if (isLike) {
-          await handleAutoReply(womanId, manId, "like", "");
+          // Передаємо chatUid
+          await handleAutoReply(womanId, manId, "like", "", chatUid);
        } else if (isWink) {
-          // Передаємо конкретний текст вінки у функцію (прибираємо зайві пробіли)
-          await handleAutoReply(womanId, manId, "wink", msgContent.trim());
+          // Передаємо chatUid
+          await handleAutoReply(womanId, manId, "wink", msgContent.trim(), chatUid);
        }
 
     } catch (err) {
@@ -2543,7 +2537,8 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 // 🔥 Глобальна пам'ять для захисту від дублів
 const autoReplyLocks = new Set();
 
-async function handleAutoReply(profileId, manId, type, exactText = "") {
+// 🔥 ВАШ ФІКС: Додано параметр chatUid
+async function handleAutoReply(profileId, manId, type, exactText = "", chatUid = null) {
     const lockKey = `${profileId}_${manId}_${type}`;
     if (autoReplyLocks.has(lockKey)) return;
 
@@ -2555,10 +2550,7 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
     // 1. Спроба знайти КАСТОМНУ відповідь під конкретний текст вінки
     if (type === "wink" && exactText !== "") {
         try {
-            // Очікуємо, що в localStorage лежить об'єкт (словник) із фразами
             const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
-
-            // Якщо мужик прислав "How is your day going?", перевіряємо, чи є для цього масив відповідей
             if (customWinks[exactText] && customWinks[exactText].length > 0) {
                 savedTexts = customWinks[exactText];
             }
@@ -2571,7 +2563,6 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
         savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
     }
 
-    // Якщо взагалі нічого немає — ігноруємо
     if (savedTexts.length === 0) return;
 
     const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
@@ -2579,16 +2570,16 @@ async function handleAutoReply(profileId, manId, type, exactText = "") {
     const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
 
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-    await sendAutoMessage(profileId, manId, randomText);
+    // 🔥 ВАШ ФІКС: Передаємо chatUid у відправку
+    await sendAutoMessage(profileId, manId, randomText, chatUid);
 }
 
-// Функція sendAutoMessage залишається без змін...
-
-async function sendAutoMessage(profileId, manId, text) {
+// 🔥 ВАШ ФІКС: Додано параметр chatUid
+async function sendAutoMessage(profileId, manId, text, chatUid = null) {
     // --- MUTEX LOCK: Захист від паралельних вкладок залишаємо ---
     const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
     if (Date.now() - lastActive < 15000 && !isRunning) {
-        return; // Просто тихо виходимо, якщо є інша активна вкладка
+        return;
     }
     // --------------------------------------------------
 
@@ -2602,21 +2593,23 @@ async function sendAutoMessage(profileId, manId, text) {
        message_content: text,
        message_type: "SENT_TEXT",
        filename: "",
-       chance: true, // Пробуємо як перший шанс
+       chat_uid: chatUid, // 🔥 ВАШ ФІКС: Тепер воно в тілі запиту!
+       chance: true,
     };
 
     try {
        const response = await fetch("https://alpha.date/api/chat/message", {
           method: "POST",
-          headers: getHeaders(token),
+          headers: getHeaders(token), // Передбачається, що getHeaders у моноліті є
           body: JSON.stringify(payload),
        });
        const data = await response.json();
 
-       // Якщо шанс не пройшов, стріляємо класичним повідомленням
        if (!response.ok || data.status !== true) {
+          // Якщо шанс не пройшов, стріляємо класичним повідомленням
           const backupPayload = { ...payload };
           delete backupPayload.chance;
+          // Тут chat_uid також збережеться, бо ми скопіювали payload
 
           await fetch("https://alpha.date/api/chat/message", {
               method: "POST",
