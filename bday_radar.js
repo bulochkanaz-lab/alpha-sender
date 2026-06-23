@@ -6,59 +6,75 @@
     // 1. Додаємо стилі для миготливого кружка
     const style = document.createElement('style');
     style.innerHTML = `
+    :root { --bday-color: #ff3b30; }
     .alpha-bday-dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        background-color: #ff3b30;
-        border-radius: 50%;
-        margin-left: 6px;
-        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7);
-        animation: alpha-pulse 1.5s infinite;
-        vertical-align: middle;
-        cursor: help;
+        display: inline-block; width: 8px; height: 8px; background-color: var(--bday-color);
+        border-radius: 50%; margin-left: 6px; vertical-align: middle; cursor: help;
+        animation: alpha-pulse-dot 1.5s infinite;
     }
-    @keyframes alpha-pulse {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(255, 59, 48, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+    .alpha-bday-num {
+        display: inline-flex; align-items: center; justify-content: center;
+        background-color: var(--bday-color); color: white; font-size: 10px; font-weight: bold;
+        border-radius: 10px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; cursor: help;
+        animation: alpha-pulse-num 2s infinite;
+    }
+    @keyframes alpha-pulse-dot {
+        0% { box-shadow: 0 0 0 0 var(--bday-color); }
+        70% { box-shadow: 0 0 0 6px transparent; }
+        100% { box-shadow: 0 0 0 0 transparent; }
+    }
+    @keyframes alpha-pulse-num {
+        0% { transform: scale(0.95); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(0.95); }
     }
     `;
     document.head.appendChild(style);
 
-    // 2. Логіка розрахунку днів
-    function isBirthdaySoon(birthdateStr) {
-        if (!birthdateStr) return false;
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const bdate = new Date(birthdateStr);
-        bdate.setFullYear(today.getFullYear());
-
-        let diffTime = bdate - today;
-        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays < 0) {
-            bdate.setFullYear(today.getFullYear() + 1);
-            diffTime = bdate - today;
-            diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        }
-
-        return diffDays >= 0 && diffDays <= 7;
+    function getBdaySettings() {
+        const def = { enabled: true, type: "dot", stages: [{d:30, c:"#ffeb3b"}, {d:14, c:"#ff9800"}, {d:7, c:"#ff3b30"}] };
+        try { return JSON.parse(localStorage.getItem("alpha_bday_config")) || def; } catch(e) { return def; }
     }
 
-    // 3. Ін'єкція в HTML
-    function injectBirthdayDot(userName) {
+    function getDaysToBirthday(birthdateStr) {
+        if (!birthdateStr) return null;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const bdate = new Date(birthdateStr); bdate.setFullYear(today.getFullYear());
+        let diffDays = Math.ceil((bdate - today) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) {
+            bdate.setFullYear(today.getFullYear() + 1);
+            diffDays = Math.ceil((bdate - today) / (1000 * 60 * 60 * 24));
+        }
+        return diffDays;
+    }
+
+    function injectBirthdayDot(userName, diffDays) {
+        const settings = getBdaySettings();
+        if (!settings.enabled) return;
+
+        // Шукаємо правильний етап (колір) в залежності від днів
+        let activeStage = null;
+        for (let stage of settings.stages) {
+            if (diffDays <= stage.d) activeStage = stage; // Оскільки вони відсортовані від більшого до меншого (30 -> 14 -> 7)
+        }
+        if (!activeStage) return; // Якщо днів більше, ніж максимальний етап — виходимо
+
         const nameElements = document.querySelectorAll('div[data-testid="man-name"]');
         nameElements.forEach(el => {
-            // Шукаємо ім'я і перевіряємо, чи немає там вже кружка
             if (el.textContent.toLowerCase().includes(userName.toLowerCase())) {
-                if (!el.querySelector('.alpha-bday-dot')) {
-                    console.log(`🎂 [Радар ДН] Знайдено іменинника: ${userName}! Малюємо кружок.`);
-                    const dot = document.createElement('span');
-                    dot.className = 'alpha-bday-dot';
-                    dot.title = 'День народження протягом тижня!';
-                    el.appendChild(dot);
+                if (!el.querySelector('.alpha-bday-dot') && !el.querySelector('.alpha-bday-num')) {
+                    const elNode = document.createElement('span');
+                    elNode.style.setProperty('--bday-color', activeStage.c); // Динамічний колір
+
+                    if (settings.type === 'number') {
+                        elNode.className = 'alpha-bday-num';
+                        elNode.innerText = diffDays === 0 ? "Сьогодні!" : diffDays;
+                    } else {
+                        elNode.className = 'alpha-bday-dot';
+                    }
+
+                    elNode.title = `Днів до свята: ${diffDays}`;
+                    el.appendChild(elNode);
                 }
             }
         });
@@ -70,8 +86,9 @@
             // Чекаємо 2 секунди, поки сайт відмалює контакти
             setTimeout(() => {
                 data.response.forEach(user => {
-                    if (isBirthdaySoon(user.birthdate)) {
-                        injectBirthdayDot(user.name);
+                    const daysTo = getDaysToBirthday(user.birthdate);
+                    if (daysTo !== null) {
+                        injectBirthdayDot(user.name, daysTo);
                     }
                 });
             }, 2000);

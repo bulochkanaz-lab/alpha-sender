@@ -314,10 +314,10 @@ function injectBotUI() {
                         <div style="padding: 20px;">
                             <h3 style="margin-top: 0; margin-bottom: 20px; color: #1976d2;">⚙️ Додатковий функціонал</h3>
 
-                            <label class="alpha-toggle-wrapper">
+                            <label class="alpha-toggle-wrapper" style="margin-bottom: 15px;">
                                 <div>
                                     <div style="font-size: 14px; font-weight: bold; color: #333;">Радар Днів Народження</div>
-                                    <div style="font-size: 11px; color: #666; margin-top: 4px;">Червоний кружок біля імені іменинників (менше 7 днів)</div>
+                                    <div style="font-size: 11px; color: #666; margin-top: 4px;">Багаторівнева індикація іменинників</div>
                                 </div>
                                 <div id="uiToggleTrackBday" class="alpha-toggle-track active">
                                     <input type="checkbox" id="uiBdayToggle" checked style="display: none;">
@@ -325,7 +325,36 @@ function injectBotUI() {
                                 </div>
                             </label>
 
-                            <p style="font-size: 12px; color: #888; text-align: center; margin-top: 40px;">Тут з'являтимуться нові фічі та налаштування.</p>
+                            <div id="bdaySettingsBlock" style="background: #f8f9fa; border: 1px solid #e1e8ed; border-radius: 8px; padding: 15px;">
+                                <div class="alpha-row" style="margin-bottom: 15px;">
+                                    <div class="alpha-col">
+                                        <label class="alpha-label">Тип індикатора:</label>
+                                        <select id="uiBdayType" class="alpha-select">
+                                            <option value="dot">🔴 Кружок</option>
+                                            <option value="number">🔢 Цифра (дні)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="alpha-label" style="margin-bottom: 10px;">Етапи наближення свята:</div>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-size: 12px; width: 60px;">Етап 1:</span>
+                                        <input type="number" id="uiBdayStage1Days" class="alpha-input" style="width: 70px;" value="30" min="1"> <span style="font-size: 12px;">днів</span>
+                                        <input type="color" id="uiBdayStage1Color" value="#ffeb3b" style="border:none; width:30px; height:30px; cursor:pointer;">
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-size: 12px; width: 60px;">Етап 2:</span>
+                                        <input type="number" id="uiBdayStage2Days" class="alpha-input" style="width: 70px;" value="14" min="1"> <span style="font-size: 12px;">днів</span>
+                                        <input type="color" id="uiBdayStage2Color" value="#ff9800" style="border:none; width:30px; height:30px; cursor:pointer;">
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-size: 12px; width: 60px;">Етап 3:</span>
+                                        <input type="number" id="uiBdayStage3Days" class="alpha-input" style="width: 70px;" value="7" min="1"> <span style="font-size: 12px;">днів</span>
+                                        <input type="color" id="uiBdayStage3Color" value="#ff3b30" style="border:none; width:30px; height:30px; cursor:pointer;">
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="uiBdaySaveBtn" class="alpha-btn-success" style="margin-top: 15px; width: auto; padding: 10px 20px;">💾 Зберегти налаштування радара</button>
                         </div>
                     </div>
 
@@ -428,26 +457,51 @@ function setupUIEvents(overlay, galleryModal) {
        updateToggleVisuals(isChecked);
     };
 
-    // --- ЛОГІКА ТУМБЛЕРА ДНІВ НАРОДЖЕННЯ ---
-    const bdayToggleInput = document.getElementById("uiBdayToggle");
-    const bdayToggleTrack = document.getElementById("uiToggleTrackBday");
+    // --- ЛОГІКА ТУМБЛЕРА ТА НАЛАШТУВАНЬ ДНІВ НАРОДЖЕННЯ ---
+    const defaultBdaySettings = {
+        enabled: true, type: "dot",
+        stages: [{ d: 30, c: "#ffeb3b" }, { d: 14, c: "#ff9800" }, { d: 7, c: "#ff3b30" }]
+    };
 
-    const savedBday = localStorage.getItem("alpha_bday_enabled");
-    if (savedBday === "false") {
-       bdayToggleInput.checked = false;
-       bdayToggleTrack.classList.remove("active");
+    let bdaySet = JSON.parse(localStorage.getItem("alpha_bday_config") || JSON.stringify(defaultBdaySettings));
+
+    const toggleTrackBday = document.getElementById("uiToggleTrackBday");
+    const toggleInputBday = document.getElementById("uiBdayToggle");
+    const bdayBlock = document.getElementById("bdaySettingsBlock");
+
+    // Завантажуємо в інтерфейс
+    toggleInputBday.checked = bdaySet.enabled;
+    toggleTrackBday.classList.toggle("active", bdaySet.enabled);
+    bdayBlock.style.opacity = bdaySet.enabled ? "1" : "0.5";
+    bdayBlock.style.pointerEvents = bdaySet.enabled ? "auto" : "none";
+
+    document.getElementById("uiBdayType").value = bdaySet.type || "dot";
+    for(let i=0; i<3; i++) {
+        if(bdaySet.stages[i]) {
+            document.getElementById(`uiBdayStage${i+1}Days`).value = bdaySet.stages[i].d;
+            document.getElementById(`uiBdayStage${i+1}Color`).value = bdaySet.stages[i].c;
+        }
     }
 
-    bdayToggleInput.onchange = (e) => {
-       const isChecked = e.target.checked;
-       localStorage.setItem("alpha_bday_enabled", isChecked);
-       if (isChecked) {
-           bdayToggleTrack.classList.add("active");
-       } else {
-           bdayToggleTrack.classList.remove("active");
-           // Якщо користувач вимкнув функцію, відразу ховаємо кружки з екрана
-           document.querySelectorAll('.alpha-bday-dot').forEach(dot => dot.remove());
-       }
+    toggleInputBday.onchange = (e) => {
+        bdaySet.enabled = e.target.checked;
+        toggleTrackBday.classList.toggle("active", bdaySet.enabled);
+        bdayBlock.style.opacity = bdaySet.enabled ? "1" : "0.5";
+        bdayBlock.style.pointerEvents = bdaySet.enabled ? "auto" : "none";
+        localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
+        if (!bdaySet.enabled) document.querySelectorAll('.alpha-bday-dot, .alpha-bday-num').forEach(d => d.remove());
+    };
+
+    document.getElementById("uiBdaySaveBtn").onclick = () => {
+        bdaySet.type = document.getElementById("uiBdayType").value;
+        bdaySet.stages = [
+            { d: parseInt(document.getElementById("uiBdayStage1Days").value), c: document.getElementById("uiBdayStage1Color").value },
+            { d: parseInt(document.getElementById("uiBdayStage2Days").value), c: document.getElementById("uiBdayStage2Color").value },
+            { d: parseInt(document.getElementById("uiBdayStage3Days").value), c: document.getElementById("uiBdayStage3Color").value }
+        ].sort((a, b) => b.d - a.d); // Сортуємо по спаданню днів (30, 14, 7)
+
+        localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
+        showSystemAlert("Збережено", "Налаштування радара оновлено!", "#4caf50");
     };
 
     // --- ІНШИЙ КОД UI ---
