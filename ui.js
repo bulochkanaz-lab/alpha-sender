@@ -316,8 +316,8 @@ function injectBotUI() {
 
                             <label class="alpha-toggle-wrapper" style="margin-bottom: 15px;">
                                 <div>
-                                    <div style="font-size: 14px; font-weight: bold; color: #333;">Радар Днів Народження</div>
-                                    <div style="font-size: 11px; color: #666; margin-top: 4px;">Багаторівнева індикація іменинників</div>
+                                    <div style="font-size: 14px; font-weight: bold; color: #333;">День народження</div>
+                                    <div style="font-size: 11px; color: #666; margin-top: 4px;">Показчик того скільки днів залишилося до дня народження юзера</div>
                                 </div>
                                 <div id="uiToggleTrackBday" class="alpha-toggle-track active">
                                     <input type="checkbox" id="uiBdayToggle" checked style="display: none;">
@@ -331,7 +331,7 @@ function injectBotUI() {
                                         <label class="alpha-label">Тип індикатора:</label>
                                         <select id="uiBdayType" class="alpha-select">
                                             <option value="dot">🔴 Кружок</option>
-                                            <option value="number">🔢 Цифра (дні)</option>
+                                            <option value="number">7️⃣ Цифра (дні)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -354,7 +354,7 @@ function injectBotUI() {
                                     </div>
                                 </div>
                             </div>
-                            <button id="uiBdaySaveBtn" class="alpha-btn-success" style="margin-top: 15px; width: auto; padding: 10px 20px;">💾 Зберегти налаштування радара</button>
+                            <button id="uiBdaySaveBtn" class="alpha-btn-success" style="margin-top: 15px; width: auto; padding: 10px 20px;">💾 Зберегти налаштування</button>
                         </div>
                     </div>
 
