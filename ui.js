@@ -149,6 +149,7 @@ function injectBotUI() {
                     <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
                     <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">Повідомлення</div>
                     <div id="tabBtnGallery" class="alpha-nav-btn">Галерея</div>
+                    <div id="tabBtnOther" data-lang="tabOther" class="alpha-nav-btn">⚙️ Інше</div>
                     <div id="tabBtnStats" data-lang="tabStats" class="alpha-nav-btn">📊 Статистика</div>
                 </div>
             </div>
@@ -282,11 +283,9 @@ function injectBotUI() {
                     </div>
 
                     <div id="tabContentGallery" style="display: none;">
-                        <!-- Тут буде весь інтерфейс завантаження фото -->
                         <div style="padding: 20px;">
                             <h3 style="margin-bottom: 20px; color: #1976d2;">📷 Завантаження фото в галерею</h3>
 
-                            <!-- Тут пізніше додамо селектор файлів, drag&drop, прогрес тощо -->
                             <div id="galleryDropZone" style="border: 2px dashed #1976d2; border-radius: 12px; padding: 40px; text-align: center; margin-bottom: 20px; background: #f8f9fa; cursor: pointer;">
                                 <div style="font-size: 48px; margin-bottom: 10px;">📁</div>
                                 <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">Перетягніть фото сюди</div>
@@ -295,7 +294,6 @@ function injectBotUI() {
                                 <input type="file" id="galleryFileInput" multiple accept="image/*,video/*" style="display: none;">
                             </div>
 
-                            <!-- Прогрес -->
                             <div id="galleryProgressContainer" style="display: none; margin-bottom: 20px;">
                                 <div style="margin-bottom: 8px; font-weight: bold;" id="galleryProgressText">Завантажено 0 з 0</div>
                                 <div style="background: #e0e0e0; border-radius: 6px; height: 10px; overflow: hidden;">
@@ -303,13 +301,31 @@ function injectBotUI() {
                                 </div>
                             </div>
 
-                            <!-- Лог помилок -->
                             <div id="galleryErrorLog" style="display: none; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; padding: 15px; max-height: 200px; overflow-y: auto;">
                                 <div style="font-weight: bold; margin-bottom: 10px; color: #e65100;">Помилки завантаження:</div>
                                 <div id="galleryErrorList"></div>
                             </div>
 
                             <button id="galleryUploadBtn" class="alpha-btn-primary" style="margin-top: 20px; display: none;">▶ Почати завантаження</button>
+                        </div>
+                    </div>
+
+                    <div id="tabContentOther" style="display: none;">
+                        <div style="padding: 20px;">
+                            <h3 style="margin-top: 0; margin-bottom: 20px; color: #1976d2;">⚙️ Додатковий функціонал</h3>
+
+                            <label class="alpha-toggle-wrapper">
+                                <div>
+                                    <div style="font-size: 14px; font-weight: bold; color: #333;">Радар Днів Народження</div>
+                                    <div style="font-size: 11px; color: #666; margin-top: 4px;">Червоний кружок біля імені іменинників (менше 7 днів)</div>
+                                </div>
+                                <div id="uiToggleTrackBday" class="alpha-toggle-track active">
+                                    <input type="checkbox" id="uiBdayToggle" checked style="display: none;">
+                                    <div class="alpha-toggle-knob"></div>
+                                </div>
+                            </label>
+
+                            <p style="font-size: 12px; color: #888; text-align: center; margin-top: 40px;">Тут з'являтимуться нові фічі та налаштування.</p>
                         </div>
                     </div>
 
@@ -356,7 +372,8 @@ function setupUIEvents(overlay, galleryModal) {
        { btn: document.getElementById("tabBtnWinks"), content: document.getElementById("tabContentWinks") },
        { btn: document.getElementById("tabBtnVip"), content: document.getElementById("tabContentVip") },
        { btn: document.getElementById("tabBtnGallery"), content: document.getElementById("tabContentGallery") },
-       { btn: document.getElementById("tabBtnStats"), content: document.getElementById("tabContentStats") } // (це тепер індекс 6)
+       { btn: document.getElementById("tabBtnOther"), content: document.getElementById("tabContentOther") }, // 👈 Нова вкладка ІНШЕ (Індекс 6)
+       { btn: document.getElementById("tabBtnStats"), content: document.getElementById("tabContentStats") }  // (Індекс 7)
     ];
 
     function switchMainTab(activeTabBtn) {
@@ -372,15 +389,16 @@ function setupUIEvents(overlay, galleryModal) {
        }
     }
 
-    // Оновлюємо прив'язку кліків з урахуванням нових індексів:
     tabs[0].btn.onclick = () => switchMainTab(tabs[0].btn);
     tabs[1].btn.onclick = () => switchMainTab(tabs[1].btn);
     tabs[2].btn.onclick = () => switchMainTab(tabs[2].btn);
     tabs[3].btn.onclick = () => { switchMainTab(tabs[3].btn); loadProfilesForUI(); };
     tabs[4].btn.onclick = async () => { switchMainTab(tabs[4].btn); await loadProfilesForUI(); renderVipRules(); };
     tabs[5].btn.onclick = () => switchMainTab(tabs[5].btn);
-    tabs[6].btn.onclick = () => switchMainTab(tabs[6].btn);
+    tabs[6].btn.onclick = () => switchMainTab(tabs[6].btn); // Вкладка Інше
+    tabs[7].btn.onclick = () => switchMainTab(tabs[7].btn); // Вкладка Статистика
 
+    // --- ЛОГІКА ТУМБЛЕРА САЙТУ ---
     const toggleInput = document.getElementById("uiUseSiteToggle");
     const toggleTrack = document.getElementById("uiToggleTrack");
 
@@ -410,6 +428,29 @@ function setupUIEvents(overlay, galleryModal) {
        updateToggleVisuals(isChecked);
     };
 
+    // --- ЛОГІКА ТУМБЛЕРА ДНІВ НАРОДЖЕННЯ ---
+    const bdayToggleInput = document.getElementById("uiBdayToggle");
+    const bdayToggleTrack = document.getElementById("uiToggleTrackBday");
+
+    const savedBday = localStorage.getItem("alpha_bday_enabled");
+    if (savedBday === "false") {
+       bdayToggleInput.checked = false;
+       bdayToggleTrack.classList.remove("active");
+    }
+
+    bdayToggleInput.onchange = (e) => {
+       const isChecked = e.target.checked;
+       localStorage.setItem("alpha_bday_enabled", isChecked);
+       if (isChecked) {
+           bdayToggleTrack.classList.add("active");
+       } else {
+           bdayToggleTrack.classList.remove("active");
+           // Якщо користувач вимкнув функцію, відразу ховаємо кружки з екрана
+           document.querySelectorAll('.alpha-bday-dot').forEach(dot => dot.remove());
+       }
+    };
+
+    // --- ІНШИЙ КОД UI ---
     const galleryBtn = document.getElementById("lettersGalleryBtn");
     if(galleryBtn) galleryBtn.onclick = () => (galleryModal.style.display = "flex");
     const closeGal = document.getElementById("closeGalleryBtn");
@@ -798,7 +839,6 @@ function setupUIEvents(overlay, galleryModal) {
 
     let gallerySelectedFiles = [];
 
-    // Функція оновлення UI після вибору файлів
     function updateGalleryUI() {
         if (gallerySelectedFiles.length > 0) {
             galleryUploadBtn.style.display = 'block';
@@ -811,17 +851,13 @@ function setupUIEvents(overlay, galleryModal) {
         }
     }
 
-    // Обробка вибраних файлів
     function handleGalleryFiles(files) {
         gallerySelectedFiles = Array.from(files);
         updateGalleryUI();
-
-        // Сховати попередні помилки
         galleryErrorLog.style.display = 'none';
         galleryErrorList.innerHTML = '';
     }
 
-    // Drag & Drop
     if (galleryDropZone) {
         galleryDropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -838,112 +874,98 @@ function setupUIEvents(overlay, galleryModal) {
             handleGalleryFiles(e.dataTransfer.files);
         });
 
-        // Клік по зоні = відкрити вибір файлів
         galleryDropZone.addEventListener('click', () => {
             galleryFileInput.click();
         });
     }
 
-    // Кнопка "Обрати файли"
-        if (gallerySelectBtn && galleryFileInput) {
-            gallerySelectBtn.addEventListener('click', (e) => {
-                e.stopImmediatePropagation();
-                galleryFileInput.click();
-            });
+    if (gallerySelectBtn && galleryFileInput) {
+        gallerySelectBtn.addEventListener('click', (e) => {
+            e.stopImmediatePropagation();
+            galleryFileInput.click();
+        });
 
-            galleryFileInput.addEventListener('change', () => {
-                if (galleryFileInput.files.length > 0) {
-                    handleGalleryFiles(galleryFileInput.files);
-                }
-            });
-        }
-        // ТУТ ДУЖКУ ВИДАЛИЛИ
+        galleryFileInput.addEventListener('change', () => {
+            if (galleryFileInput.files.length > 0) {
+                handleGalleryFiles(galleryFileInput.files);
+            }
+        });
+    }
 
-        // Кнопка "Почати завантаження"
-        if (galleryUploadBtn) {
-            galleryUploadBtn.addEventListener('click', async () => {
-                if (gallerySelectedFiles.length === 0) return;
+    if (galleryUploadBtn) {
+        galleryUploadBtn.addEventListener('click', async () => {
+            if (gallerySelectedFiles.length === 0) return;
 
-                // 🛑 ЖОРСТКИЙ БЛОК НА ЗМІШУВАННЯ ФОТО ТА ВІДЕО
-                const hasPhotos = gallerySelectedFiles.some(f => f.type.startsWith('image/'));
-                const hasVideos = gallerySelectedFiles.some(f => f.type.startsWith('video/'));
+            const hasPhotos = gallerySelectedFiles.some(f => f.type.startsWith('image/'));
+            const hasVideos = gallerySelectedFiles.some(f => f.type.startsWith('video/'));
 
-                if (hasPhotos && hasVideos) {
-                    alert("⚠️ Увага: Будь ласка, завантажуйте фото та відео окремо! Змішувати різні типи файлів в одну чергу не можна.");
-                    return;
-                }
+            if (hasPhotos && hasVideos) {
+                alert("⚠️ Увага: Будь ласка, завантажуйте фото та відео окремо! Змішувати різні типи файлів в одну чергу не можна.");
+                return;
+            }
 
-        // Отримуємо поточну анкету з глобального селектора
-                const currentProfileId = window.currentSelectedProfileId ||
-                                        document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
+            const currentProfileId = window.currentSelectedProfileId || document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
 
-                if (!currentProfileId) {
-                    alert('Спочатку оберіть анкету у верхньому селекторі');
-                    return;
-                }
+            if (!currentProfileId) {
+                alert('Спочатку оберіть анкету у верхньому селекторі');
+                return;
+            }
 
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    alert('Токен не знайдено. Спочатку авторизуйтесь.');
-                    return;
-                }
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Токен не знайдено. Спочатку авторизуйтесь.');
+                return;
+            }
 
-                // Підготовка UI
-                galleryUploadBtn.style.display = 'none';
-                galleryProgressContainer.style.display = 'block';
-                galleryErrorLog.style.display = 'none';
-                galleryErrorList.innerHTML = '';
-                galleryProgressText.textContent = `Завантажено 0 з ${gallerySelectedFiles.length}`;
-                galleryProgressBar.style.width = '0%';
+            galleryUploadBtn.style.display = 'none';
+            galleryProgressContainer.style.display = 'block';
+            galleryErrorLog.style.display = 'none';
+            galleryErrorList.innerHTML = '';
+            galleryProgressText.textContent = `Завантажено 0 з ${gallerySelectedFiles.length}`;
+            galleryProgressBar.style.width = '0%';
 
-                let uploadedCount = 0;
-                const totalFiles = gallerySelectedFiles.length;
+            let uploadedCount = 0;
+            const totalFiles = gallerySelectedFiles.length;
 
-                // Функція оновлення прогресу
-                const onProgress = (done, total) => {
-                    uploadedCount = done;
-                    galleryProgressText.textContent = `Завантажено ${done} з ${total}`;
-                    const percent = Math.round((done / total) * 100);
-                    galleryProgressBar.style.width = `${percent}%`;
-                };
+            const onProgress = (done, total) => {
+                uploadedCount = done;
+                galleryProgressText.textContent = `Завантажено ${done} з ${total}`;
+                const percent = Math.round((done / total) * 100);
+                galleryProgressBar.style.width = `${percent}%`;
+            };
 
-             // Функція для помилок
-                const onFileError = (filename, errorMsg) => {
-                    galleryErrorLog.style.display = 'block';
-                    const errorItem = document.createElement('div');
-                    errorItem.style.cssText = 'margin-bottom: 6px; font-size: 13px; color: #c62828;';
-                    errorItem.innerHTML = `❌ <b>${filename}</b>: ${errorMsg}`;
-                    galleryErrorList.appendChild(errorItem);
-                };
+            const onFileError = (filename, errorMsg) => {
+                galleryErrorLog.style.display = 'block';
+                const errorItem = document.createElement('div');
+                errorItem.style.cssText = 'margin-bottom: 6px; font-size: 13px; color: #c62828;';
+                errorItem.innerHTML = `❌ <b>${filename}</b>: ${errorMsg}`;
+                galleryErrorList.appendChild(errorItem);
+            };
 
-                try {
-                    const result = await bulkUploadMedia(
-                        token.replace(/^"|"$/g, ''),
-                        currentProfileId,
-                        gallerySelectedFiles,
-                        onProgress,
-                        onFileError
-                    );
+            try {
+                const result = await bulkUploadMedia(
+                    token.replace(/^"|"$/g, ''),
+                    currentProfileId,
+                    gallerySelectedFiles,
+                    onProgress,
+                    onFileError
+                );
 
-                    // Після завершення
-                    setTimeout(() => {
-                        alert(`Завантаження завершено!\nУспішно: ${result.uploaded} з ${result.total}`);
-
-                        // Скидаємо стан
-                        gallerySelectedFiles = [];
-                        galleryUploadBtn.style.display = 'none';
-                        galleryProgressContainer.style.display = 'none';
-                        galleryDropZone.style.borderColor = '#1976d2';
-                        galleryDropZone.style.background = '#f8f9fa';
-                    }, 800);
-
-                        } catch (err) {
-                    console.error('[Галерея] Критична помилка:', err);
-                    alert('Сталася помилка під час завантаження. Дивіться консоль.');
-                }
-            });
-        }
-} // <========= ПЕРЕНЕСЛИ СЮДИ (Тепер вона правильно закриває всю функцію setupUIEvents)
+                setTimeout(() => {
+                    alert(`Завантаження завершено!\nУспішно: ${result.uploaded} з ${result.total}`);
+                    gallerySelectedFiles = [];
+                    galleryUploadBtn.style.display = 'none';
+                    galleryProgressContainer.style.display = 'none';
+                    galleryDropZone.style.borderColor = '#1976d2';
+                    galleryDropZone.style.background = '#f8f9fa';
+                }, 800);
+            } catch (err) {
+                console.error('[Галерея] Критична помилка:', err);
+                alert('Сталася помилка під час завантаження. Дивіться консоль.');
+            }
+        });
+    }
+}
 
 async function loadProfilesForUI() {
     if (window.profilesLoadedForUI) return;
@@ -1114,7 +1136,7 @@ function renderCustomInvites() {
     let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
     if (saved.length === 0) {
-       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoInvites") + '</span>';
+       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає інвайтів</span>';
        return;
     }
 
@@ -1182,7 +1204,7 @@ function renderCustomLetters() {
     let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
     if (saved.length === 0) {
-       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">' + t("dynNoLetters") + '</span>';
+       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає листів</span>';
        return;
     }
 
@@ -1359,44 +1381,34 @@ function injectSearchButton() {
     });
 }
 
-// ==========================================
-// ІНЖЕКТОР КНОПОК HIDE В ЧАТІ (Адаптовано під HTML сайту)
-// ==========================================
 function injectHideButtons() {
-    // 1. Знаходимо всі блоки з контентом повідомлення
     const myMessages = document.querySelectorAll('.styles_clmn_3_chat_message_content__uCgtO');
 
     myMessages.forEach(msgNode => {
-        // Якщо наша хакерська кнопка вже є — пропускаємо
         if (msgNode.querySelector('.alpha-hide-btn-inline')) return;
 
         let msgId = null;
 
-        // 2. Витягуємо ID. Спочатку пробуємо взяти з блоку перекладача
         const translatorDiv = msgNode.querySelector('[data-aht-content-id]');
         if (translatorDiv) {
-            const rawId = translatorDiv.getAttribute('data-aht-content-id'); // "mess-1584560908"
+            const rawId = translatorDiv.getAttribute('data-aht-content-id');
             msgId = rawId.replace('mess-', '');
         }
 
-        // РЕЗЕРВ: Якщо перекладач вимкнено, шукаємо в батьківському елементі
         if (!msgId) {
             const parentWithId = msgNode.closest('[id*="15"], [data-id], [data-message-id]');
             if (parentWithId) {
-                // Витягуємо тільки цифри
                 msgId = (parentWithId.id || parentWithId.getAttribute('data-id') || parentWithId.getAttribute('data-message-id') || "").replace(/\D/g, '');
             }
         }
 
-        if (!msgId) return; // Якщо зовсім не знайшли ID, пропускаємо
+        if (!msgId) return;
 
-        // 3. Створюємо нашу кнопку
         const hideBtn = document.createElement('div');
         hideBtn.className = 'alpha-hide-btn-inline';
-        hideBtn.innerHTML = '☠️'; // Черепок, щоб знати, що це наша безвідмовна кнопка
+        hideBtn.innerHTML = '☠️';
         hideBtn.title = 'Хак-видалення (працює завжди)';
 
-        // Робимо її акуратною
         hideBtn.style.cssText = `
             cursor: pointer;
             font-size: 14px;
@@ -1409,7 +1421,6 @@ function injectHideButtons() {
         hideBtn.onmouseover = () => hideBtn.style.opacity = '1';
         hideBtn.onmouseout = () => hideBtn.style.opacity = '0.5';
 
-        // 4. Логіка при кліку
         hideBtn.onclick = async (e) => {
             e.stopPropagation();
 
@@ -1419,11 +1430,9 @@ function injectHideButtons() {
             hideBtn.innerHTML = '⏳';
             hideBtn.style.opacity = '1';
 
-            // Викликаємо функцію удару по API з api.js
             const success = await hideMessageById(token.replace(/^"|"$/g, ''), msgId);
 
             if (success) {
-                // Візуально знищуємо весь блок повідомлення (шукаємо найближчого великого батька)
                 const wrapper = msgNode.parentElement;
                 wrapper.style.transition = "opacity 0.3s, transform 0.3s";
                 wrapper.style.opacity = "0";
@@ -1436,14 +1445,12 @@ function injectHideButtons() {
             }
         };
 
-        // 5. Знаходимо панель з часом і рідною кнопкою, щоб красиво вставити нашу поруч
         const infoPanel = msgNode.querySelector('.styles_clmn_3_chat_message_info__XZa1d');
         if (infoPanel) {
             infoPanel.style.display = 'flex';
             infoPanel.style.alignItems = 'center';
             infoPanel.appendChild(hideBtn);
         } else {
-            // Якщо панелі раптом немає, приліпимо збоку
             msgNode.style.position = 'relative';
             hideBtn.style.position = 'absolute';
             hideBtn.style.right = '-25px';
@@ -1453,7 +1460,6 @@ function injectHideButtons() {
     });
 }
 
-// Ловимо екстрену зупинку від лоадера
 window.addEventListener("AlphaBackgroundCrash", () => {
     if (isRunning) {
         document.getElementById("uiStopBtn").click();
@@ -1462,7 +1468,7 @@ window.addEventListener("AlphaBackgroundCrash", () => {
 });
 
 // ==========================================
-// ЗАПУСК ІНТЕРФЕЙСУ (Після завантаження всіх файлів)
+// ЗАПУСК ІНТЕРФЕЙСУ
 // ==========================================
 setTimeout(() => {
     injectBotUI();

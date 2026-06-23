@@ -33,6 +33,7 @@ const alphaDict = {
         tabWinks: "Вінки/Лайки",
         tabVip: "Повідомлення",
         tabStats: "Статистика",
+        tabOther: "Інше",
 
         delayLabel: "Затримка між відправками (сек):",
         phaseDelayLabel: "Пауза між Інвайтами та Листами (хв):",
@@ -92,6 +93,7 @@ const alphaDict = {
         tabWinks: "Винки/Лайки",
         tabVip: "Уведомления",
         tabStats: "Статистика",
+        tabOther: "Прочее",
 
         delayLabel: "Задержка между отправками (сек):",
         phaseDelayLabel: "Пауза между Инвайтами и Письмами (мин):",
