@@ -3,7 +3,7 @@
 // ==========================================
 
 (function() {
-    // 1. Додаємо стилі
+    // 1. Додаємо стилі для миготливого кружка
     const style = document.createElement('style');
     style.innerHTML = `
     .alpha-bday-dot {
@@ -51,8 +51,10 @@
     function injectBirthdayDot(userName) {
         const nameElements = document.querySelectorAll('div[data-testid="man-name"]');
         nameElements.forEach(el => {
+            // Шукаємо ім'я і перевіряємо, чи немає там вже кружка
             if (el.textContent.toLowerCase().includes(userName.toLowerCase())) {
                 if (!el.querySelector('.alpha-bday-dot')) {
+                    console.log(`🎂 [Радар ДН] Знайдено іменинника: ${userName}! Малюємо кружок.`);
                     const dot = document.createElement('span');
                     dot.className = 'alpha-bday-dot';
                     dot.title = 'День народження протягом тижня!';
@@ -62,36 +64,51 @@
         });
     }
 
-    // 4. Ізольований перехоплювач Fetch
+    // 4. Спільна функція обробки даних (щоб не дублювати код)
+    function processUserData(data) {
+        if (data && data.status && Array.isArray(data.response)) {
+            // Чекаємо 2 секунди, поки сайт відмалює контакти
+            setTimeout(() => {
+                data.response.forEach(user => {
+                    if (isBirthdaySoon(user.birthdate)) {
+                        injectBirthdayDot(user.name);
+                    }
+                });
+            }, 2000);
+        }
+    }
+
+    // ==========================================
+    // ПЕРЕХОПЛЮВАЧ №1: FETCH
+    // ==========================================
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
         const response = await originalFetch.apply(this, args);
-
         try {
             const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-
-            // Фільтруємо запити, які можуть містити список людей
-            if (url.includes('/chatList') || url.includes('/userDetail')) {
+            if (url.includes('/api/chatList/userDetail')) {
                 const clone = response.clone();
-
-                clone.json().then(data => {
-                    // РОЗУМНА ПЕРЕВІРКА: чи є в цьому масиві поле birthdate?
-                    if (data && data.status && Array.isArray(data.response) && data.response.length > 0) {
-                        if (data.response[0].birthdate !== undefined) {
-                            // Якщо це реально список людей з датами - чекаємо 2 сек і малюємо
-                            setTimeout(() => {
-                                data.response.forEach(user => {
-                                    if (isBirthdaySoon(user.birthdate)) {
-                                        injectBirthdayDot(user.name);
-                                    }
-                                });
-                            }, 2000);
-                        }
-                    }
-                }).catch(() => {}); // Тихий ігнор
+                clone.json().then(data => processUserData(data)).catch(() => {});
             }
-        } catch(e) {} // Тихий ігнор
-
+        } catch(e) {}
         return response;
     };
+
+    // ==========================================
+    // ПЕРЕХОПЛЮВАЧ №2: XMLHttpRequest (XHR / Axios)
+    // ==========================================
+    const originalXHR = window.XMLHttpRequest.prototype.open;
+    window.XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this.addEventListener('load', function() {
+            if (typeof url === 'string' && url.includes('/api/chatList/userDetail')) {
+                try {
+                    const data = JSON.parse(this.responseText);
+                    processUserData(data);
+                } catch (e) {}
+            }
+        });
+        return originalXHR.apply(this, [method, url, ...rest]);
+    };
+
+    console.log("🛡️ [Радар ДН] Подвійний перехоплювач успішно активовано!");
 })();
