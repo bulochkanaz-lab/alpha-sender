@@ -66,22 +66,33 @@ def init_db():
     )
     """)
 
-    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ ДОСЬЄ (ОНОВЛЕНО З ФОТО ТА БІО)
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНКЕТ (ОНОВЛЮЄТЬСЯ РАЗ НА 14 ДНІВ)
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS leads_analytics (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        access_key TEXT,
-        chat_uid TEXT,
-        profile_id TEXT,
-        invite_text TEXT,
-        lead_age INTEGER,
-        lead_country TEXT,
-        lead_interests TEXT,
-        lead_bio TEXT,
-        lead_photo TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
+        CREATE TABLE IF NOT EXISTS woman_profiles (
+            woman_id TEXT PRIMARY KEY,
+            profile_json TEXT,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ ДОСЬЄ МУЖИКІВ (ЛІДІВ)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS leads_analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            access_key TEXT,
+            chat_uid TEXT,
+            woman_id TEXT,     -- 🔥 ID анкети (для зв'язку)
+            profile_id TEXT,   -- 🔥 ID мужика
+            invite_text TEXT,
+            lead_age INTEGER,
+            lead_country TEXT,
+            lead_interests TEXT,
+            lead_bio TEXT,
+            lead_photo TEXT,
+            man_profile_json TEXT, -- 🔥 Сирий JSON мужика
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
 
     conn.commit()
     conn.close()

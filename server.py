@@ -47,15 +47,18 @@ class AuthRequest(BaseModel):
 class InviteAnalyticsLogRequest(BaseModel):
     access_key: str
     invite_text: str = ""
-    action: str  # "sent" або "reply"
+    action: str
     chat_uid: str = ""
     team: str = "alpha"
-    profile_id: str = ""
+    profile_id: str = "" # ID мужика
+    woman_id: str = ""   # ID анкети
     lead_age: int = 0
     lead_country: str = ""
     lead_interests: str = ""
     lead_bio: str = ""
     lead_photo: str = ""
+    man_profile_json: str = "{}"
+    woman_profile_json: str = None # Опціональне поле!
 
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
@@ -279,17 +282,30 @@ async def log_invite(request: InviteAnalyticsLogRequest):
             current_invite_text = saved_text if saved_text else "Unknown (Old/Manual Chat)"
 
             # ---------------------------------------------------------------------
-            # КРОК A: ЗБЕРІГАЄМО ДОСЬЄ ЧОЛОВІКА (ПРАЦЮЄ ЗАВЖДИ!)
+            # КРОК A: ЗБЕРІГАЄМО ДОСЬЄ (ПРАЦЮЄ ЗАВЖДИ!)
             # ---------------------------------------------------------------------
             if request.profile_id:
-                print(f"🎯 [Сервер Дебаг] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
+                # 1. Якщо розширення прислало свіжий JSON анкети (пройшло 14 днів) - оновлюємо її
+                if request.woman_profile_json:
+                    cursor.execute("""
+                                    INSERT OR REPLACE INTO woman_profiles (woman_id, profile_json, last_updated)
+                                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                                """, (request.woman_id, request.woman_profile_json))
+                    print(f"🔄 [Сервер] Оновлено досьє анкети: {request.woman_id} (Кеш на 14 днів)")
+
+                # 2. Шукаємо текст інвайту
+                cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
+                ticket_row = cursor.fetchone()
+                current_invite_text = ticket_row[0] if ticket_row else "Unknown (Old/Manual Chat)"
+
+                print(f"🎯 [Сервер] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
                 cursor.execute("""
-                            INSERT INTO leads_analytics 
-                            (access_key, chat_uid, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (key, request.chat_uid, request.profile_id, current_invite_text,
-                              request.lead_age, request.lead_country, request.lead_interests,
-                              request.lead_bio, request.lead_photo))
+                                INSERT INTO leads_analytics 
+                                (access_key, chat_uid, woman_id, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, man_profile_json)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (key, request.chat_uid, request.woman_id, request.profile_id, current_invite_text,
+                                  request.lead_age, request.lead_country, request.lead_interests,
+                                  request.lead_bio, request.lead_photo, request.man_profile_json))
 
             # ---------------------------------------------------------------------
             # КРОК Б: ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ (ЯКЩО Є КВИТОК)

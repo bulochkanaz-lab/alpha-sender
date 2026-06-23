@@ -251,67 +251,83 @@ function wasChatInvited(chatUid) {
     }
 }
 
-async function fetchLeadProfileAndLog(manId, chatUid) {
-    console.log(`[Дебаг Збирача] Почали збір досьє для ID: ${manId}`);
+async function fetchLeadProfileAndLog(manId, smartUid) {
+    console.log(`[Дебаг Збирача] Почали збір даних для AI. Мужик: ${manId}, Чат: ${smartUid}`);
     try {
         let token = localStorage.getItem('token');
-        if (!token) {
-            console.warn(`[Дебаг Збирача] Немає токена в localStorage`);
-            return;
-        }
+        if (!token) return;
         token = token.replace(/^"|"$/g, '');
-        console.log(`[Дебаг Збирача] Токен отримано`);
 
-        const url = `https://alpha.date/api/operator/myProfile?user_id=${manId}&activeProfile=false`;
-        console.log(`[Дебаг Збирача] Робимо запит на: ${url}`);
+        // Витягуємо ID анкети зі смарт-ключа
+        const womanId = smartUid.split('_')[0];
 
-        const res = await fetch(url, {
+        // 1. СТЯГУЄМО ДОСЬЄ МУЖИКА (Це робимо завжди)
+        const manRes = await fetch(`https://alpha.date/api/operator/myProfile?user_id=${manId}&activeProfile=false`, {
             headers: { "authorization": `Bearer ${token}` }
         });
-        console.log(`[Дебаг Збирача] Відповідь від alpha.date, status: ${res.status}`);
+        const manData = await manRes.json();
 
-        const data = await res.json();
-        console.log(`[Дебаг Збирача] data.status = ${data.status}`);
+        // 2. РОЗУМНЕ КЕШУВАННЯ АНКЕТИ (Перевіряємо чи пройшло 14 днів)
+        let womanProfileJson = null;
+        const syncKey = `alpha_woman_sync_${womanId}`;
+        const lastSync = localStorage.getItem(syncKey);
+        const now = Date.now();
+        const days14 = 14 * 24 * 60 * 60 * 1000; // 14 днів у мілісекундах
 
-        if (data.status && data.user_info) {
-            const info = data.user_info;
+        if (!lastSync || (now - parseInt(lastSync)) > days14) {
+            console.log(`[Дебаг Збирача] Анкету ${womanId} давно не оновлювали. Стягуємо свіжий JSON...`);
+            try {
+                const womanRes = await fetch(`https://alpha.date/api/operator/myProfile?user_id=${womanId}&activeProfile=false`, {
+                    headers: { "authorization": `Bearer ${token}` }
+                });
+                const womanData = await womanRes.json();
 
-            const age = info.user_detail?.age || 0;
-            const country = info.user_detail?.country_name || "Unknown";
-            const photo = info.user_detail?.photo_link || "";
-            const bio = info.user_reference?.summary || "";
-
-            let interests = "Not Specified";
-            if (info.user_hobby && info.user_hobby.length > 0) {
-                interests = info.user_hobby.map(h => h.name || "").join(", ");
+                if (womanData.status && womanData.user_info) {
+                    womanProfileJson = JSON.stringify(womanData.user_info);
+                    localStorage.setItem(syncKey, now.toString()); // Записуємо нову дату
+                }
+            } catch (wErr) {
+                console.warn(`[Дебаг Збирача] Не вдалося стягнути досьє анкети`, wErr);
             }
+        } else {
+            console.log(`[Дебаг Збирача] Анкета ${womanId} є в кеші (до 14 днів). Економимо запит! 🚀`);
+        }
 
-            console.log("[Аналітика] Досьє зібрано! Відправляємо на сервер.");
-            console.log(`[Дебаг Збирача] Данні: age=${age}, country=${country}, interests=${interests}`);
+        if (manData.status && manData.user_info) {
+            const mInfo = manData.user_info;
+
+            // 3. ВИПРАВЛЯЄМО БАГ З ІНТЕРЕСАМИ (прибираємо пусті коми)
+            let interests = "Not Specified";
+            if (mInfo.user_hobby && Array.isArray(mInfo.user_hobby)) {
+                interests = mInfo.user_hobby.map(h => {
+                    if (typeof h === 'string') return h;
+                    return h.name || h.title || h.value || h.hobby_name || "";
+                }).filter(val => val !== "").join(", ");
+
+                if (interests === "") interests = "Not Specified";
+            }
 
             const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
-            if (!currentKey) {
-                console.warn(`[Дебаг Збирача] Немає access_key`);
-                return;
-            }
 
-            console.log(`[Дебаг Збирача] Диспатчимо AlphaAnalyticsLog з chat_uid=${chatUid}`);
-
+            // 4. ВІДПРАВЛЯЄМО ПАКЕТ НА СЕРВЕР
             window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
                 detail: {
                     access_key: currentKey,
                     action: "reply",
-                    chat_uid: chatUid,
+                    chat_uid: smartUid,
                     profile_id: String(manId),
-                    lead_age: age,
-                    lead_country: country,
+                    woman_id: String(womanId),
+                    lead_age: mInfo.user_detail?.age || 0,
+                    lead_country: mInfo.user_detail?.country_name || "Unknown",
                     lead_interests: interests,
-                    lead_bio: bio,
-                    lead_photo: photo
+                    lead_bio: mInfo.user_reference?.summary || "",
+                    lead_photo: mInfo.user_detail?.photo_link || "",
+
+                    // ШІ Датасет:
+                    man_profile_json: JSON.stringify(mInfo),
+                    woman_profile_json: womanProfileJson // Буде null, якщо брали з кешу
                 }
             }));
-        } else {
-            console.warn(`[Дебаг Збирача] Немає data.user_info або status=false`);
         }
     } catch (err) {
         console.error("Помилка збору досьє:", err);
