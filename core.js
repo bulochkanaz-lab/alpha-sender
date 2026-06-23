@@ -204,6 +204,115 @@ function incrementStat(type) {
 }
 
 // ==========================================
+// МОДУЛЬ ДНІВ НАРОДЖЕННЯ (ФІЧА "РАДАР СВЯТ")
+// ==========================================
+
+// 1. Додаємо красиву CSS-анімацію для миготливого кружка
+const style = document.createElement('style');
+style.innerHTML = `
+.alpha-bday-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #ff3b30;
+    border-radius: 50%;
+    margin-left: 6px;
+    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7);
+    animation: alpha-pulse 1.5s infinite;
+    vertical-align: middle;
+    cursor: help;
+}
+@keyframes alpha-pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(255, 59, 48, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+}
+`;
+document.head.appendChild(style);
+
+// 2. Функція перевірки: чи буде ДН протягом найближчих 7 днів?
+function isBirthdaySoon(birthdateStr) {
+    if (!birthdateStr) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Обнуляємо час для точного розрахунку
+
+    const bdate = new Date(birthdateStr);
+
+    // Переносимо день народження на поточний рік
+    bdate.setFullYear(today.getFullYear());
+
+    // Рахуємо різницю в днях
+    const diffTime = bdate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Якщо ДН був пару днів тому, але в цьому році - ігноруємо
+    // Якщо ДН випадає на кінець грудня, а зараз січень (перехід року)
+    if (diffDays < 0) {
+        bdate.setFullYear(today.getFullYear() + 1);
+        const diffTimeNext = bdate - today;
+        const diffDaysNext = Math.ceil(diffTimeNext / (1000 * 60 * 60 * 24));
+        return diffDaysNext >= 0 && diffDaysNext <= 7;
+    }
+
+    // Повертаємо true, якщо ДН сьогодні або протягом 7 днів
+    return diffDays >= 0 && diffDays <= 7;
+}
+
+// 3. Функція вбудовування кружка в HTML
+function injectBirthdayDot(userName) {
+    // Шукаємо всі імена в лівій панелі чатів
+    const nameElements = document.querySelectorAll('div[data-testid="man-name"]');
+
+    nameElements.forEach(el => {
+        // Перевіряємо, чи є в тексті ім'я (наприклад "peter120, 75" містить "peter120")
+        // І перевіряємо, чи ми вже не додали кружок туди раніше
+        if (el.textContent.includes(userName) && !el.querySelector('.alpha-bday-dot')) {
+            const dot = document.createElement('span');
+            dot.className = 'alpha-bday-dot';
+            dot.title = 'День народження протягом тижня!';
+            el.appendChild(dot);
+        }
+    });
+}
+
+// 4. ПЕРЕХОПЛЮВАЧ FETCH (Fetch Interceptor)
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    // Спочатку даємо сайту зробити свій оригінальний запит
+    const response = await originalFetch.apply(this, args);
+
+    try {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+
+        // Ловимо запити, які підвантажують списки чатів або контакти
+        if (url.includes('/api/chatList/userDetail') || url.includes('/chatList')) {
+            // Клонуємо відповідь, щоб не зламати оригінальний код сайту
+            const clone = response.clone();
+
+            clone.json().then(data => {
+                if (data && data.status && Array.isArray(data.response)) {
+                    // Даємо сайту 1 секунду на те, щоб відмалювати ці контакти в HTML
+                    setTimeout(() => {
+                        data.response.forEach(user => {
+                            if (isBirthdaySoon(user.birthdate)) {
+                                injectBirthdayDot(user.name);
+                            }
+                        });
+                    }, 1000);
+                }
+            }).catch(err => {
+                // Тихий ігнор помилок парсингу
+            });
+        }
+    } catch(e) {
+        // Тихий ігнор будь-яких помилок перехоплювача
+    }
+
+    return response; // Віддаємо сайту його дані як ні в чому не бувало
+};
+
+// ==========================================
 // АНАЛІТИКА ТА ПАМ'ЯТЬ (БРОНЬОВАНІ КЛЮЧІ)
 // ==========================================
 function logInviteAnalytics(text, actionType, chatUid = "") {
