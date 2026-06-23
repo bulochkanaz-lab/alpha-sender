@@ -41,19 +41,21 @@ class AuthRequest(BaseModel):
     profiles: list = []
     team: str = "alpha"
 
+# ==========================================
+# ОНОВЛЕНА МОДЕЛЯ АНАЛІТИКИ (ПРАВИЛЬНА І ЄДИНА)
+# ==========================================
 class InviteAnalyticsLogRequest(BaseModel):
     access_key: str
     invite_text: str = ""
     action: str  # "sent" або "reply"
     chat_uid: str = ""
     team: str = "alpha"
-    # --- НОВІ ПОЛЯ ДЛЯ СТРАТЕГІЇ 2 (Лінивий збір) ---
     profile_id: str = ""
     lead_age: int = 0
     lead_country: str = ""
     lead_interests: str = ""
-    lead_bio: str = ""  # <--- ДОДАЛИ
-    lead_photo: str = ""  # <--- ДОДАЛИ
+    lead_bio: str = ""
+    lead_photo: str = ""
 
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
@@ -220,14 +222,6 @@ def encrypt_payload(payload: str, key: str) -> str:
     return base64.b64encode(nonce + ct).decode('utf-8')
 
 
-class InviteAnalyticsLogRequest(BaseModel):
-    access_key: str
-    invite_text: str = ""  # Тепер необов'язково для reply
-    action: str  # "sent" або "reply"
-    chat_uid: str = ""
-    team: str = "alpha"
-
-
 @app.post("/api/analytics/log_invite")
 async def log_invite(request: InviteAnalyticsLogRequest):
     key = request.access_key.replace('"', '').strip()
@@ -258,7 +252,7 @@ async def log_invite(request: InviteAnalyticsLogRequest):
                         WHERE access_key = ? AND invite_text = ?
                     """, (key, old_text))
 
-            # 2. Плюсуємо відправку для фінального тексту (нового або склеєного комбо)
+            # 2. Плюсуємо відправку для фінального тексту
             cursor.execute("""
                 INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
                 VALUES (?, ?, 1, 0)
@@ -273,42 +267,52 @@ async def log_invite(request: InviteAnalyticsLogRequest):
                     VALUES (?, ?, ?)
                 """, (request.chat_uid, key, final_text_to_log))
 
+
         elif request.action == "reply" and request.chat_uid:
-            print(f"🛠 [Сервер Дебаг] Отримано запит 'reply' для чату: {request.chat_uid}")  # ДОДАНО
-            # 1. Шукаємо квиток
+            print(f"🛠 [Сервер Дебаг] Отримано запит 'reply' для чату: {request.chat_uid}")
+
+            # Робимо SELECT до бази лише один раз!
             cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
-            row = cursor.fetchone()
+            ticket_row = cursor.fetchone()
 
-            if row:
-                saved_text = row[0]
-                print(f"✅ [Сервер Дебаг] Квиток знайдено! Текст: '{saved_text}'. Плюсуємо відповідь.")  # ДОДАНО
-                # 2. Плюсуємо відповідь
+            saved_text = ticket_row[0] if ticket_row else None
+            current_invite_text = saved_text if saved_text else "Unknown (Old/Manual Chat)"
+
+            # ---------------------------------------------------------------------
+            # КРОК A: ЗБЕРІГАЄМО ДОСЬЄ ЧОЛОВІКА (ПРАЦЮЄ ЗАВЖДИ!)
+            # ---------------------------------------------------------------------
+            if request.profile_id:
+                print(f"🎯 [Сервер Дебаг] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
                 cursor.execute("""
-                    UPDATE invite_analytics SET reply_count = reply_count + 1
-                    WHERE access_key = ? AND invite_text = ?
-                """, (key, saved_text))
+                            INSERT INTO leads_analytics 
+                            (access_key, chat_uid, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (key, request.chat_uid, request.profile_id, current_invite_text,
+                              request.lead_age, request.lead_country, request.lead_interests,
+                              request.lead_bio, request.lead_photo))
 
-                # 3. ЗБЕРІГАЄМО ДОСЬЄ МУЖИКА (Якщо розширення його прислало)
-                # 3. ЗБЕРІГАЄМО ДОСЬЄ МУЖИКА
-                if request.lead_age > 0 or request.lead_country:
-                    cursor.execute("""
-                        INSERT INTO leads_analytics 
-                        (access_key, chat_uid, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (key, request.chat_uid, request.profile_id, saved_text,
-                            request.lead_age, request.lead_country, request.lead_interests,
-                            request.lead_bio, request.lead_photo))
+            # ---------------------------------------------------------------------
+            # КРОК Б: ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ (ЯКЩО Є КВИТОК)
+            # ---------------------------------------------------------------------
+            if saved_text:
+                print(f"✅ [Сервер Дебаг] Квиток знайдено! Текст: '{saved_text}'. Робимо reply_count + 1")
 
-                # 4. Видаляємо квиток
+                # Плюсуємо відповідь у загальну статистику текстів
+                cursor.execute("""
+                            UPDATE invite_analytics SET reply_count = reply_count + 1
+                            WHERE access_key = ? AND invite_text = ?
+                        """, (key, saved_text))
+
+                # Видаляємо використаний тимчасовий квиток
                 cursor.execute("DELETE FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
-
             else:
-                print(f"❌ [Сервер Дебаг] Квиток для чату {request.chat_uid} НЕ ЗНАЙДЕНО у pending_invites!")
+                print(
+                    f"ℹ️ [Сервер Дебаг] Тимчасовий квиток для {request.chat_uid} не знайдено, але ліда успішно збережено!")
 
         conn.commit()
         return {"status": "success"}
     except Exception as e:
-        print(f"Помилка логування: {e}")
+        print(f"❌ Помилка логування на сервері: {e}")
         return {"status": "error", "message": str(e)}
     finally:
         conn.close()
