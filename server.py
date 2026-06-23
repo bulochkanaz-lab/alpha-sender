@@ -236,26 +236,41 @@ async def log_invite(request: InviteAnalyticsLogRequest):
     try:
         if request.action == "sent" and request.invite_text.strip():
             new_text = request.invite_text.strip()
-            final_text_to_log = new_text
+
+            # За замовчуванням створюємо масив з одним (першим) повідомленням
+            final_text_list = [new_text]
 
             if request.chat_uid:
-                # 1. Шукаємо, чи є вже квиток для цього чату (чи це добивка?)
+                # 1. Шукаємо, чи є вже квиток (чи це добивка?)
                 cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
                 row = cursor.fetchone()
 
                 if row:
-                    old_text = row[0]
-                    # Це добивка! Створюємо комбо-текст
-                    final_text_to_log = f"{old_text} \n {new_text}"
+                    old_text_raw = row[0]
+                    try:
+                        # Пробуємо прочитати старий текст як JSON-масив
+                        old_list = json.loads(old_text_raw)
+                        if isinstance(old_list, list):
+                            old_list.append(new_text)
+                            final_text_list = old_list
+                        else:
+                            # Якщо там чомусь був звичайний рядок
+                            final_text_list = [str(old_list), new_text]
+                    except json.JSONDecodeError:
+                        # Захист: якщо в базі застряг старий формат (не JSON)
+                        final_text_list = [old_text_raw, new_text]
 
-                    # Віднімаємо 1 бал відправки у старого (короткого) тексту
+                    # Віднімаємо 1 бал відправки у старого списку
                     cursor.execute("""
                         UPDATE invite_analytics 
                         SET sent_count = MAX(0, sent_count - 1) 
                         WHERE access_key = ? AND invite_text = ?
-                    """, (key, old_text))
+                    """, (key, old_text_raw))
 
-            # 2. Плюсуємо відправку для фінального тексту
+            # 🔥 ПЕРЕТВОРЮЄМО СПИСОК НА JSON-РЯДОК ДЛЯ БАЗИ 🔥
+            final_text_to_log = json.dumps(final_text_list, ensure_ascii=False)
+
+            # 2. Плюсуємо відправку для фінального комбо (тепер це масив)
             cursor.execute("""
                 INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
                 VALUES (?, ?, 1, 0)
@@ -263,13 +278,12 @@ async def log_invite(request: InviteAnalyticsLogRequest):
                 DO UPDATE SET sent_count = sent_count + 1
             """, (key, final_text_to_log))
 
-            # 3. Оновлюємо квиток новим фінальним текстом
+            # 3. Оновлюємо квиток новим масивом
             if request.chat_uid:
                 cursor.execute("""
                     INSERT OR REPLACE INTO pending_invites (chat_uid, access_key, invite_text)
                     VALUES (?, ?, ?)
                 """, (request.chat_uid, key, final_text_to_log))
-
 
         elif request.action == "reply" and request.chat_uid:
             print(f"🛠 [Сервер Дебаг] Отримано запит 'reply' для чату: {request.chat_uid}")
@@ -279,47 +293,41 @@ async def log_invite(request: InviteAnalyticsLogRequest):
             ticket_row = cursor.fetchone()
 
             saved_text = ticket_row[0] if ticket_row else None
-            current_invite_text = saved_text if saved_text else "Unknown (Old/Manual Chat)"
+            # Якщо тексту немає, записуємо порожній JSON масив як заглушку
+            current_invite_text = saved_text if saved_text else '["Unknown (Old/Manual Chat)"]'
 
             # ---------------------------------------------------------------------
             # КРОК A: ЗБЕРІГАЄМО ДОСЬЄ (ПРАЦЮЄ ЗАВЖДИ!)
             # ---------------------------------------------------------------------
             if request.profile_id:
-                # 1. Якщо розширення прислало свіжий JSON анкети (пройшло 14 днів) - оновлюємо її
+                # Якщо розширення прислало свіжий JSON анкети - оновлюємо її
                 if request.woman_profile_json:
                     cursor.execute("""
-                                    INSERT OR REPLACE INTO woman_profiles (woman_id, profile_json, last_updated)
-                                    VALUES (?, ?, CURRENT_TIMESTAMP)
-                                """, (request.woman_id, request.woman_profile_json))
+                        INSERT OR REPLACE INTO woman_profiles (woman_id, profile_json, last_updated)
+                        VALUES (?, ?, CURRENT_TIMESTAMP)
+                    """, (request.woman_id, request.woman_profile_json))
                     print(f"🔄 [Сервер] Оновлено досьє анкети: {request.woman_id} (Кеш на 14 днів)")
 
-                # 2. Шукаємо текст інвайту
-                cursor.execute("SELECT invite_text FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
-                ticket_row = cursor.fetchone()
-                current_invite_text = ticket_row[0] if ticket_row else "Unknown (Old/Manual Chat)"
-
-                print(f"🎯 [Сервер] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
+                print(f"🎯 [Сервер Дебаг] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
                 cursor.execute("""
-                                INSERT INTO leads_analytics 
-                                (access_key, chat_uid, woman_id, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, man_profile_json)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (key, request.chat_uid, request.woman_id, request.profile_id, current_invite_text,
-                                  request.lead_age, request.lead_country, request.lead_interests,
-                                  request.lead_bio, request.lead_photo, request.man_profile_json))
+                    INSERT INTO leads_analytics 
+                    (access_key, chat_uid, woman_id, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, man_profile_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (key, request.chat_uid, request.woman_id, request.profile_id, current_invite_text,
+                      request.lead_age, request.lead_country, request.lead_interests,
+                      request.lead_bio, request.lead_photo, request.man_profile_json))
 
             # ---------------------------------------------------------------------
-            # КРОК Б: ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ (ЯКЩО Є КВИТОК)
+            # КРОК Б: ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ
             # ---------------------------------------------------------------------
             if saved_text:
                 print(f"✅ [Сервер Дебаг] Квиток знайдено! Текст: '{saved_text}'. Робимо reply_count + 1")
 
-                # Плюсуємо відповідь у загальну статистику текстів
                 cursor.execute("""
-                            UPDATE invite_analytics SET reply_count = reply_count + 1
-                            WHERE access_key = ? AND invite_text = ?
-                        """, (key, saved_text))
+                    UPDATE invite_analytics SET reply_count = reply_count + 1
+                    WHERE access_key = ? AND invite_text = ?
+                """, (key, saved_text))
 
-                # Видаляємо використаний тимчасовий квиток
                 cursor.execute("DELETE FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
             else:
                 print(
