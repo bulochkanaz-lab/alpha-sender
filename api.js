@@ -56,7 +56,7 @@ async function fetchTemplates(token, profileId, mailType) {
 }
 
 async function sendHeartbeatToServer(profilesList = []) {
-    const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+    const currentKey = window._alphaPhantom.alphaKey || localStorage.getItem('alphaAccessKey');
     if (!currentKey) return;
 
     const d = new Date();
