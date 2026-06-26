@@ -3,10 +3,10 @@
 // ==========================================
 
 function updatePopup(statusText, finished = false, currentProfileName = null) {
-    const statusEl = document.getElementById("uiStatusText");
-    const profileEl = document.getElementById("uiCurrentProfile");
-    const startBtn = document.getElementById("uiStartBtn");
-    const stopBtn = document.getElementById("uiStopBtn");
+    const statusEl = window._alphaPhantom.shadow.getElementById("uiStatusText");
+    const profileEl = window._alphaPhantom.shadow.getElementById("uiCurrentProfile");
+    const startBtn = window._alphaPhantom.shadow.getElementById("uiStartBtn");
+    const stopBtn = window._alphaPhantom.shadow.getElementById("uiStopBtn");
 
     if (statusEl) statusEl.innerText = statusText;
     if (profileEl && currentProfileName) profileEl.innerText = currentProfileName;
@@ -59,7 +59,7 @@ function showSystemAlert(title, text, color = "#4caf50") {
 }
 
 function injectBotUI() {
-    if (document.getElementById("alpha-sender-overlay")) return;
+    if (window._alphaPhantom.shadow.getElementById("alpha-sender-overlay")) return;
 
     const styles = `
         #alpha-sender-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); z-index: 999999; display: none; align-items: center; justify-content: center; font-family: 'Segoe UI', Tahoma, sans-serif; }
@@ -387,22 +387,34 @@ function injectBotUI() {
         <button id="confirmGalleryBtn" data-lang="galleryConfirmBtn" class="alpha-btn-success" style="font-size: 16px; padding: 15px;">Готово</button>
     `;
 
+    // Створюємо порожній контейнер-хост
+    const phantomHost = document.createElement("div");
+    phantomHost.id = "alpha-phantom-host";
+    document.body.appendChild(phantomHost);
+
+    // ВІДКРИВАЄМО ТІНЬОВИЙ ВИМІР (closed = скрипти сайту не мають до нього доступу)
+    const shadowRoot = phantomHost.attachShadow({ mode: "closed" });
+    window._alphaPhantom.shadow = shadowRoot; // Зберігаємо ключ від сейфа для нашого коду
+
+    // Закидаємо наші стилі та інтерфейс ВСЕРЕДИНУ тіні, а не в загальний документ
+    shadowRoot.appendChild(styleEl);
+
     overlay.appendChild(galleryModal);
-    document.body.appendChild(overlay);
+    shadowRoot.appendChild(overlay);
 
     setupUIEvents(overlay, galleryModal);
 }
 
 function setupUIEvents(overlay, galleryModal) {
     const tabs = [
-       { btn: document.getElementById("tabBtnSettings"), content: document.getElementById("tabContentSettings") },
-       { btn: document.getElementById("tabBtnInvites"), content: document.getElementById("tabContentInvites") },
-       { btn: document.getElementById("tabBtnLetters"), content: document.getElementById("tabContentLetters") },
-       { btn: document.getElementById("tabBtnWinks"), content: document.getElementById("tabContentWinks") },
-       { btn: document.getElementById("tabBtnVip"), content: document.getElementById("tabContentVip") },
-       { btn: document.getElementById("tabBtnGallery"), content: document.getElementById("tabContentGallery") },
-       { btn: document.getElementById("tabBtnOther"), content: document.getElementById("tabContentOther") }, // 👈 Нова вкладка ІНШЕ (Індекс 6)
-       { btn: document.getElementById("tabBtnStats"), content: document.getElementById("tabContentStats") }  // (Індекс 7)
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnSettings"), content: window._alphaPhantom.shadow.getElementById("tabContentSettings") },
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnInvites"), content: window._alphaPhantom.shadow.getElementById("tabContentInvites") },
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnLetters"), content: window._alphaPhantom.shadow.getElementById("tabContentLetters") },
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnWinks"), content: window._alphaPhantom.shadow.getElementById("tabContentWinks") },
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnVip"), content: window._alphaPhantom.shadow.getElementById("tabContentVip") },
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnGallery"), content: window._alphaPhantom.shadow.getElementById("tabContentGallery") },
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnOther"), content: window._alphaPhantom.shadow.getElementById("tabContentOther") }, // 👈 Нова вкладка ІНШЕ (Індекс 6)
+       { btn: window._alphaPhantom.shadow.getElementById("tabBtnStats"), content: window._alphaPhantom.shadow.getElementById("tabContentStats") }  // (Індекс 7)
     ];
 
     function switchMainTab(activeTabBtn) {
@@ -428,8 +440,8 @@ function setupUIEvents(overlay, galleryModal) {
     tabs[7].btn.onclick = () => switchMainTab(tabs[7].btn); // Вкладка Статистика
 
     // --- ЛОГІКА ТУМБЛЕРА САЙТУ ---
-    const toggleInput = document.getElementById("uiUseSiteToggle");
-    const toggleTrack = document.getElementById("uiToggleTrack");
+    const toggleInput = window._alphaPhantom.shadow.getElementById("uiUseSiteToggle");
+    const toggleTrack = window._alphaPhantom.shadow.getElementById("uiToggleTrack");
 
     function updateToggleVisuals(isSite) {
        if (isSite) {
@@ -465,9 +477,9 @@ function setupUIEvents(overlay, galleryModal) {
 
     let bdaySet = JSON.parse(localStorage.getItem("alpha_bday_config") || JSON.stringify(defaultBdaySettings));
 
-    const toggleTrackBday = document.getElementById("uiToggleTrackBday");
-    const toggleInputBday = document.getElementById("uiBdayToggle");
-    const bdayBlock = document.getElementById("bdaySettingsBlock");
+    const toggleTrackBday = window._alphaPhantom.shadow.getElementById("uiToggleTrackBday");
+    const toggleInputBday = window._alphaPhantom.shadow.getElementById("uiBdayToggle");
+    const bdayBlock = window._alphaPhantom.shadow.getElementById("bdaySettingsBlock");
 
     // Завантажуємо в інтерфейс
     toggleInputBday.checked = bdaySet.enabled;
@@ -475,11 +487,11 @@ function setupUIEvents(overlay, galleryModal) {
     bdayBlock.style.opacity = bdaySet.enabled ? "1" : "0.5";
     bdayBlock.style.pointerEvents = bdaySet.enabled ? "auto" : "none";
 
-    document.getElementById("uiBdayType").value = bdaySet.type || "dot";
+    window._alphaPhantom.shadow.getElementById("uiBdayType").value = bdaySet.type || "dot";
     for(let i=0; i<3; i++) {
         if(bdaySet.stages[i]) {
-            document.getElementById(`uiBdayStage${i+1}Days`).value = bdaySet.stages[i].d;
-            document.getElementById(`uiBdayStage${i+1}Color`).value = bdaySet.stages[i].c;
+            window._alphaPhantom.shadow.getElementById(`uiBdayStage${i+1}Days`).value = bdaySet.stages[i].d;
+            window._alphaPhantom.shadow.getElementById(`uiBdayStage${i+1}Color`).value = bdaySet.stages[i].c;
         }
     }
 
@@ -488,16 +500,16 @@ function setupUIEvents(overlay, galleryModal) {
         toggleTrackBday.classList.toggle("active", bdaySet.enabled);
         bdayBlock.style.opacity = bdaySet.enabled ? "1" : "0.5";
         bdayBlock.style.pointerEvents = bdaySet.enabled ? "auto" : "none";
-        localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
+        localStorage.setItem("alpha_bday_config"window._alphaPhantom.shadow.getElementById( JSON.stringify(bdaySet));
         if (!bdaySet.enabled) document.querySelectorAll('.alpha-bday-dot, .alpha-bday-num').forEach(d => d.remove());
     };
 
-    document.getElementById("uiBdaySaveBtn").onclick = () => {
-        bdaySet.type = document.getElementById("uiBdayType").value;
+    window._alphaPhantom.shadow.getElementById("uiBdaySaveBtn").onclick = () => {
+        bdaySet.type = window._alphaPhantom.shadow.getElementById("uiBdayType").value;
         bdaySet.stages = [
-            { d: parseInt(document.getElementById("uiBdayStage1Days").value), c: document.getElementById("uiBdayStage1Color").value },
-            { d: parseInt(document.getElementById("uiBdayStage2Days").value), c: document.getElementById("uiBdayStage2Color").value },
-            { d: parseInt(document.getElementById("uiBdayStage3Days").value), c: document.getElementById("uiBdayStage3Color").value }
+            { d: parseInt(window._alphaPhantom.shadow.getElementById("uiBdayStage1Days").value), c: window._alphaPhantom.shadow.getElementById("uiBdayStage1Color").value },
+            { d: parseInt(window._alphaPhantom.shadow.getElementById("uiBdayStage2Days").value), c: window._alphaPhantom.shadow.getElementById("uiBdayStage2Color").value },
+            { d: parseInt(window._alphaPhantom.shadow.getElementById("uiBdayStage3Days").value), c: window._alphaPhantom.shadow.getElementById("uiBdayStage3Color").value }
         ].sort((a, b) => b.d - a.d); // Сортуємо по спаданню днів (30, 14, 7)
 
         localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
@@ -505,15 +517,15 @@ function setupUIEvents(overlay, galleryModal) {
     };
 
     // --- ІНШИЙ КОД UI ---
-    const galleryBtn = document.getElementById("lettersGalleryBtn");
+    const galleryBtn = window._alphaPhantom.shadow.getElementById("lettersGalleryBtn");
     if(galleryBtn) galleryBtn.onclick = () => (galleryModal.style.display = "flex");
-    const closeGal = document.getElementById("closeGalleryBtn");
+    const closeGal = window._alphaPhantom.shadow.getElementById("closeGalleryBtn");
     if(closeGal) closeGal.onclick = () => (galleryModal.style.display = "none");
-    const confGal = document.getElementById("confirmGalleryBtn");
+    const confGal = window._alphaPhantom.shadow.getElementById("confirmGalleryBtn");
     if(confGal) confGal.onclick = () => (galleryModal.style.display = "none");
 
-    window.renderWinkSidebar = function() {
-        const sidebar = document.getElementById("winkSidebar");
+    window._alphaPhantom.renderWinkSidebar = function() {
+        const sidebar = window._alphaPhantom.shadow.getElementById("winkSidebar");
         if(!sidebar) return;
         sidebar.innerHTML = "";
         if(!currentSelectedProfile) return;
@@ -530,16 +542,16 @@ function setupUIEvents(overlay, galleryModal) {
             item.innerHTML = `<div class="alpha-wp-text">${wp.text}</div><div class="alpha-wp-badge ${count > 0 ? 'has-items' : ''}">${count}</div>`;
             item.onclick = () => {
                 currentWinkPhrase = wp.id;
-                window.renderWinkSidebar();
+                window._alphaPhantom.renderWinkSidebar();
                 renderSavedMessages();
             };
             sidebar.appendChild(item);
         });
     };
 
-    const tabLike = document.getElementById("respTabLike");
-    const tabWink = document.getElementById("respTabWink");
-    const winkSidebar = document.getElementById("winkSidebar");
+    const tabLike = window._alphaPhantom.shadow.getElementById("respTabLike");
+    const tabWink = window._alphaPhantom.shadow.getElementById("respTabWink");
+    const winkSidebar = window._alphaPhantom.shadow.getElementById("winkSidebar");
 
     if(tabLike && tabWink) {
         tabLike.onclick = () => {
@@ -555,31 +567,31 @@ function setupUIEvents(overlay, galleryModal) {
             tabWink.classList.add("active");
             tabLike.classList.remove("active");
             winkSidebar.style.display = "flex";
-            window.renderWinkSidebar();
+            window._alphaPhantom.renderWinkSidebar();
             renderSavedMessages();
         };
     }
 
-    const respProfSel = document.getElementById("respProfileSelect");
+    const respProfSel = window._alphaPhantom.shadow.getElementById("respProfileSelect");
     if (respProfSel) {
         respProfSel.addEventListener("change", (e) => {
             currentSelectedProfile = e.target.value;
             if (currentSelectedProfile) {
-                document.getElementById("respTabsArea").style.display = "flex";
-                document.getElementById("respEmptyState").style.display = "none";
-                if(currentSelectedTab === "wink") window.renderWinkSidebar();
+                window._alphaPhantom.shadow.getElementById("respTabsArea").style.display = "flex";
+                window._alphaPhantom.shadow.getElementById("respEmptyState").style.display = "none";
+                if(currentSelectedTab === "wink") window._alphaPhantom.renderWinkSidebar();
                 renderSavedMessages();
             } else {
-                document.getElementById("respTabsArea").style.display = "none";
-                document.getElementById("respEmptyState").style.display = "block";
+                window._alphaPhantom.shadow.getElementById("respTabsArea").style.display = "none";
+                window._alphaPhantom.shadow.getElementById("respEmptyState").style.display = "block";
             }
         });
     }
 
-    const respSave = document.getElementById("respSaveBtn");
+    const respSave = window._alphaPhantom.shadow.getElementById("respSaveBtn");
     if(respSave) {
         respSave.onclick = () => {
-            const text = document.getElementById("respMessageInput").value.trim();
+            const text = window._alphaPhantom.shadow.getElementById("respMessageInput").value.trim();
             if (!text || !currentSelectedProfile) return;
 
             if (currentSelectedTab === "wink" && currentWinkPhrase !== "default") {
@@ -595,57 +607,57 @@ function setupUIEvents(overlay, galleryModal) {
                 localStorage.setItem(key, JSON.stringify(saved));
             }
 
-            document.getElementById("respMessageInput").value = "";
-            if(currentSelectedTab === "wink") window.renderWinkSidebar();
+            window._alphaPhantom.shadow.getElementById("respMessageInput").value = "";
+            if(currentSelectedTab === "wink") window._alphaPhantom.renderWinkSidebar();
             renderSavedMessages();
         };
     }
 
-    const invProfSel = document.getElementById("invitesProfileSelect");
+    const invProfSel = window._alphaPhantom.shadow.getElementById("invitesProfileSelect");
     if (invProfSel) {
         invProfSel.addEventListener("change", (e) => {
             if (e.target.value) {
-                document.getElementById("invitesWorkArea").style.display = "flex";
-                document.getElementById("invitesEmptyState").style.display = "none";
+                window._alphaPhantom.shadow.getElementById("invitesWorkArea").style.display = "flex";
+                window._alphaPhantom.shadow.getElementById("invitesEmptyState").style.display = "none";
                 renderCustomInvites();
             } else {
-                document.getElementById("invitesWorkArea").style.display = "none";
-                document.getElementById("invitesEmptyState").style.display = "block";
+                window._alphaPhantom.shadow.getElementById("invitesWorkArea").style.display = "none";
+                window._alphaPhantom.shadow.getElementById("invitesEmptyState").style.display = "block";
             }
         });
     }
 
-    const invSave = document.getElementById("invitesSaveBtn");
+    const invSave = window._alphaPhantom.shadow.getElementById("invitesSaveBtn");
     if (invSave) {
         invSave.onclick = () => {
-            const text = document.getElementById("invitesMessageInput").value.trim();
-            const profileId = document.getElementById("invitesProfileSelect").value;
+            const text = window._alphaPhantom.shadow.getElementById("invitesMessageInput").value.trim();
+            const profileId = window._alphaPhantom.shadow.getElementById("invitesProfileSelect").value;
             if (!text || !profileId) return;
             const key = `alpha_invites_${profileId}`;
             let saved = JSON.parse(localStorage.getItem(key) || "[]");
             saved.push({ message_content: text, message_type: "SENT_TEXT" });
             localStorage.setItem(key, JSON.stringify(saved));
-            document.getElementById("invitesMessageInput").value = "";
+            window._alphaPhantom.shadow.getElementById("invitesMessageInput").value = "";
             renderCustomInvites();
         };
     }
 
-    const letProfSel = document.getElementById("lettersProfileSelect");
+    const letProfSel = window._alphaPhantom.shadow.getElementById("lettersProfileSelect");
     if(letProfSel) {
         letProfSel.addEventListener("change", async (e) => {
             const profileId = e.target.value;
             if (profileId) {
-                document.getElementById("lettersWorkArea").style.display = "flex";
-                document.getElementById("lettersEmptyState").style.display = "none";
-                const galleryGrid = document.getElementById("galleryGrid");
+                window._alphaPhantom.shadow.getElementById("lettersWorkArea").style.display = "flex";
+                window._alphaPhantom.shadow.getElementById("lettersEmptyState").style.display = "none";
+                const galleryGrid = window._alphaPhantom.shadow.getElementById("galleryGrid");
                 galleryGrid.innerHTML = '<span style="color: #666; font-size: 12px; grid-column: 1 / -1; text-align: center;">Завантаження фото...</span>';
                 let token = localStorage.getItem("token");
                 if (token) {
                     token = token.replace(/^"|"$/g, "");
                     const imageMap = await getProfileGallery(token, profileId);
                     galleryGrid.innerHTML = "";
-                    window.selectedCustomImages = [];
-                    document.getElementById("lettersGalleryBtn").innerHTML = "📷";
+                    window._alphaPhantom.selectedCustomImages = [];
+                    window._alphaPhantom.shadow.getElementById("lettersGalleryBtn").innerHTML = "📷";
                     if (Object.keys(imageMap).length === 0) {
                         galleryGrid.innerHTML = '<span style="color: #999; font-size: 12px; grid-column: 1 / -1; text-align: center;">У цієї анкети немає фото.</span>';
                     } else {
@@ -655,18 +667,18 @@ function setupUIEvents(overlay, galleryModal) {
                             img.dataset.id = id;
                             img.style.cssText = `width: 100%; height: 80px; object-fit: cover; border-radius: 5px; cursor: pointer; border: 3px solid transparent; transition: .2s; box-sizing: border-box;`;
                             img.onclick = () => {
-                                const idx = window.selectedCustomImages.findIndex((imgObj) => imgObj.id === id);
+                                const idx = window._alphaPhantom.selectedCustomImages.findIndex((imgObj) => imgObj.id === id);
                                 if (idx > -1) {
-                                    window.selectedCustomImages.splice(idx, 1);
+                                    window._alphaPhantom.selectedCustomImages.splice(idx, 1);
                                     img.style.borderColor = "transparent";
                                     img.style.opacity = "1";
                                 } else {
-                                    window.selectedCustomImages.push({ id: id, link: link });
+                                    window._alphaPhantom.selectedCustomImages.push({ id: id, link: link });
                                     img.style.borderColor = "#4caf50";
                                     img.style.opacity = "0.8";
                                 }
-                                const btn = document.getElementById("lettersGalleryBtn");
-                                const count = window.selectedCustomImages.length;
+                                const btn = window._alphaPhantom.shadow.getElementById("lettersGalleryBtn");
+                                const count = window._alphaPhantom.selectedCustomImages.length;
                                 btn.style.position = "relative";
                                 btn.innerHTML = count > 0 ? `📷<span style="position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white;">${count}</span>` : "📷";
                             };
@@ -676,27 +688,27 @@ function setupUIEvents(overlay, galleryModal) {
                     renderCustomLetters();
                 }
             } else {
-                document.getElementById("lettersWorkArea").style.display = "none";
-                document.getElementById("lettersEmptyState").style.display = "block";
+                window._alphaPhantom.shadow.getElementById("lettersWorkArea").style.display = "none";
+                window._alphaPhantom.shadow.getElementById("lettersEmptyState").style.display = "block";
             }
         });
     }
 
-    const letSave = document.getElementById("lettersSaveBtn");
+    const letSave = window._alphaPhantom.shadow.getElementById("lettersSaveBtn");
     if(letSave) {
         letSave.onclick = () => {
-            const text = document.getElementById("lettersMessageInput").value.trim();
-            const profileId = document.getElementById("lettersProfileSelect").value;
+            const text = window._alphaPhantom.shadow.getElementById("lettersMessageInput").value.trim();
+            const profileId = window._alphaPhantom.shadow.getElementById("lettersProfileSelect").value;
             if (!text || !profileId) return;
             const key = `alpha_letters_${profileId}`;
             let saved = JSON.parse(localStorage.getItem(key) || "[]");
-            const attachments = window.selectedCustomImages ? [...window.selectedCustomImages] : [];
+            const attachments = window._alphaPhantom.selectedCustomImages ? [...window._alphaPhantom.selectedCustomImages] : [];
             saved.push({ message_content: text, message_type: "SENT_TEXT", attachments: attachments });
             localStorage.setItem(key, JSON.stringify(saved));
-            document.getElementById("lettersMessageInput").value = "";
-            window.selectedCustomImages = [];
-            document.getElementById("lettersGalleryBtn").innerHTML = "📷";
-            const galleryGrid = document.getElementById("galleryGrid");
+            window._alphaPhantom.shadow.getElementById("lettersMessageInput").value = "";
+            window._alphaPhantom.selectedCustomImages = [];
+            window._alphaPhantom.shadow.getElementById("lettersGalleryBtn").innerHTML = "📷";
+            const galleryGrid = window._alphaPhantom.shadow.getElementById("galleryGrid");
             if (galleryGrid) {
                 const imgs = galleryGrid.getElementsByTagName("img");
                 for (let img of imgs) {
@@ -708,18 +720,18 @@ function setupUIEvents(overlay, galleryModal) {
         };
     }
 
-    const vipAddBtn = document.getElementById("vipAddRuleBtn");
+    const vipAddBtn = window._alphaPhantom.shadow.getElementById("vipAddRuleBtn");
     if (vipAddBtn) {
         vipAddBtn.onclick = () => {
             let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
             rules.push({ vip_id: "", profile_id: "", auto_disable: false });
             localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-            window.renderVipRules();
+            window._alphaPhantom.renderVipRules();
         };
     }
 
-    window.renderVipRules = function() {
-        const vipRulesList = document.getElementById("vipRulesList");
+    window._alphaPhantom.renderVipRules = function() {
+        const vipRulesList = window._alphaPhantom.shadow.getElementById("vipRulesList");
         if(!vipRulesList) return;
         vipRulesList.innerHTML = "";
         let rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
@@ -729,7 +741,7 @@ function setupUIEvents(overlay, galleryModal) {
             return;
         }
 
-        const profileOptionsHtml = document.getElementById("respProfileSelect").innerHTML || '<option value="">' + t("dynSelectProfile") + '</option>';
+        const profileOptionsHtml = window._alphaPhantom.shadow.getElementById("respProfileSelect").innerHTML || '<option value="">' + t("dynSelectProfile") + '</option>';
 
         rules.forEach((rule, index) => {
             const container = document.createElement("div");
@@ -769,7 +781,7 @@ function setupUIEvents(overlay, galleryModal) {
             delBtn.onclick = () => {
                 rules.splice(index, 1);
                 localStorage.setItem("alphaVipRules", JSON.stringify(rules));
-                window.renderVipRules();
+                window._alphaPhantom.renderVipRules();
             };
 
             topRow.appendChild(inputVip);
@@ -797,12 +809,12 @@ function setupUIEvents(overlay, galleryModal) {
         });
     };
 
-    const gsBtn = document.getElementById("alphaGsBtn");
+    const gsBtn = window._alphaPhantom.shadow.getElementById("alphaGsBtn");
     if (gsBtn) {
         gsBtn.onclick = () => {
-            const dp = document.getElementById("alphaGsDropdown");
-            const arr = document.getElementById("alphaGsArrow");
-            const searchInput = document.getElementById("alphaGsSearchInput");
+            const dp = window._alphaPhantom.shadow.getElementById("alphaGsDropdown");
+            const arr = window._alphaPhantom.shadow.getElementById("alphaGsArrow");
+            const searchInput = window._alphaPhantom.shadow.getElementById("alphaGsSearchInput");
             if (dp.style.display === "flex") {
                 dp.style.display = "none";
                 arr.style.transform = "rotate(0deg)";
@@ -815,10 +827,10 @@ function setupUIEvents(overlay, galleryModal) {
     }
 
     document.addEventListener("click", (e) => {
-        const selectorBlock = document.getElementById("alphaGlobalSelector");
+        const selectorBlock = window._alphaPhantom.shadow.getElementById("alphaGlobalSelector");
         if (selectorBlock && !selectorBlock.contains(e.target)) {
-            const dp = document.getElementById("alphaGsDropdown");
-            const arr = document.getElementById("alphaGsArrow");
+            const dp = window._alphaPhantom.shadow.getElementById("alphaGsDropdown");
+            const arr = window._alphaPhantom.shadow.getElementById("alphaGsArrow");
             if (dp && dp.style.display === "flex") {
                 dp.style.display = "none";
                 if(arr) arr.style.transform = "rotate(0deg)";
@@ -826,14 +838,14 @@ function setupUIEvents(overlay, galleryModal) {
         }
     });
 
-    const langUaBtn = document.getElementById("langUaBtn");
-    const langRuBtn = document.getElementById("langRuBtn");
+    const langUaBtn = window._alphaPhantom.shadow.getElementById("langUaBtn");
+    const langRuBtn = window._alphaPhantom.shadow.getElementById("langRuBtn");
 
     function applyTranslations(lang) {
         localStorage.setItem("alphaLang", lang);
         langUaBtn.style.opacity = lang === "ua" ? "1" : "0.4";
         langRuBtn.style.opacity = lang === "ru" ? "1" : "0.4";
-        document.querySelectorAll("[data-lang]").forEach(el => {
+        window._alphaPhantom.shadow.querySelectorAll("[data-lang]").forEach(el => {
             const key = el.getAttribute("data-lang");
             if (alphaDict[lang] && alphaDict[lang][key]) {
                 if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
@@ -849,26 +861,26 @@ function setupUIEvents(overlay, galleryModal) {
     langRuBtn.onclick = () => applyTranslations("ru");
     applyTranslations(localStorage.getItem("alphaLang") || "ua");
 
-    document.getElementById("uiCloseBtn").onclick = () => (overlay.style.display = "none");
+    window._alphaPhantom.shadow.getElementById("uiCloseBtn").onclick = () => (overlay.style.display = "none");
 
-    document.getElementById("uiStartBtn").onclick = () => {
+    window._alphaPhantom.shadow.getElementById("uiStartBtn").onclick = () => {
        if (isRunning) return;
        isRunning = true;
        localStorage.removeItem("alphaCurrentPIndex");
 
-       const delay = parseInt(document.getElementById("uiDelay").value);
-       const phaseDelay = parseInt(document.getElementById("uiPhaseDelay").value);
-       const breakTime = parseInt(document.getElementById("uiBreakTime").value);
-       const inviteMode = document.getElementById("uiInviteMode") ? document.getElementById("uiInviteMode").value : "batch";
+       const delay = parseInt(window._alphaPhantom.shadow.getElementById("uiDelay").value);
+       const phaseDelay = parseInt(window._alphaPhantom.shadow.getElementById("uiPhaseDelay").value);
+       const breakTime = parseInt(window._alphaPhantom.shadow.getElementById("uiBreakTime").value);
+       const inviteMode = window._alphaPhantom.shadow.getElementById("uiInviteMode") ? window._alphaPhantom.shadow.getElementById("uiInviteMode").value : "batch";
        localStorage.setItem("alphaBotSettings", JSON.stringify({ delay, phaseDelay, breakTime, inviteMode }));
        localStorage.setItem("alphaBotState", "running");
-       document.getElementById("uiStartBtn").style.display = "none";
-       document.getElementById("uiStopBtn").style.display = "block";
+       window._alphaPhantom.shadow.getElementById("uiStartBtn").style.display = "none";
+       window._alphaPhantom.shadow.getElementById("uiStopBtn").style.display = "block";
        updatePopup("Запуск...", false);
        if (typeof startSendingProcess === 'function') startSendingProcess();
     };
 
-    document.getElementById("uiStopBtn").onclick = () => {
+    window._alphaPhantom.shadow.getElementById("uiStopBtn").onclick = () => {
        isRunning = false;
        clearInterval(botLoopTimer);
        localStorage.setItem("alphaBotState", "stopped");
@@ -881,15 +893,15 @@ function setupUIEvents(overlay, galleryModal) {
     loadProfilesForUI();
 
     // ==================== ЛОГІКА ВКЛАДКИ ГАЛЕРЕЯ ====================
-    const galleryDropZone = document.getElementById('galleryDropZone');
-    const galleryFileInput = document.getElementById('galleryFileInput');
-    const gallerySelectBtn = document.getElementById('gallerySelectBtn');
-    const galleryUploadBtn = document.getElementById('galleryUploadBtn');
-    const galleryProgressContainer = document.getElementById('galleryProgressContainer');
-    const galleryProgressText = document.getElementById('galleryProgressText');
-    const galleryProgressBar = document.getElementById('galleryProgressBar');
-    const galleryErrorLog = document.getElementById('galleryErrorLog');
-    const galleryErrorList = document.getElementById('galleryErrorList');
+    const galleryDropZone = window._alphaPhantom.shadow.getElementById('galleryDropZone');
+    const galleryFileInput = window._alphaPhantom.shadow.getElementById('galleryFileInput');
+    const gallerySelectBtn = window._alphaPhantom.shadow.getElementById('gallerySelectBtn');
+    const galleryUploadBtn = window._alphaPhantom.shadow.getElementById('galleryUploadBtn');
+    const galleryProgressContainer = window._alphaPhantom.shadow.getElementById('galleryProgressContainer');
+    const galleryProgressText = window._alphaPhantom.shadow.getElementById('galleryProgressText');
+    const galleryProgressBar = window._alphaPhantom.shadow.getElementById('galleryProgressBar');
+    const galleryErrorLog = window._alphaPhantom.shadow.getElementById('galleryErrorLog');
+    const galleryErrorList = window._alphaPhantom.shadow.getElementById('galleryErrorList');
 
     let gallerySelectedFiles = [];
 
@@ -958,7 +970,7 @@ function setupUIEvents(overlay, galleryModal) {
                 return;
             }
 
-            const currentProfileId = window.currentSelectedProfileId || document.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
+            const currentProfileId = window._alphaPhantom.currentSelectedProfileId || window._alphaPhantom.shadow.getElementById('alphaGsId')?.textContent?.replace(/\D/g, '');
 
             if (!currentProfileId) {
                 alert('Спочатку оберіть анкету у верхньому селекторі');
@@ -1022,7 +1034,7 @@ function setupUIEvents(overlay, galleryModal) {
 }
 
 async function loadProfilesForUI() {
-    if (window.profilesLoadedForUI) return;
+    if (window._alphaPhantom.profilesLoadedForUI) return;
 
     let token = localStorage.getItem("token");
     if (!token) return;
@@ -1030,15 +1042,15 @@ async function loadProfilesForUI() {
 
     const profiles = await getAllProfiles(token);
 
-    const listEl = document.getElementById("alphaGsList");
-    const searchInput = document.getElementById("alphaGsSearchInput");
+    const listEl = window._alphaPhantom.shadow.getElementById("alphaGsList");
+    const searchInput = window._alphaPhantom.shadow.getElementById("alphaGsSearchInput");
     if (!listEl) return;
 
     listEl.innerHTML = "";
 
-    const respSel = document.getElementById("respProfileSelect");
-    const invSel = document.getElementById("invitesProfileSelect");
-    const letSel = document.getElementById("lettersProfileSelect");
+    const respSel = window._alphaPhantom.shadow.getElementById("respProfileSelect");
+    const invSel = window._alphaPhantom.shadow.getElementById("invitesProfileSelect");
+    const letSel = window._alphaPhantom.shadow.getElementById("lettersProfileSelect");
 
     [respSel, invSel, letSel].forEach(sel => {
         if(sel) {
@@ -1078,14 +1090,14 @@ async function loadProfilesForUI() {
         `;
 
         item.onclick = () => {
-            document.getElementById("alphaGsAvatar").src = photoUrl;
-            document.getElementById("alphaGsName").innerText = p.name;
-            document.getElementById("alphaGsId").innerText = `ID: ${p.external_id}`;
+            window._alphaPhantom.shadow.getElementById("alphaGsAvatar").src = photoUrl;
+            window._alphaPhantom.shadow.getElementById("alphaGsName").innerText = p.name;
+            window._alphaPhantom.shadow.getElementById("alphaGsId").innerText = `ID: ${p.external_id}`;
 
-            document.getElementById("alphaGsDropdown").style.display = "none";
-            document.getElementById("alphaGsArrow").style.transform = "rotate(0deg)";
+            window._alphaPhantom.shadow.getElementById("alphaGsDropdown").style.display = "none";
+            window._alphaPhantom.shadow.getElementById("alphaGsArrow").style.transform = "rotate(0deg)";
 
-            document.querySelectorAll(".alpha-gs-item").forEach(i => i.classList.remove("active"));
+            window._alphaPhantom.shadow.querySelectorAll(".alpha-gs-item").forEach(i => i.classList.remove("active"));
             item.classList.add("active");
 
             [respSel, invSel, letSel].forEach(sel => {
@@ -1101,7 +1113,7 @@ async function loadProfilesForUI() {
     if (searchInput) {
         searchInput.oninput = (e) => {
             const val = e.target.value.toLowerCase().trim();
-            document.querySelectorAll(".alpha-gs-item").forEach(item => {
+            window._alphaPhantom.shadow.querySelectorAll(".alpha-gs-item").forEach(item => {
                 const name = item.dataset.name;
                 const id = item.dataset.id;
                 if (name.includes(val) || id.includes(val)) {
@@ -1113,13 +1125,13 @@ async function loadProfilesForUI() {
         };
     }
 
-    window.profilesLoadedForUI = true;
+    window._alphaPhantom.profilesLoadedForUI = true;
     updateProfileColors();
 }
 
 function renderSavedMessages() {
     if (!currentSelectedProfile) return;
-    const listEl = document.getElementById("respSavedList");
+    const listEl = window._alphaPhantom.shadow.getElementById("respSavedList");
     if(!listEl) return;
     listEl.innerHTML = "";
 
@@ -1132,11 +1144,11 @@ function renderSavedMessages() {
         storageKey = `resp_${currentSelectedProfile}_wink_custom`;
         const customObj = JSON.parse(localStorage.getItem(storageKey) || "{}");
         saved = customObj[currentWinkPhrase] || [];
-        document.getElementById("respListTitle").innerText = `Відповіді на: ${currentWinkPhrase}`;
+        window._alphaPhantom.shadow.getElementById("respListTitle").innerText = `Відповіді на: ${currentWinkPhrase}`;
     } else {
         storageKey = `resp_${currentSelectedProfile}_${currentSelectedTab}`;
         saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        document.getElementById("respListTitle").innerText = currentSelectedTab === "like" ? "Збережені відповіді на Лайки:" : "Стандартні відповіді (Вінки):";
+        window._alphaPhantom.shadow.getElementById("respListTitle").innerText = currentSelectedTab === "like" ? "Збережені відповіді на Лайки:" : "Стандартні відповіді (Вінки):";
     }
 
     if (saved.length === 0) {
@@ -1168,7 +1180,7 @@ function renderSavedMessages() {
               arr.splice(index, 1);
               localStorage.setItem(storageKey, JSON.stringify(arr));
           }
-          if(currentSelectedTab === "wink") window.renderWinkSidebar();
+          if(currentSelectedTab === "wink") window._alphaPhantom.renderWinkSidebar();
           renderSavedMessages();
        };
        item.appendChild(textSpan);
@@ -1180,8 +1192,8 @@ function renderSavedMessages() {
 }
 
 function renderCustomInvites() {
-    const profileId = document.getElementById("invitesProfileSelect").value;
-    const listEl = document.getElementById("invitesSavedList");
+    const profileId = window._alphaPhantom.shadow.getElementById("invitesProfileSelect").value;
+    const listEl = window._alphaPhantom.shadow.getElementById("invitesSavedList");
     listEl.innerHTML = "";
 
     if (!profileId) return;
@@ -1248,8 +1260,8 @@ function renderCustomInvites() {
 }
 
 function renderCustomLetters() {
-    const profileId = document.getElementById("lettersProfileSelect").value;
-    const listEl = document.getElementById("lettersSavedList");
+    const profileId = window._alphaPhantom.shadow.getElementById("lettersProfileSelect").value;
+    const listEl = window._alphaPhantom.shadow.getElementById("lettersSavedList");
     listEl.innerHTML = "";
 
     if (!profileId) return;
@@ -1299,7 +1311,7 @@ function renderCustomLetters() {
 }
 
 function updateProfileColors() {
-    const invSelect = document.getElementById("invitesProfileSelect");
+    const invSelect = window._alphaPhantom.shadow.getElementById("invitesProfileSelect");
     if (invSelect) {
        Array.from(invSelect.options).forEach((opt) => {
           if (!opt.value) return;
@@ -1309,7 +1321,7 @@ function updateProfileColors() {
        });
     }
 
-    const letSelect = document.getElementById("lettersProfileSelect");
+    const letSelect = window._alphaPhantom.shadow.getElementById("lettersProfileSelect");
     if (letSelect) {
        Array.from(letSelect.options).forEach((opt) => {
           if (!opt.value) return;
@@ -1319,7 +1331,7 @@ function updateProfileColors() {
        });
     }
 
-    const respSelect = document.getElementById("respProfileSelect");
+    const respSelect = window._alphaPhantom.shadow.getElementById("respProfileSelect");
     if (respSelect) {
        Array.from(respSelect.options).forEach((opt) => {
           if (!opt.value) return;
@@ -1344,14 +1356,14 @@ function checkBotMemory() {
     if (state === "running" || state === "waiting") {
        const settings = JSON.parse(localStorage.getItem("alphaBotSettings") || "{}");
        if (settings.delay !== undefined) {
-          document.getElementById("uiDelay").value = settings.delay;
-          document.getElementById("uiPhaseDelay").value = settings.phaseDelay !== undefined ? settings.phaseDelay : 2;
-          document.getElementById("uiBreakTime").value = settings.breakTime || 10;
-          const modeEl = document.getElementById("uiInviteMode");
+          window._alphaPhantom.shadow.getElementById("uiDelay").value = settings.delay;
+          window._alphaPhantom.shadow.getElementById("uiPhaseDelay").value = settings.phaseDelay !== undefined ? settings.phaseDelay : 2;
+          window._alphaPhantom.shadow.getElementById("uiBreakTime").value = settings.breakTime || 10;
+          const modeEl = window._alphaPhantom.shadow.getElementById("uiInviteMode");
           if (modeEl && settings.inviteMode) modeEl.value = settings.inviteMode;
        }
-       document.getElementById("uiStartBtn").style.display = "none";
-       document.getElementById("uiStopBtn").style.display = "block";
+       window._alphaPhantom.shadow.getElementById("uiStartBtn").style.display = "none";
+       window._alphaPhantom.shadow.getElementById("uiStopBtn").style.display = "block";
        isRunning = true;
 
        if (state === "waiting") {
@@ -1370,7 +1382,7 @@ function checkBotMemory() {
 
 function injectMenuButton() {
     const menuList = document.querySelector('[data-testid="bottom-menu-list"]');
-    if (menuList && !document.getElementById("alpha-sender-menu-btn")) {
+    if (menuList && !window._alphaPhantom.shadow.getElementById("alpha-sender-menu-btn")) {
        const settingBtn = document.createElement("div");
        settingBtn.id = "alpha-sender-menu-btn";
        const firstItem = menuList.querySelector("div");
@@ -1378,7 +1390,7 @@ function injectMenuButton() {
        settingBtn.innerText = "⚙  Setting";
        settingBtn.style.cursor = "pointer";
        settingBtn.onclick = () => {
-          const overlay = document.getElementById("alpha-sender-overlay");
+          const overlay = window._alphaPhantom.shadow.getElementById("alpha-sender-overlay");
           if (overlay) overlay.style.display = "flex";
        };
        menuList.appendChild(settingBtn);
@@ -1413,17 +1425,17 @@ function injectSearchButton() {
             const match = window.location.href.match(/\/chat\/([a-z0-9\-]+)/);
             const currentChatId = match ? match[1] : null;
 
-            if (!currentChatId || !window.alphaSmartSearch) return;
+            if (!currentChatId || !window._alphaPhantom.alphaSmartSearch) return;
 
             const textSpan = searchContainer.querySelector('.alpha-search-text');
             const progressFill = searchContainer.querySelector('.alpha-progress-fill');
 
-            if (isLoaded && window.alphaSmartSearch.chatId === currentChatId) {
-                window.alphaSmartSearch.modal.style.display = "flex";
+            if (isLoaded && window._alphaPhantom.alphaSmartSearch.chatId === currentChatId) {
+                window._alphaPhantom.alphaSmartSearch.modal.style.display = "flex";
                 return;
             }
 
-            window.alphaSmartSearch.openWithContext(currentChatId, token, 'chat');
+            window._alphaPhantom.alphaSmartSearch.openWithContext(currentChatId, token, 'chat');
             isLoaded = true;
             textSpan.innerText = "Відкрити пошук";
             textSpan.style.color = "#1976d2";
@@ -1516,7 +1528,7 @@ function injectHideButtons() {
 
 window.addEventListener("AlphaBackgroundCrash", () => {
     if (isRunning) {
-        document.getElementById("uiStopBtn").click();
+        window._alphaPhantom.shadow.getElementById("uiStopBtn").click();
         showSystemAlert("⚠️ Збій розширення", "Зв'язок з ядром втрачено (можливо через сторонні розширення). Розсилку безпечно зупинено.", "#f44336");
     }
 });

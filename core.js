@@ -1,4 +1,14 @@
 // ==========================================
+// СТЕЛС-РЕЖИМ: НЕВИДИМЕ СХОВИЩЕ
+// ==========================================
+if (!window._alphaPhantom) {
+    Object.defineProperty(window, '_alphaPhantom', {
+        value: {},
+        enumerable: false, // 👻 Повна невидимість для сканерів сайту
+        writable: true
+    });
+}
+// ==========================================
 // ГЛОБАЛЬНІ ЗМІННІ ТА СТАН БОТА
 // ==========================================
 let isRunning = false;
@@ -211,7 +221,7 @@ function incrementStat(type) {
 function logInviteAnalytics(text, actionType, chatUid = "") {
     console.log(`[Дебаг Аналітика] logInviteAnalytics викликано. action=${actionType}, chatUid=${chatUid}`);
 
-    const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+    const currentKey = window._alphaPhantom.alphaKey || localStorage.getItem('alphaAccessKey');
     if (!currentKey) {
         console.warn(`[Дебаг Аналітика] Немає access_key — не відправляємо`);
         return;
@@ -309,7 +319,7 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
                 if (interests === "") interests = "Not Specified";
             }
 
-            const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+            const currentKey = window._alphaPhantom.alphaKey || localStorage.getItem('alphaAccessKey');
 
             // 4. ВІДПРАВЛЯЄМО ПАКЕТ НА СЕРВЕР
             window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
@@ -336,31 +346,70 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
     }
 }
 
+// ==================== СИСТЕМА СТЕЛС-ШИФРУВАННЯ ====================
+async function encryptData(text, keyString) {
+    const enc = new TextEncoder();
+    // 1. Хешуємо ключ доступу (робимо з нього 256-бітний ключ для AES)
+    const keyHash = await window.crypto.subtle.digest('SHA-256', enc.encode(keyString));
+
+    // 2. Імпортуємо ключ для алгоритму AES-GCM
+    const cryptoKey = await window.crypto.subtle.importKey(
+        'raw', keyHash, { name: 'AES-GCM' }, false, ['encrypt']
+    );
+
+    // 3. Генеруємо випадковий вектор ініціалізації (12 байт, як у Python)
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    // 4. Шифруємо сам JSON
+    const ciphertext = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv }, cryptoKey, enc.encode(text)
+    );
+
+    // 5. Склеюємо IV та зашифрований текст
+    const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(ciphertext), iv.length);
+
+    // 6. Перетворюємо у Base64 для відправки через інтернет
+    let binary = '';
+    for (let i = 0; i < combined.byteLength; i++) {
+        binary += String.fromCharCode(combined[i]);
+    }
+    return btoa(binary);
+}
+
 // ==================== ВІДПРАВКА АНАЛІТИКИ НА СЕРВЕР ====================
 async function sendAnalyticsToServer(detail) {
-    console.log(`[Аналітика] Готуємося відправити на бекенд. action=${detail.action}, chat_uid=${detail.chat_uid}`);
-
-    // TODO: заміни на адресу твого тестового сервера (або зроби змінну)
-    const backendUrl = "http://твій-test-сервер:8001/api/analytics/log_invite";
+    console.log(`[Аналітика] Готуємо стелс-пакунок...`);
+    const backendUrl = "http://твій-test-сервер:8001/api/v2/met";
 
     try {
+        // 1. Перетворюємо всі зібрані дані в звичайний текст (JSON)
+        const rawJson = JSON.stringify(detail);
+
+        // 2. ШИФРУЄМО ДАНІ (використовуючи access_key як пароль)
+        const encryptedPayload = await encryptData(rawJson, detail.access_key);
+
+        // 3. Формуємо захищений запит
+        const stealthBody = {
+            access_key: detail.access_key,
+            team: detail.team || "alpha",
+            payload: encryptedPayload
+        };
+
         const res = await fetch(backendUrl, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(detail)
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(stealthBody)
         });
 
         const result = await res.json();
-        console.log(`[Аналітика] Відповідь від бекенду:`, result);
-
         if (res.ok && result.status === "success") {
-            console.log(`[Аналітика] ✅ Аналітика успішно збережена на сервері`);
+            console.log(`[Аналітика] ✅ Зашифровані дані успішно прийняті`);
         } else {
-            console.warn(`[Аналітика] ⚠️ Бекенд повернув помилку`);
+            console.warn(`[Аналітика] ⚠️ Помилка бекенду:`, result.message);
         }
     } catch (err) {
-        console.error(`[Аналітика] Помилка відправки на бекенд:`, err);
+        console.error(`[Аналітика] Помилка відправки:`, err);
     }
 }

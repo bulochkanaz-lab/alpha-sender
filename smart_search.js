@@ -379,4 +379,4 @@ class SmartSearch {
     }
 }
 
-window.alphaSmartSearch = new SmartSearch();
+window._alphaPhantom.alphaSmartSearch = new SmartSearch();

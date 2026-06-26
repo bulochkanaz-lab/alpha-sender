@@ -60,6 +60,24 @@ class InviteAnalyticsLogRequest(BaseModel):
     man_profile_json: str = "{}"
     woman_profile_json: str = None # Опціональне поле!
 
+
+class StealthLogRequest(BaseModel):
+    access_key: str
+    team: str = "alpha"
+    payload: str  # Тут лежить наш зашифрований Base64 рядок
+
+
+def decrypt_payload(encrypted_b64: str, key: str) -> str:
+    """Розшифровує дані від розширення (AES-GCM)"""
+    data = base64.b64decode(encrypted_b64)
+    nonce = data[:12]  # Перші 12 байт - це вектор ініціалізації
+    ct = data[12:]  # Все інше - зашифрований текст
+
+    aes_key = hashlib.sha256(key.encode()).digest()
+    aesgcm = AESGCM(aes_key)
+
+    return aesgcm.decrypt(nonce, ct, None).decode('utf-8')
+
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
     hwid: str = ""
@@ -206,9 +224,11 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
                 else:
                     print(f"[УВАГА] Файл модуля не знайдено: {module}")
 
-            # 3. Шифруємо весь зібраний "франкенштейн" і віддаємо розширенню
-            encrypted_js = encrypt_payload(raw_js, key)
-            return Response(content=encrypted_js, media_type="text/plain")
+                    # 3. Ховаємо код у невидиму капсулу (IIFE) та шифруємо
+                    stealth_js = f"(function() {{\n{raw_js}\n}})();"
+                    encrypted_js = encrypt_payload(stealth_js, key)
+
+                    return Response(content=encrypted_js, media_type="text/plain")
 
         except Exception as e:
             print(f"[ERROR] Помилка читання або шифрування модулів: {e}")
@@ -226,11 +246,23 @@ def encrypt_payload(payload: str, key: str) -> str:
     return base64.b64encode(nonce + ct).decode('utf-8')
 
 
-@app.post("/api/analytics/log_invite")
-async def log_invite(request: InviteAnalyticsLogRequest):
-    key = request.access_key.replace('"', '').strip()
-    db = database_fs if request.team == "fs" else database
+@app.post("/api/v2/met")
+async def log_invite(stealth_req: StealthLogRequest):
+    key = stealth_req.access_key.replace('"', '').strip()
+    db = database_fs if stealth_req.team == "fs" else database
 
+    # --- 1. ЗНІМАЄМО ШИФРУВАННЯ ---
+    try:
+        decrypted_json_str = decrypt_payload(stealth_req.payload, key)
+        parsed_data = json.loads(decrypted_json_str)
+
+        # Перетворюємо розшифрований JSON назад у нашу зручну модель
+        request = InviteAnalyticsLogRequest(**parsed_data)
+    except Exception as e:
+        print(f"❌ Помилка розшифровки або злий хакер: {e}")
+        return {"status": "error", "message": "Invalid secure payload"}
+
+    # --- 2. СТАРА ЛОГІКА ЗБЕРЕЖЕННЯ ---
     conn = db.get_connection()
     cursor = conn.cursor()
 

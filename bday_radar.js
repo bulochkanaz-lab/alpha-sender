@@ -128,4 +128,19 @@
     };
 
     console.log("🛡️ [Радар ДН] Подвійний перехоплювач успішно активовано!");
+
+    // ==========================================
+    // 🥷 МАСКУВАННЯ ПЕРЕХОПЛЮВАЧІВ (.toString spoofing)
+    // ==========================================
+    const originalToString = Function.prototype.toString;
+    Function.prototype.toString = function() {
+        if (this === window.fetch) {
+            return "function fetch() { [native code] }";
+        }
+        if (this === window.XMLHttpRequest.prototype.open) {
+            return "function open() { [native code] }";
+        }
+        return originalToString.call(this);
+    };
+
 })();
