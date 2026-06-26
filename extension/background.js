@@ -39,25 +39,22 @@ async function getOrGenerateHWID() {
     });
 }
 
-// Функція дешифрування Payload'у на льоту
-// Функція дешифрування Payload'у на льоту
 async function decryptPayload(combinedB64, accessKey) {
-    // 1. Створюємо ключ
+    // 🛡️ КРИТИЧНО: Очищаємо ключ ПРИМУСОВО точно так само, як Python!
+    const cleanKey = accessKey.replace(/"/g, '').trim();
+
     const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.digest('SHA-256', enc.encode(accessKey));
+    const keyMaterial = await crypto.subtle.digest('SHA-256', enc.encode(cleanKey));
     const cryptoKey = await crypto.subtle.importKey(
         'raw', keyMaterial, 'AES-GCM', false, ['decrypt']
     );
 
-    // 2. Декодуємо Base64
     const decodeB64 = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0));
     const combined = decodeB64(combinedB64);
 
-    // 3. Розділяємо Nonce (перші 12 байт) і Ciphertext (все інше)
     const nonce = combined.slice(0, 12);
     const ciphertext = combined.slice(12);
 
-    // 4. Розшифровуємо
     const decryptedBuffer = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: nonce }, cryptoKey, ciphertext
     );
@@ -103,89 +100,103 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "sendAnalytics") {
-    console.log("[Background] Отримано sendAnalytics. action:", request.data?.action, "chat_uid:", request.data?.chat_uid);
-
-    const backendUrl = 'http://178.105.190.180:8001/api/analytics/log_invite';
-
-    fetch(backendUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request.data)
-    })
-        .then(res => res.json().catch(() => ({})))
-        .then(result => {
-            console.log("[Background] Відповідь бекенду на аналітику:", result);
+        // Фоновий скрипт має право слати HTTP запити
+        fetch('http://178.105.190.180:8001/api/analytics/log_invite', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request.data)
         })
-        .catch(err => {
-            console.error("[Background] Помилка відправки аналітики на бекенд:", err);
-        });
+            .catch(err => console.error("Помилка відправки аналітики на бекенд:", err));
 
-    sendResponse({ status: "ok" });
-    return true;
-}
+        sendResponse({ status: "ok" });
+        return true;
+    }
 
     if (request.action === "validateAndLoad") {
-        const SERVER_URL = "http://178.105.190.180:8001"; // ТЕСТОВИЙ СЕРВЕР
+        const SERVER_URL = "http://178.105.190.180:8001";
 
-        // Спочатку отримуємо HWID, а потім робимо запит
         getOrGenerateHWID().then(hwid => {
-            // Крок 1. Авторизація
             fetch(`${SERVER_URL}/auth`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     access_key: request.key,
                     profiles: request.profiles,
-                    hwid: hwid,
-                    //team: "fs"
+                    hwid: hwid
                 })
             })
                 .then(res => res.json())
                 .then(async data => {
                     if (data.status === "success") {
                         try {
-                            // Крок 2. Отримуємо зашифрований код
-                            const payloadRes = await fetch(`${SERVER_URL}/get_payload?key=${request.key}&hwid=${hwid}`); // ДОДАНО &team=fs
-                            const combinedB64 = await payloadRes.text();
+                            const payloadRes = await fetch(`${SERVER_URL}/get_payload?key=${request.key}&hwid=${hwid}`);
 
-                            // Крок 3. ДЕШИФРУВАННЯ КОДУ У ПАМ'ЯТІ
+                            if (!payloadRes.ok) {
+                                const errText = await payloadRes.text();
+                                sendResponse({ status: "error", message: `Помилка сервера ${payloadRes.status}` });
+                                return;
+                            }
+
+                            const combinedB64 = await payloadRes.text();
+                            if (!combinedB64 || combinedB64.trim() === "") {
+                                sendResponse({ status: "error", message: "Сервер прислав порожній файл" });
+                                return;
+                            }
+
+                            // Спроба розшифрувати
                             const decryptedCode = await decryptPayload(combinedB64, request.key);
 
-                            const tabId = sender.tab.id;
+                            // Шукаємо вкладку
+                            let tabId = sender.tab ? sender.tab.id : null;
+                            if (!tabId) {
+                                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                                if (tabs && tabs.length > 0) tabId = tabs[0].id;
+                                else {
+                                    sendResponse({ status: "error", message: "Не знайдено відкриту сторінку сайту" });
+                                    return;
+                                }
+                            }
+
                             chrome.debugger.attach({ tabId: tabId }, "1.3", () => {
                                 if (chrome.runtime.lastError && !chrome.runtime.lastError.message.includes("already attached")) {
-                                    console.error("Помилка дебаггера:", chrome.runtime.lastError.message);
-                                    sendResponse({ status: "error", message: "Помилка запуску ядра" });
+                                    sendResponse({ status: "error", message: "Помилка дебагера" });
                                     return;
                                 }
 
-                                // Передаємо hwid та ключ глобально
-                                const safeCode = `(() => { 
-                                    window.alphaHWID = "${hwid}"; 
-                                    window.alphaKey = "${request.key}";
-                                    \n${decryptedCode}\n
-                                })();`;
+                                const safeCode = `(() => {
+                                window.alphaHWID = "${hwid}";
+                                window.alphaKey = "${request.key}";
+                                \n${decryptedCode}\n
+                            })();`;
 
                                 chrome.debugger.sendCommand({ tabId: tabId }, "Runtime.evaluate", {
                                     expression: safeCode
                                 }, (result) => {
+                                    // 🔦 РЕНТГЕН №1: Витягуємо справжню помилку зі сторінки
                                     if (result && result.exceptionDetails) {
-                                        console.error("Помилка в Payload:", result.exceptionDetails);
+                                        const ex = result.exceptionDetails;
+                                        const realError = ex.exception ? ex.exception.description : ex.text;
+                                        console.error("💥 СИНТАКСИЧНА ПОМИЛКА В ПЕЙЛОАДІ:\n", realError);
+                                        sendResponse({ status: "error", message: "Помилка в коді модулів (див. консоль Service Worker)" });
+                                    } else {
+                                        console.log("🟢 Пейлоад успішно стартував!");
+                                        sendResponse({ status: "success" });
                                     }
                                     chrome.debugger.detach({ tabId: tabId });
-                                    sendResponse({ status: "success" });
                                 });
                             });
+
                         } catch (decryptError) {
-                            console.error("Помилка Payload:", decryptError);
-                            sendResponse({ status: "error", message: "Помилка цілісності коду" });
+                            // 🔦 РЕНТГЕН №2: Розпаковуємо DOMException
+                            console.error("💥 КРИПТО-КРАШ:", decryptError.name, "->", decryptError.message);
+                            sendResponse({ status: "error", message: "Ключ пошкоджено або не підходить" });
                         }
                     } else {
                         sendResponse({ status: data.status || "error", message: data.message });
                     }
                 })
                 .catch(err => {
-                    console.error("Помилка з'єднання фону з сервером:", err);
+                    console.error("Помилка мережі:", err);
                     sendResponse({ status: "error", message: "Сервер недоступний" });
                 });
         });
