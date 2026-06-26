@@ -192,55 +192,62 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
     db = database_fs if team == "fs" else database
 
     success, msg = db.verify_and_bind_key(key, hwid)
-    if success:
-        try:
-            # 1. Задаємо список модулів у правильному порядку завантаження
-            modules = [
-                "smart_search.js",  # Твій старий розумний пошук залишається першим
-                "bday_radar.js",  # 🔥 НАШ НОВИЙ МОДУЛЬ ДНІВ НАРОДЖЕННЯ
-                "core.js",  # Ядро: глобальні змінні, допоміжні функції, аналітика
-                "api.js",  # Зв'язок із сайтом: всі fetch-запити
-                "ui.js",  # Інтерфейс: відмальовка меню та кнопок
-                "sender.js",  # Мотор: логіка розсилки інвайтів та листів
-                "radar.js"  # Слухач: сокети, автовідповідач, VIP-радар
-            ]
 
-            if team == "fs":
-                modules = ["smart_search.js", "payload-fs.js"]
+    # 🛑 ПРАВИЛЬНА ОБРОБКА ПОМИЛКИ ДОСТУПУ (HTTP 401)
+    if not success:
+        return Response(
+            content=json.dumps({"status": "error", "message": msg or "Invalid key or HWID"}),
+            media_type="application/json",
+            status_code=401
+        )
 
-                # 🔥 ІНІЦІАЛІЗУЄМО ФАНТОМА ДО ЗАВАНТАЖЕННЯ МОДУЛІВ
-            raw_js = """
-            if (!window._alphaPhantom) {
-                Object.defineProperty(window, '_alphaPhantom', {
-                    value: {}, enumerable: false, writable: true
-                });
-            }
-            """
+    try:
+        modules = [
+            "smart_search.js",
+            "bday_radar.js",
+            "core.js",
+            "api.js",
+            "ui.js",
+            "sender.js",
+            "radar.js"
+        ]
 
-            # 2. По черзі читаємо кожен файл і склеюємо їх
-            for module in modules:
-                file_path = os.path.join(BASE_DIR, module)
-                if os.path.exists(file_path):
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        # Додаємо коментар-розділювач для зручності дебагу в браузері
-                        raw_js += f"\n\n// ==========================================\n"
-                        raw_js += f"// --- MODULE: {module} ---\n"
-                        raw_js += f"// ==========================================\n\n"
-                        raw_js += f.read()
-                else:
-                    print(f"[УВАГА] Файл модуля не знайдено: {module}")
+        if team == "fs":
+            modules = ["smart_search.js", "payload-fs.js"]
 
-                    # 3. Ховаємо код у невидиму капсулу (IIFE) та шифруємо (без f-string!)
-                    stealth_js = "(function() {\n" + raw_js + "\n})();"
-                    encrypted_js = encrypt_payload(stealth_js, key)
+        # 🔥 СТВОРЮЄМО ФАНТОМА ДО ЗАВАНТАЖЕННЯ ІНШИХ МОДУЛІВ
+        raw_js = """
+if (!window._alphaPhantom) {
+    Object.defineProperty(window, '_alphaPhantom', {
+        value: {}, enumerable: false, writable: true
+    });
+}
+"""
+        for module in modules:
+            file_path = os.path.join(BASE_DIR, module)
+            if os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    raw_js += f"\n\n// ==========================================\n"
+                    raw_js += f"// --- MODULE: {module} ---\n"
+                    raw_js += f"// ==========================================\n\n"
+                    raw_js += f.read()
+            else:
+                print(f"[УВАГА] Файл модуля не знайдено: {module}")
 
-                    return Response(content=encrypted_js, media_type="text/plain")
+        # 🛡️ БЕЗПЕЧНА ОБГОРТКА ТА ШИФРУВАННЯ (БЕЗ f-string!)
+        stealth_js = "(function() {\n" + raw_js + "\n})();"
+        encrypted_js = encrypt_payload(stealth_js, key)
 
-        except Exception as e:
-            print(f"[ERROR] Помилка читання або шифрування модулів: {e}")
-            return Response(content="console.error('Payload compilation error');", media_type="application/javascript")
+        return Response(content=encrypted_js, media_type="text/plain")
 
-    return Response(content="console.error('Access Denied');", media_type="application/javascript")
+    except Exception as e:
+        print(f"[ERROR] Помилка збірки пейлоаду: {e}")
+        # 🛑 ПРАВИЛЬНА ОБРОБКА ВНУТРІШНЬОЇ ПОМИЛКИ (HTTP 500)
+        return Response(
+            content=json.dumps({"status": "error", "message": "Internal Server Error"}),
+            media_type="application/json",
+            status_code=500
+        )
 
 
 def encrypt_payload(payload: str, key: str) -> str:
