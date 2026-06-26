@@ -500,7 +500,7 @@ function setupUIEvents(overlay, galleryModal) {
         toggleTrackBday.classList.toggle("active", bdaySet.enabled);
         bdayBlock.style.opacity = bdaySet.enabled ? "1" : "0.5";
         bdayBlock.style.pointerEvents = bdaySet.enabled ? "auto" : "none";
-        localStorage.setItem("alpha_bday_config"window._alphaPhantom.shadow.getElementById( JSON.stringify(bdaySet));
+        localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
         if (!bdaySet.enabled) document.querySelectorAll('.alpha-bday-dot, .alpha-bday-num').forEach(d => d.remove());
     };
 
