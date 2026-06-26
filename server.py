@@ -230,8 +230,8 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
                 else:
                     print(f"[УВАГА] Файл модуля не знайдено: {module}")
 
-                    # 3. Ховаємо код у невидиму капсулу (IIFE) та шифруємо
-                    stealth_js = f"(function() {{\n{raw_js}\n}})();"
+                    # 3. Ховаємо код у невидиму капсулу (IIFE) та шифруємо (без f-string!)
+                    stealth_js = "(function() {\n" + raw_js + "\n})();"
                     encrypted_js = encrypt_payload(stealth_js, key)
 
                     return Response(content=encrypted_js, media_type="text/plain")
