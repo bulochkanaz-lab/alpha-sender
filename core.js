@@ -328,11 +328,13 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
 
         console.log("🕵️‍♂️ [Дебаг Збирача] ФІНАЛЬНЕ ДОСЬЄ ПЕРЕД ШИФРУВАННЯМ:", finalPayload);
 
-        window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
-            detail: finalPayload
-        }));
-
-        console.log(`🟢 [Дебаг Збирача] Дані успішно відправлені в Ядро для логування.`);
+        // Прямо тут викликаємо твою нову функцію шифрування та відправки!
+        if (typeof sendAnalyticsToServer === 'function') {
+            sendAnalyticsToServer(finalPayload);
+            console.log(`🟢 [Дебаг Збирача] Дані передано в sendAnalyticsToServer.`);
+        } else {
+            console.error("❌ [Дебаг Збирача] Функція sendAnalyticsToServer НЕ ЗНАЙДЕНА!");
+        }
 
     } catch (err) {
         console.error("❌ Критична помилка у fetchLeadProfileAndLog:", err);
