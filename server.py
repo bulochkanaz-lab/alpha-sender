@@ -342,7 +342,12 @@ async def log_invite(stealth_req: StealthLogRequest):
                     VALUES (?, ?, ?)
                 """, (request.chat_uid, key, final_text_to_log))
 
+
         elif request.action == "reply" and request.chat_uid:
+
+            print(f"\n🚨 [СЕРВЕР] Зайшли в гілку REPLY. Мужик ID: {request.profile_id}")
+            print(f"📦 [СЕРВЕР] Дані анкети (JSON): {request.woman_profile_json[:100] if request.woman_profile_json else 'Немає'}")
+
             print(f"🛠 [Сервер Дебаг] Отримано запит 'reply' для чату: {request.chat_uid}")
 
             # Робимо SELECT до бази лише один раз!
@@ -371,8 +376,9 @@ async def log_invite(stealth_req: StealthLogRequest):
                     (access_key, chat_uid, woman_id, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, man_profile_json)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (key, request.chat_uid, request.woman_id, request.profile_id, current_invite_text,
-                      request.lead_age, request.lead_country, request.lead_interests,
-                      request.lead_bio, request.lead_photo, request.man_profile_json))
+                    request.lead_age, request.lead_country, request.lead_interests,
+                    request.lead_bio, request.lead_photo, request.man_profile_json))
+                print("✅ [СЕРВЕР] Запис досьє мужика в базу пройшов успішно!")  # 👈 ДОДАТИ ЦЕ
 
             # ---------------------------------------------------------------------
             # КРОК Б: ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ

