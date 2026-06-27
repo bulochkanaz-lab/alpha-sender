@@ -441,16 +441,29 @@ function injectBotUI() {
 }
 
 function setupUIEvents(overlay, galleryModal) {
-    const tabs = [
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnSettings"), content: window._alphaPhantom.shadow.getElementById("tabContentSettings") },
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnInvites"), content: window._alphaPhantom.shadow.getElementById("tabContentInvites") },
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnLetters"), content: window._alphaPhantom.shadow.getElementById("tabContentLetters") },
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnWinks"), content: window._alphaPhantom.shadow.getElementById("tabContentWinks") },
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnVip"), content: window._alphaPhantom.shadow.getElementById("tabContentVip") },
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnGallery"), content: window._alphaPhantom.shadow.getElementById("tabContentGallery") },
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnOther"), content: window._alphaPhantom.shadow.getElementById("tabContentOther") }, // 👈 Нова вкладка ІНШЕ (Індекс 6)
-       { btn: window._alphaPhantom.shadow.getElementById("tabBtnStats"), content: window._alphaPhantom.shadow.getElementById("tabContentStats") }  // (Індекс 7)
+    // ==================== ЗАХИСНА ПЕРЕВІРКА ====================
+    if (!window._alphaPhantom || !window._alphaPhantom.shadow) {
+        console.error("[Alpha Sender] window._alphaPhantom.shadow не готовий. setupUIEvents скасовано.");
+        return;
+    }
+
+    const shadow = window._alphaPhantom.shadow;
+
+    // ==================== ТАБИ ====================
+    // Спочатку збираємо всі можливі таби, даючи їм внутрішні ID
+    const allTabs = [
+        { id: "Settings", btn: shadow.getElementById("tabBtnSettings"), content: shadow.getElementById("tabContentSettings") },
+        { id: "Invites",  btn: shadow.getElementById("tabBtnInvites"),  content: shadow.getElementById("tabContentInvites") },
+        { id: "Letters",  btn: shadow.getElementById("tabBtnLetters"),  content: shadow.getElementById("tabContentLetters") },
+        { id: "Winks",    btn: shadow.getElementById("tabBtnWinks"),    content: shadow.getElementById("tabContentWinks") },
+        { id: "Vip",      btn: shadow.getElementById("tabBtnVip"),      content: shadow.getElementById("tabContentVip") },
+        { id: "Gallery",  btn: shadow.getElementById("tabBtnGallery"),  content: shadow.getElementById("tabContentGallery") },
+        { id: "Other",    btn: shadow.getElementById("tabBtnOther"),    content: shadow.getElementById("tabContentOther") },
+        { id: "Stats",    btn: shadow.getElementById("tabBtnStats"),    content: shadow.getElementById("tabContentStats") }
     ];
+
+    // Фільтруємо тільки ті, які реально існують в HTML
+    const tabs = allTabs.filter(tab => tab.btn && tab.content);
 
     function switchMainTab(activeTabBtn) {
        tabs.forEach((tab) => {
@@ -465,17 +478,25 @@ function setupUIEvents(overlay, galleryModal) {
        }
     }
 
-    tabs[0].btn.onclick = () => switchMainTab(tabs[0].btn);
-    tabs[1].btn.onclick = () => switchMainTab(tabs[1].btn);
-    tabs[2].btn.onclick = () => switchMainTab(tabs[2].btn);
-    tabs[3].btn.onclick = () => { switchMainTab(tabs[3].btn); loadProfilesForUI(); };
-    tabs[4].btn.onclick = async () => { switchMainTab(tabs[4].btn); await loadProfilesForUI(); renderVipRules(); };
-    tabs[5].btn.onclick = () => switchMainTab(tabs[5].btn);
-    tabs[6].btn.onclick = () => switchMainTab(tabs[6].btn); // Вкладка Інше
-    tabs[7].btn.onclick = () => switchMainTab(tabs[7].btn); // Вкладка Статистика
+    // Динамічно вішаємо кліки (тепер нам байдуже, який у них індекс [0] чи [5])
+    tabs.forEach(tab => {
+        tab.btn.onclick = async () => {
+            switchMainTab(tab.btn);
+
+            // Якщо це вкладки, яким треба завантажити анкети
+            if (tab.id === "Winks" || tab.id === "Vip") {
+                if (typeof loadProfilesForUI === 'function') await loadProfilesForUI();
+            }
+
+            // Специфіка для VIP
+            if (tab.id === "Vip" && typeof window._alphaPhantom.renderVipRules === 'function') {
+                window._alphaPhantom.renderVipRules();
+            }
+        };
+    });
 
     // --- ЛОГІКА ТУМБЛЕРА САЙТУ ---
-    const toggleInput = window._alphaPhantom.shadow.getElementById("uiUseSiteToggle");
+    const toggleInput = shadow.getElementById("uiUseSiteToggle");
     const toggleTrack = window._alphaPhantom.shadow.getElementById("uiToggleTrack");
 
     function updateToggleVisuals(isSite) {
