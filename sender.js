@@ -164,7 +164,7 @@ async function startSendingProcess() {
 
                              logInviteAnalytics(template.message_content, "sent", smartUid);
                              markChatAsInvited(smartUid);
-                             console.log(`🛠 [Дебаг Відправки BATCH] Ключ: ${smartUid}`);
+                             //console.log(`🛠 [Дебаг Відправки BATCH] Ключ: ${smartUid}`);
                          }
 
                          if (t < inviteTemplates.length - 1 && isRunning) await sleep(2000);
