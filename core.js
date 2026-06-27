@@ -5,20 +5,6 @@
 let isRunning = false;
 let botLoopTimer = null;
 
-// Змінні для автовідповідача
-let currentSelectedProfile = null;
-let currentSelectedTab = "like";
-let currentWinkPhrase = "default";
-const winkPhrases = [
-    { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
-    { id: "Send a wink 😉", text: "Send a wink 😉" },
-    { id: "I would like to know more about you!", text: "I would like to know more about you!" },
-    { id: "Tell me more about yourself", text: "Tell me more about yourself" },
-    { id: "How is your day going?", text: "How is your day going?" },
-    { id: "What are you up to?", text: "What are you up to?" },
-    { id: "Don't you mind talking a bit?", text: "Don't you mind talking a bit?" }
-];
-
 // Глобальна пам'ять для захисту від дублів в автовідповідачі
 const autoReplyLocks = new Set();
 
