@@ -306,27 +306,15 @@ window.addEventListener("AlphaPing", (e) => {
 // Слухач для відправки аналітики (щоб обійти блокування HTTPS)
 window.addEventListener("AlphaAnalyticsLog", (e) => {
     const data = e.detail;
-
-    console.log("[Content] Отримано AlphaAnalyticsLog. action:", data?.action, "chat_uid:", data?.chat_uid);
-
     try {
-        if (!chrome || !chrome.runtime || !chrome.runtime.id) {
-            console.warn("[Content] chrome.runtime недоступний");
-            return;
-        }
+        if (!chrome || !chrome.runtime || !chrome.runtime.id) return;
 
         chrome.runtime.sendMessage({
             action: "sendAnalytics",
             data: data
-        }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error("[Content] Помилка sendMessage:", chrome.runtime.lastError.message);
-            } else {
-                console.log("[Content] Аналітика успішно відправлена у background");
-            }
         });
     } catch (err) {
-        console.error("[Content] Помилка відправки аналітики у фон:", err);
+        console.error("Помилка відправки аналітики у фон:", err);
     }
 });
 
