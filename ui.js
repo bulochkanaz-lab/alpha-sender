@@ -1,4 +1,20 @@
 // ==========================================
+// ГЛОБАЛЬНИЙ СТАН UI
+// ==========================================
+let currentSelectedProfile = null;
+let currentSelectedTab = "like";
+let currentWinkPhrase = "default";
+const winkPhrases = [
+    { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
+    { id: "Send a wink 😉", text: "Send a wink 😉" },
+    { id: "I would like to know more about you!", text: "I would like to know more about you!" },
+    { id: "Tell me more about yourself", text: "Tell me more about yourself" },
+    { id: "How is your day going?", text: "How is your day going?" },
+    { id: "What are you up to?", text: "What are you up to?" },
+    { id: "Don't you mind talking a bit?", text: "Don't you mind talking a bit?" }
+];
+
+// ==========================================
 // UI ІНТЕРФЕЙС (Візуал, кнопки, модальні вікна)
 // ==========================================
 
@@ -828,32 +844,37 @@ function setupUIEvents(overlay, galleryModal) {
         });
     };
 
+    // --- ГЛОБАЛЬНИЙ СЕЛЕКТОР АНКЕТ (Shadow DOM Fix) ---
     const gsBtn = window._alphaPhantom.shadow.getElementById("alphaGsBtn");
+    const gsDropdown = window._alphaPhantom.shadow.getElementById("alphaGsDropdown");
+
     if (gsBtn) {
-        gsBtn.onclick = () => {
-            const dp = window._alphaPhantom.shadow.getElementById("alphaGsDropdown");
+        gsBtn.onclick = (e) => {
+            e.stopPropagation(); // ❗️ Блокуємо клік, щоб він не вилетів у document
             const arr = window._alphaPhantom.shadow.getElementById("alphaGsArrow");
             const searchInput = window._alphaPhantom.shadow.getElementById("alphaGsSearchInput");
-            if (dp.style.display === "flex") {
-                dp.style.display = "none";
+            if (gsDropdown.style.display === "flex") {
+                gsDropdown.style.display = "none";
                 arr.style.transform = "rotate(0deg)";
             } else {
-                dp.style.display = "flex";
+                gsDropdown.style.display = "flex";
                 arr.style.transform = "rotate(180deg)";
                 if (searchInput) searchInput.focus();
             }
         };
     }
 
-    document.addEventListener("click", (e) => {
-        const selectorBlock = window._alphaPhantom.shadow.getElementById("alphaGlobalSelector");
-        if (selectorBlock && !selectorBlock.contains(e.target)) {
-            const dp = window._alphaPhantom.shadow.getElementById("alphaGsDropdown");
+    if (gsDropdown) {
+        // Щоб клік по самому меню (наприклад, коли ти пишеш у пошук) не закривав його
+        gsDropdown.onclick = (e) => e.stopPropagation();
+    }
+
+    // Клік будь-де на сторінці гарантовано закриє меню
+    document.addEventListener("click", () => {
+        if (gsDropdown && gsDropdown.style.display === "flex") {
             const arr = window._alphaPhantom.shadow.getElementById("alphaGsArrow");
-            if (dp && dp.style.display === "flex") {
-                dp.style.display = "none";
-                if(arr) arr.style.transform = "rotate(0deg)";
-            }
+            gsDropdown.style.display = "none";
+            if(arr) arr.style.transform = "rotate(0deg)";
         }
     });
 
