@@ -1355,12 +1355,36 @@ function renderCustomLetters() {
        textSpan.className = "alpha-msg-text";
        contentDiv.appendChild(textSpan);
 
-       // Красивий чіп для прикріплених фото
+       // Показуємо мініатюри прикріплених фотографій
        if (item.attachments && item.attachments.length > 0) {
-          const attSpan = document.createElement("div");
-          attSpan.className = "alpha-attachment-chip";
-          attSpan.innerHTML = `📷 Прикріплено фото (${item.attachments.length})`;
-          contentDiv.appendChild(attSpan);
+          const attWrapper = document.createElement("div");
+          // Контейнер з легкою рамкою для фото
+          attWrapper.style.cssText = `display: flex; align-items: center; gap: 10px; margin-top: 10px; background: #f8f9fa; padding: 6px 10px; border-radius: 8px; border: 1px dashed #cdd5df; width: fit-content;`;
+
+          const iconLabel = document.createElement("div");
+          iconLabel.innerHTML = `📷 <span style="font-size: 11px; color: #666; font-weight: bold;">(${item.attachments.length})</span>`;
+          iconLabel.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid #ddd; padding-right: 10px;`;
+          attWrapper.appendChild(iconLabel);
+
+          const imgRow = document.createElement("div");
+          imgRow.style.cssText = `display: flex; gap: 6px; flex-wrap: wrap;`;
+
+          // Відмальовуємо кожне фото
+          item.attachments.forEach(att => {
+              const img = document.createElement("img");
+              img.src = att.link; // Беремо лінк на фотографію
+              img.style.cssText = `width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: 0.2s;`;
+              img.title = "Прикріплене фото";
+
+              // Легкий ефект збільшення при наведенні мишки
+              img.onmouseover = () => img.style.transform = "scale(1.1)";
+              img.onmouseout = () => img.style.transform = "scale(1)";
+
+              imgRow.appendChild(img);
+          });
+
+          attWrapper.appendChild(imgRow);
+          contentDiv.appendChild(attWrapper);
        }
 
        const controlsDiv = document.createElement("div");
