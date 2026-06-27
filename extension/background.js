@@ -100,13 +100,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "sendAnalytics") {
-        // Фоновий скрипт має право слати HTTP запити
-        fetch('http://178.105.190.180:8001/api/analytics/log_invite', {
+        const targetUrl = 'http://178.105.190.180:8001/api/v2/met'; // 🔥 ВИПРАВЛЕНИЙ URL
+        console.log(`[🚀 КЛІЄНТ] Відправка аналітики на ${targetUrl}`);
+        console.log(`[📦 КЛІЄНТ] Розмір Payload:`, request.data.payload ? request.data.payload.length : 'Немає payload');
+
+        fetch(targetUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(request.data)
         })
-            .catch(err => console.error("Помилка відправки аналітики на бекенд:", err));
+            .then(async res => {
+                const status = res.status;
+                const text = await res.text();
+                console.log(`[📥 ВІДПОВІДЬ] Статус: ${status}. Текст:`, text);
+            })
+            .catch(err => console.error("❌ [КЛІЄНТ] Помилка мережі (Аналітика):", err));
 
         sendResponse({ status: "ok" });
         return true;
