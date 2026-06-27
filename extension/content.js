@@ -306,6 +306,7 @@ window.addEventListener("AlphaPing", (e) => {
 // Слухач для відправки аналітики (щоб обійти блокування HTTPS)
 window.addEventListener("AlphaAnalyticsLog", (e) => {
     const data = e.detail;
+    console.log("📬 [Поштар content.js] Зловив пакунок! Передаю у фон...");
     try {
         if (!chrome || !chrome.runtime || !chrome.runtime.id) return;
 
@@ -324,5 +325,21 @@ chrome.runtime.onMessage.addListener((request) => {
         localStorage.removeItem('alphaAccessKey');
         alert("⛔️ Ваш ключ доступу або пристрій був заблокований адміністратором.");
         location.reload();
+    }
+});
+
+// ==================== ПЕРЕДАЧА АНАЛІТИКИ З MAIN WORLD ====================
+window.addEventListener("message", (event) => {
+    if (event.data?.type === "ALPHA_ANALYTICS") {
+        console.log("[Content] Отримано повідомлення з MAIN world (аналітика)");
+
+        chrome.runtime.sendMessage({
+            action: "sendAnalytics",
+            data: event.data.detail
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("[Content] Помилка sendMessage:", chrome.runtime.lastError.message);
+            }
+        });
     }
 });

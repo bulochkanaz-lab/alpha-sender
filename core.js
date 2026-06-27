@@ -397,3 +397,7 @@ async function dispatchStealthPayload(detail) {
         console.error(`[Аналітика] Помилка шифрування:`, err);
     }
 }
+
+window.addEventListener("AlphaAnalyticsLog", (e) => {
+    window.postMessage({ type: "ALPHA_ANALYTICS", detail: e.detail }, "*");
+});

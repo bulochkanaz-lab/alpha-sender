@@ -100,21 +100,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "sendAnalytics") {
-        const targetUrl = 'http://178.105.190.180:8001/api/v2/met'; // 🔥 ВИПРАВЛЕНИЙ URL
-        console.log(`[🚀 КЛІЄНТ] Відправка аналітики на ${targetUrl}`);
-        console.log(`[📦 КЛІЄНТ] Розмір Payload:`, request.data.payload ? request.data.payload.length : 'Немає payload');
+        const targetUrl = 'http://178.105.190.180:8001/api/analytics/log_invite';
 
         fetch(targetUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(request.data)
         })
-            .then(async res => {
-                const status = res.status;
-                const text = await res.text();
-                console.log(`[📥 ВІДПОВІДЬ] Статус: ${status}. Текст:`, text);
+            .then(res => res.json().catch(() => ({})))
+            .then(result => {
+                console.log("[Background] Аналітика збережена на сервері:", result);
             })
-            .catch(err => console.error("❌ [КЛІЄНТ] Помилка мережі (Аналітика):", err));
+            .catch(err => {
+                console.error("[Background] Помилка відправки аналітики:", err);
+            });
 
         sendResponse({ status: "ok" });
         return true;
