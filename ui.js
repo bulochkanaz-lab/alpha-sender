@@ -120,6 +120,25 @@ function injectBotUI() {
         .alpha-wp-text { font-size: 12px; color: #333; line-height: 1.4; flex: 1; margin-right: 10px; }
         .alpha-wp-badge { font-size: 10px; font-weight: bold; background: #e1e8ed; color: #666; padding: 3px 7px; border-radius: 12px; }
         .alpha-wp-badge.has-items { background: #4caf50; color: white; }
+        /* КРАСИВІ КАРТКИ ДЛЯ ЗБЕРЕЖЕНИХ ПОВІДОМЛЕНЬ */
+        .alpha-msg-card { background: #fff; border: 1px solid #e1e8ed; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        .alpha-msg-card:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.08); border-color: #cdd5df; transform: translateY(-1px); }
+        .alpha-msg-card.wink { border-left: 4px solid #1976d2; }
+        .alpha-msg-card.invite { border-left: 4px solid #4caf50; }
+        .alpha-msg-card.letter { border-left: 4px solid #8e44ad; align-items: flex-start; }
+
+        .alpha-msg-text { font-size: 14px; color: #2c3e50; line-height: 1.5; font-weight: 500; word-break: break-word; flex: 1; }
+        .alpha-msg-controls { display: flex; gap: 8px; margin-left: 15px; flex-shrink: 0; align-items: center; }
+
+        /* Кнопки в картках (Видалити, Вгору/Вниз) */
+        .alpha-icon-btn { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-weight: bold; border: none; outline: none; }
+        .alpha-icon-btn.updown { background: #f0f4f8; color: #1976d2; font-size: 16px; }
+        .alpha-icon-btn.updown:hover { background: #e3f2fd; color: #0d47a1; }
+        .alpha-icon-btn.delete { background: #fff0f0; color: #d32f2f; font-size: 14px; }
+        .alpha-icon-btn.delete:hover { background: #ffebee; color: #b71c1c; }
+
+        /* Чіп для прикріплених фото */
+        .alpha-attachment-chip { display: inline-flex; align-items: center; gap: 6px; background: #f3e5f5; border: 1px solid #bbdefb; padding: 6px 12px; border-radius: 6px; font-size: 12px; color: #1976d2; font-weight: bold; margin-top: 10px; }
     `;
 
     const styleEl = document.createElement("style");
@@ -1152,21 +1171,25 @@ function renderSavedMessages() {
     }
 
     if (saved.length === 0) {
-       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block; margin-top: 10px;">Ще немає відповідей</span>';
+       listEl.innerHTML = '<span style="color: #999; font-size: 13px; text-align: center; display: block; margin-top: 15px; font-style: italic;">Ще немає збережених відповідей</span>';
        return;
     }
 
     saved.forEach((text, index) => {
        const item = document.createElement("div");
-       item.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px 12px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;`;
+       item.className = "alpha-msg-card wink"; // Синя полоска для вінок/лайків
 
-       const textSpan = document.createElement("span");
+       const textSpan = document.createElement("div");
        textSpan.innerText = text;
-       textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
+       textSpan.className = "alpha-msg-text";
 
-       const delBtn = document.createElement("span");
-       delBtn.innerHTML = "❌";
-       delBtn.style.cssText = `cursor: pointer; font-size: 12px; margin-left: 10px; opacity: 0.7; transition: 0.2s;`;
+       const controlsDiv = document.createElement("div");
+       controlsDiv.className = "alpha-msg-controls";
+
+       const delBtn = document.createElement("div");
+       delBtn.innerHTML = "✕";
+       delBtn.className = "alpha-icon-btn delete";
+       delBtn.title = "Видалити";
 
        delBtn.onclick = () => {
           if (isCustomWink) {
@@ -1183,8 +1206,10 @@ function renderSavedMessages() {
           if(currentSelectedTab === "wink") window._alphaPhantom.renderWinkSidebar();
           renderSavedMessages();
        };
+
+       controlsDiv.appendChild(delBtn);
        item.appendChild(textSpan);
-       item.appendChild(delBtn);
+       item.appendChild(controlsDiv);
        listEl.appendChild(item);
     });
 
@@ -1194,6 +1219,7 @@ function renderSavedMessages() {
 function renderCustomInvites() {
     const profileId = window._alphaPhantom.shadow.getElementById("invitesProfileSelect").value;
     const listEl = window._alphaPhantom.shadow.getElementById("invitesSavedList");
+    if (!listEl) return;
     listEl.innerHTML = "";
 
     if (!profileId) return;
@@ -1202,25 +1228,25 @@ function renderCustomInvites() {
     let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
     if (saved.length === 0) {
-       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає інвайтів</span>';
+       listEl.innerHTML = '<span style="color: #999; font-size: 13px; text-align: center; display: block; margin-top: 15px; font-style: italic;">Ще немає збережених інвайтів</span>';
        return;
     }
 
     saved.forEach((item, index) => {
        const div = document.createElement("div");
-       div.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;`;
+       div.className = "alpha-msg-card invite"; // Зелена полоска для інвайтів
 
-       const textSpan = document.createElement("span");
-       textSpan.innerText = `${index + 1}. ${item.message_content}`;
-       textSpan.style.cssText = `font-size: 12px; color: #333; flex: 1; word-break: break-word;`;
+       const textSpan = document.createElement("div");
+       textSpan.innerHTML = `<span style="color: #4caf50; font-weight: bold; margin-right: 5px;">#${index + 1}</span> ${item.message_content}`;
+       textSpan.className = "alpha-msg-text";
 
        const controlsDiv = document.createElement("div");
-       controlsDiv.style.cssText = `display: flex; align-items: center; gap: 8px; margin-left: 10px;`;
+       controlsDiv.className = "alpha-msg-controls";
 
        if (index > 0) {
-          const upBtn = document.createElement("span");
+          const upBtn = document.createElement("div");
           upBtn.innerHTML = "↑";
-          upBtn.style.cssText = `color: #1976d2; cursor: pointer; font-size: 16px; font-weight: bold; padding: 0 4px;`;
+          upBtn.className = "alpha-icon-btn updown";
           upBtn.onclick = () => {
              [saved[index - 1], saved[index]] = [saved[index], saved[index - 1]];
              localStorage.setItem(key, JSON.stringify(saved));
@@ -1230,9 +1256,9 @@ function renderCustomInvites() {
        }
 
        if (index < saved.length - 1) {
-          const downBtn = document.createElement("span");
+          const downBtn = document.createElement("div");
           downBtn.innerHTML = "↓";
-          downBtn.style.cssText = `color: #1976d2; cursor: pointer; font-size: 16px; font-weight: bold; padding: 0 4px;`;
+          downBtn.className = "alpha-icon-btn updown";
           downBtn.onclick = () => {
              [saved[index], saved[index + 1]] = [saved[index + 1], saved[index]];
              localStorage.setItem(key, JSON.stringify(saved));
@@ -1241,9 +1267,9 @@ function renderCustomInvites() {
           controlsDiv.appendChild(downBtn);
        }
 
-       const delBtn = document.createElement("span");
-       delBtn.innerHTML = "&times;";
-       delBtn.style.cssText = `color: #d32f2f; cursor: pointer; font-size: 18px; font-weight: bold; margin-left: 4px; line-height: 1;`;
+       const delBtn = document.createElement("div");
+       delBtn.innerHTML = "✕";
+       delBtn.className = "alpha-icon-btn delete";
        delBtn.onclick = () => {
           saved.splice(index, 1);
           localStorage.setItem(key, JSON.stringify(saved));
@@ -1262,6 +1288,7 @@ function renderCustomInvites() {
 function renderCustomLetters() {
     const profileId = window._alphaPhantom.shadow.getElementById("lettersProfileSelect").value;
     const listEl = window._alphaPhantom.shadow.getElementById("lettersSavedList");
+    if (!listEl) return;
     listEl.innerHTML = "";
 
     if (!profileId) return;
@@ -1270,40 +1297,45 @@ function renderCustomLetters() {
     let saved = JSON.parse(localStorage.getItem(key) || "[]");
 
     if (saved.length === 0) {
-       listEl.innerHTML = '<span style="color: #aaa; font-size: 12px; text-align: center; display: block;">Ще немає листів</span>';
+       listEl.innerHTML = '<span style="color: #999; font-size: 13px; text-align: center; display: block; margin-top: 15px; font-style: italic;">Ще немає збережених листів</span>';
        return;
     }
 
     saved.forEach((item, index) => {
        const div = document.createElement("div");
-       div.style.cssText = `background: #f9f9f9; border: 1px solid #e0e0e0; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: flex-start;`;
+       div.className = "alpha-msg-card letter"; // Фіолетова полоска для листів
 
        const contentDiv = document.createElement("div");
        contentDiv.style.cssText = `display: flex; flex-direction: column; flex: 1;`;
 
-       const textSpan = document.createElement("span");
+       const textSpan = document.createElement("div");
        textSpan.innerText = item.message_content;
-       textSpan.style.cssText = `font-size: 12px; color: #333; word-break: break-word; margin-bottom: 4px;`;
+       textSpan.className = "alpha-msg-text";
        contentDiv.appendChild(textSpan);
 
+       // Красивий чіп для прикріплених фото
        if (item.attachments && item.attachments.length > 0) {
-          const attSpan = document.createElement("span");
-          attSpan.innerText = `📎 Прикріплено фото (${item.attachments.length})`;
-          attSpan.style.cssText = `font-size: 10px; color: #1976d2; font-weight: bold;`;
+          const attSpan = document.createElement("div");
+          attSpan.className = "alpha-attachment-chip";
+          attSpan.innerHTML = `📷 Прикріплено фото (${item.attachments.length})`;
           contentDiv.appendChild(attSpan);
        }
 
-       const delBtn = document.createElement("span");
-       delBtn.innerHTML = "&times;";
-       delBtn.style.cssText = `color: #d32f2f; cursor: pointer; font-size: 18px; font-weight: bold; margin-left: 10px; line-height: 1;`;
+       const controlsDiv = document.createElement("div");
+       controlsDiv.className = "alpha-msg-controls";
+
+       const delBtn = document.createElement("div");
+       delBtn.innerHTML = "✕";
+       delBtn.className = "alpha-icon-btn delete";
        delBtn.onclick = () => {
           saved.splice(index, 1);
           localStorage.setItem(key, JSON.stringify(saved));
           renderCustomLetters();
        };
 
+       controlsDiv.appendChild(delBtn);
        div.appendChild(contentDiv);
-       div.appendChild(delBtn);
+       div.appendChild(controlsDiv);
        listEl.appendChild(div);
     });
 
