@@ -1,10 +1,10 @@
 // ==========================================
 // ГЛОБАЛЬНИЙ СТАН UI
 // ==========================================
-let currentSelectedProfile = null;
-let currentSelectedTab = "like";
-let currentWinkPhrase = "default";
-const winkPhrases = [
+var currentSelectedProfile = null;
+var currentSelectedTab = "like";
+var currentWinkPhrase = "default";
+var winkPhrases = [
     { id: "default", text: "✨ Стандартна (на будь-яку іншу)" },
     { id: "Send a wink 😉", text: "Send a wink 😉" },
     { id: "I would like to know more about you!", text: "I would like to know more about you!" },

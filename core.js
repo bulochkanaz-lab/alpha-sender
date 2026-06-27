@@ -1,12 +1,11 @@
-
 // ==========================================
 // ГЛОБАЛЬНІ ЗМІННІ ТА СТАН БОТА
 // ==========================================
-let isRunning = false;
-let botLoopTimer = null;
+var isRunning = false;
+var botLoopTimer = null;
 
 // Глобальна пам'ять для захисту від дублів в автовідповідачі
-const autoReplyLocks = new Set();
+var autoReplyLocks = new Set();
 
 // ==========================================
 // СЛОВНИК ПЕРЕКЛАДІВ
