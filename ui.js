@@ -59,7 +59,7 @@ function showSystemAlert(title, text, color = "#4caf50") {
 }
 
 function injectBotUI() {
-    if (window._alphaPhantom.shadow.getElementById("alpha-sender-overlay")) return;
+    if (document.getElementById("alpha-phantom-host")) return;
 
     const styles = `
         #alpha-sender-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); z-index: 999999; display: none; align-items: center; justify-content: center; font-family: 'Segoe UI', Tahoma, sans-serif; }
@@ -1382,7 +1382,7 @@ function checkBotMemory() {
 
 function injectMenuButton() {
     const menuList = document.querySelector('[data-testid="bottom-menu-list"]');
-    if (menuList && !window._alphaPhantom.shadow.getElementById("alpha-sender-menu-btn")) {
+    if (menuList && !document.getElementById("alpha-sender-menu-btn")) {
        const settingBtn = document.createElement("div");
        settingBtn.id = "alpha-sender-menu-btn";
        const firstItem = menuList.querySelector("div");
