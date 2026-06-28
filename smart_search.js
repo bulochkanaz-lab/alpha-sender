@@ -227,7 +227,7 @@ class SmartSearch {
                         }
                     });
                     page++;
-                    this.updateInternalProgress(Math.min(page * 5, 95));
+                    this.updateInternalProgress(Math.min(Math.floor(95 * (1 - Math.pow(0.9, page))), 95));
                 } else {
                     hasMore = false;
                 }
@@ -379,4 +379,4 @@ class SmartSearch {
     }
 }
 
-window.alphaSmartSearch = new SmartSearch();
+window._alphaPhantom.alphaSmartSearch = new SmartSearch();

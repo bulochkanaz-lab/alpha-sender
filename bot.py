@@ -130,6 +130,19 @@ async def process_toggle_ban(message: types.Message, state: FSMContext):
 
 
 # ==========================================
+# ЛОГІКА МАСОВОГО СКИДАННЯ HWID
+# ==========================================
+@dp.message(F.text == "🧨 Скинути ВСІ HWID одночасно")
+async def process_reset_all_hwids(message: types.Message):
+    if not is_admin(message.from_user.id): return
+
+    updated_count = database.reset_all_hwids()
+    await message.answer(
+        f"✅ Масове скидання успішне!\nПрив'язку до пристрою скасовано для <b>{updated_count}</b> ключів.",
+        parse_mode="HTML"
+    )
+
+# ==========================================
 # ЛОГІКА СКИНУТИ HWID
 # ==========================================
 @dp.message(F.text == "🔄 Скинути HWID")

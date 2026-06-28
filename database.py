@@ -25,11 +25,74 @@ def init_db():
     )
     """)
 
-    # ДОДАЛИ ЦЕЙ БЛОК: Безпечно додаємо колонку до вже існуючої таблиці
+    # Колонка для зберігання наказів (C&C)
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN pending_config TEXT")
+    except sqlite3.OperationalError:
+        pass  # Якщо колонка вже є
+
+    # Колонки для статистики та онлайну
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN stats_invites INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE keys ADD COLUMN stats_letters INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE keys ADD COLUMN last_ping TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass  # Якщо колонки вже є
+
+    # Безпечно додаємо колонку hwid до вже існуючої таблиці
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
     except sqlite3.OperationalError:
         pass  # Якщо колонка вже є, нічого не робимо
+
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНАЛІТИКИ ТЕКСТІВ ІНВАЙТІВ (ВИРІВНЯНО ВІДСТУП)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS invite_analytics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        access_key TEXT,
+        invite_text TEXT,
+        sent_count INTEGER DEFAULT 0,
+        reply_count INTEGER DEFAULT 0,
+        UNIQUE(access_key, invite_text)
+    )
+    """)
+
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ "КВИТКІВ" (ВИРІВНЯНО ВІДСТУП)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pending_invites (
+        chat_uid TEXT PRIMARY KEY,
+        access_key TEXT,
+        invite_text TEXT
+    )
+    """)
+
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНКЕТ (ОНОВЛЮЄТЬСЯ РАЗ НА 14 ДНІВ)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS woman_profiles (
+            woman_id TEXT PRIMARY KEY,
+            profile_json TEXT,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ ДОСЬЄ МУЖИКІВ (ЛІДІВ)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS leads_analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            access_key TEXT,
+            chat_uid TEXT,
+            woman_id TEXT,     -- 🔥 ID анкети (для зв'язку)
+            profile_id TEXT,   -- 🔥 ID мужика
+            invite_text TEXT,
+            lead_age INTEGER,
+            lead_country TEXT,
+            lead_interests TEXT,
+            lead_bio TEXT,
+            lead_photo TEXT,
+            man_profile_json TEXT, -- 🔥 Сирий JSON мужика
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
 
     conn.commit()
     conn.close()
@@ -118,6 +181,15 @@ def verify_and_bind_key(access_key: str, hwid: str) -> tuple[bool, str]:
         print(f"DB ERROR: {e}")
         return False, "Помилка бази даних"
 
+def reset_all_hwids() -> int:
+    """Скидає HWID для всіх ключів у базі і повертає кількість оновлених рядків"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE keys SET hwid = NULL")
+    updated = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return updated
 
 def reset_hwid(access_key: str) -> bool:
     conn = get_connection()

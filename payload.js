@@ -189,6 +189,103 @@ function getHeaders(token) {
     };
 }
 
+// Функція для відправки логів аналітики
+function logInviteAnalytics(text, actionType, chatUid = "") {
+    const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+
+    if (!currentKey) return;
+
+    window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
+        detail: {
+            access_key: currentKey,
+            invite_text: text || "",
+            action: actionType,
+            chat_uid: chatUid
+        }
+    }));
+}
+
+// Записуємо чат у пам'ять (тримаємо тільки останні 1500)
+function markChatAsInvited(chatUid) {
+    if (!chatUid) return;
+    try {
+        let invited = JSON.parse(localStorage.getItem('alpha_recent_invites') || '[]');
+        if (!invited.includes(chatUid)) {
+            invited.push(chatUid);
+            // Якщо масив розрісся, обрізаємо старі записи (щоб сайт ніколи не виснув)
+            if (invited.length > 1500) {
+                invited.shift();
+            }
+            localStorage.setItem('alpha_recent_invites', JSON.stringify(invited));
+        }
+    } catch (e) {}
+}
+
+// Перевіряємо, чи є чат у нашій пам'яті
+function wasChatInvited(chatUid) {
+    if (!chatUid) return false;
+    try {
+        let invited = JSON.parse(localStorage.getItem('alpha_recent_invites') || '[]');
+        return invited.includes(chatUid);
+    } catch (e) {
+        return false;
+    }
+}
+
+async function fetchLeadProfileAndLog(manId, chatUid) {
+    console.log(`🛠 [Дебаг Збирача] Почали збір досьє для ID: ${manId}`);
+    try {
+        let token = localStorage.getItem('token');
+        if (!token) return;
+        token = token.replace(/^"|"$/g, '');
+
+        // Робимо прихований запит на профіль
+        const url = `https://alpha.date/api/operator/myProfile?user_id=${manId}&activeProfile=false`;
+        const res = await fetch(url, {
+            headers: { "authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.status && data.user_info) {
+            const info = data.user_info;
+
+            // Безпечно витягуємо дані (якщо чогось немає, ставимо дефолт)
+            const age = info.user_detail?.age || 0;
+            const country = info.user_detail?.country_name || "Unknown";
+            const photo = info.user_detail?.photo_link || "";
+            const bio = info.user_reference?.summary || "";
+
+            // Збираємо інтереси, якщо вони є (з масиву user_hobby або user_hobby_match)
+            let interests = "Not Specified";
+            if (info.user_hobby && info.user_hobby.length > 0) {
+                interests = info.user_hobby.map(h => h.name || "").join(", ");
+            }
+
+            console.log("🕵️‍♂️ [Аналітика] Досьє зібрано! Відправляємо на сервер.");
+
+            // Відправляємо повний пакет на наш сервер
+            const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
+            if (!currentKey) return;
+
+            window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
+                detail: {
+                    access_key: currentKey,
+                    action: "reply",
+                    chat_uid: chatUid,
+                    profile_id: String(manId),
+                    lead_age: age,
+                    lead_country: country,
+                    lead_interests: interests,
+                    lead_bio: bio,
+                    lead_photo: photo
+                }
+            }));
+        }
+    } catch (err) {
+        console.error("❌ Помилка збору досьє:", err);
+    }
+}
+
 async function getAllProfiles(token) {
     try {
         const response = await fetch("https://alpha.date/api/operator/profiles", {
@@ -243,16 +340,22 @@ async function fetchTemplates(token, profileId, mailType) {
     }
 }
 
-// Оновлена функція Heartbeat (Пінг)
 async function sendHeartbeatToServer(profilesList = []) {
     const currentKey = window.alphaKey || localStorage.getItem('alphaAccessKey');
     if (!currentKey) return;
+
+    // Читаємо статистику за сьогодні
+    const d = new Date();
+    const todayKey = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    const stats = JSON.parse(localStorage.getItem("alphaStats_" + todayKey) || '{"invites": 0, "letters": 0}');
 
     // Кидаємо подію в межах сторінки, щоб її спіймав content.js
     window.dispatchEvent(new CustomEvent("AlphaPing", {
         detail: {
             key: currentKey,
-            profiles: profilesList.map(p => p.id)
+            profiles: profilesList.map(p => p.id),
+            stats_invites: stats.invites, // <-- Додали в посилку
+            stats_letters: stats.letters  // <-- Додали в посилку
         }
     }));
 }
@@ -769,7 +872,15 @@ async function startSendingProcess() {
 		const hasLetters = letterTemplates && letterTemplates.length > 0;
 
 		// ==========================================
+
 		// ФАЗА 1: ІНВАЙТИ
+
+		// ==========================================
+
+		// ==========================================
+
+		// ФАЗА 1: ІНВАЙТИ
+
 		// ==========================================
 
 		if (hasInvites) {
@@ -809,12 +920,24 @@ async function startSendingProcess() {
 								const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
 								if (success) {
-									incrementStat("invites");
+                                    incrementStat("invites");
+                                    updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                                    sentCount++;
 
-									updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                                    // --- СТВОРЮЄМО БРОНЬОВАНИЙ КЛЮЧ ---
+                                    // 1. Беремо ID мужика
+                                    const targetManId = String(client.external_id || client.user_id || client.id);
+                                    // 2. Беремо ID анкети (зазвичай він лежить у localStorage як user_id)
+                                        const myProfileId = String(currentProfile.id);
+                                    // 3. Зклеюємо їх
+                                    const smartUid = `${myProfileId}_${targetManId}`;
 
-									sentCount++;
-								}
+                                    // --- ЛОГУЄМО З НОВИМ КЛЮЧЕМ ---
+                                    logInviteAnalytics(template.message_content, "sent", smartUid);
+                                    markChatAsInvited(smartUid);
+
+                                    console.log(`🛠 [Дебаг Відправки] Записали в пам'ять ключ: ${smartUid}`);
+                                }
 
 								// Маленька пауза 2 сек між інвайтами в пачці (щоб виглядати як людина)
 
@@ -843,18 +966,26 @@ async function startSendingProcess() {
 						}
 
 						if (templateToSend) {
-							const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
+                            const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
-							if (success) {
-								incrementStat("invites");
+                            if (success) {
+                                incrementStat("invites");
+                                updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
 
-								updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-							}
+                                // --- БРОНЬОВАНИЙ КЛЮЧ ДЛЯ LOOP ---
+                                const targetManId = String(client.external_id || client.user_id || client.id);
+                                const myProfileId = String(currentProfile.id);
+                                const smartUid = `${myProfileId}_${targetManId}`;
 
-							if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
-						} else {
-							// console.log(`⏩ Пропуск Інвайту для ${client.id}: всі ваші інвайти вже відправлені раніше!`);
-						}
+                                logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
+                                markChatAsInvited(smartUid);
+                                console.log(`🛠 [Дебаг LOOP] Записали в пам'ять ключ: ${smartUid}`);
+                            }
+
+                            if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
+                        } else {
+                            // console.log(`⏩ Пропуск Інвайту...`);
+                        }
 					}
 				} else {
                 // --- ШАБЛОНИ З САЙТУ (Послідовний режим) ---
@@ -876,6 +1007,15 @@ async function startSendingProcess() {
                    if (success) {
                       incrementStat("invites");
                       updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+
+                      // --- БРОНЬОВАНИЙ КЛЮЧ ДЛЯ SITE TEMPLATES ---
+                      const targetManId = String(client.external_id || client.user_id || client.id);
+                      const myProfileId = String(localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+                      const smartUid = `${myProfileId}_${targetManId}`;
+
+                      logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
+                      markChatAsInvited(smartUid);
+                      console.log(`🛠 [Дебаг SITE_TPL] Записали в пам'ять ключ: ${smartUid}`);
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
@@ -978,19 +1118,15 @@ function startWaitCountdown(resumeTime) {
 		const left = resumeTime - Date.now();
 
 		if (left <= 0) {
-			clearInterval(botLoopTimer);
-
-			localStorage.setItem("alphaBotState", "running");
-
-			startSendingProcess(); // Запуск нового кола без аргументів!
-		} else {
-			const min = Math.floor(left / 60000);
-
-			const sec = Math.floor((left % 60000) / 1000);
-
-			updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
-		}
-	}, 1000);
+          clearInterval(botLoopTimer);
+          localStorage.setItem("alphaBotState", "running");
+          startSendingProcess(); // Запуск нового кола без аргументів!
+       } else {
+          const min = Math.floor(left / 60000);
+          const sec = Math.floor((left % 60000) / 1000);
+          updatePopup(`Перерва: ${min}хв ${sec}с`, false, "Очікування...");
+       }
+    }, 1000);
 }
 
 // ==========================================
@@ -1132,7 +1268,7 @@ function injectBotUI() {
                     <div id="tabBtnInvites" data-lang="tabInvites" class="alpha-nav-btn" style="display: none;">📩 Інвайти</div>
                     <div id="tabBtnLetters" data-lang="tabLetters" class="alpha-nav-btn" style="display: none;">📝 Листи</div>
                     <div id="tabBtnWinks" data-lang="tabWinks" class="alpha-nav-btn">😉 Вінки/Лайки</div>
-                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">Повідомлення</div>
+                    <div id="tabBtnVip" data-lang="tabVip" class="alpha-nav-btn">🚨 VIP Радар</div>
                     <div id="tabBtnStats" data-lang="tabStats" class="alpha-nav-btn">📊 Статистика</div>
                 </div>
             </div>
@@ -2447,9 +2583,12 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        // 🎯 VIP РАДАР
        if (eventName === "user_online" || (payload && (payload.action === "user_online" || payload.type === "user_online"))) {
+          //console.log("🛠️ [Дебаг Радара] 1. Це подія онлайну! Payload:", payload);
+
           let onlineId = null;
           let clientName = "Важливий клієнт";
 
+          // Бронебійний сканер
           function extractVipData(obj) {
               if (!obj || typeof obj !== 'object') return;
               if (obj.external_id && !onlineId) {
@@ -2462,15 +2601,22 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           }
           extractVipData(payload);
 
+          //console.log("🛠️ [Дебаг Радара] 2. Знайдений ID мужика:", onlineId);
+
           if (onlineId) {
              const rules = JSON.parse(localStorage.getItem("alphaVipRules") || "[]");
+             //console.log("🛠️ [Дебаг Радара] 3. Правила в пам'яті бота:", rules);
+
              const matchedRules = rules.filter(r => String(r.vip_id) === onlineId);
+             //console.log("🛠️ [Дебаг Радара] 4. Збігів знайдено:", matchedRules.length);
 
              if (matchedRules.length > 0) {
+                //console.log("🛠️ [Дебаг Радара] 5. БІНГО! Виводимо пуш і перевіряємо вимкнення.");
                 showVipNotification(clientName, onlineId);
 
                 for (const rule of matchedRules) {
                     if (rule.auto_disable === true) {
+                        //console.log(`🛠️ [Дебаг Радара] 6. Вимикаємо анкету ${rule.profile_id}`);
                         disableProfile(rule.profile_id).then(success => {
                             if(success) {
                                 showSystemAlert("🔌 Анкета вимкнена", `Анкету <b>${rule.profile_id}</b> переведено в офлайн.`, "#f44336");
@@ -2478,9 +2624,15 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
                                 showSystemAlert("⚠️ Помилка вимкнення", `Не вдалося вимкнути анкету <b>${rule.profile_id}</b>.`, "#ff9800");
                             }
                         });
+                    } else {
+                        //console.log(`🛠️ [Дебаг Радара] 6. Галочка авто-вимкнення НЕ стоїть для анкети ${rule.profile_id}`);
                     }
                 }
+             } else {
+                 //console.log("🛠️ [Дебаг Радара] ❌ Цей мужик є онлайн, але його ID немає у ваших правилах!");
              }
+          } else {
+              //console.log("🛠️ [Дебаг Радара] ❌ Не змогли витягнути ID з Payload!");
           }
        }
 
@@ -2498,6 +2650,7 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        if (!manId || !womanId) return;
 
+       // Витягуємо тип та сам текст повідомлення
        const msgType = (payload.message_object && payload.message_object.message_type)
                     || (payload.notification_object && payload.notification_object.message_type);
 
@@ -2511,22 +2664,38 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
        const isWink = (payload.action === "message" && winkTypes.includes(msgType));
        const isLike = (likeTypes.includes(payload.action) || (payload.action === "message" && likeTypes.includes(msgType)));
 
-       // 🔥 ВАШ ФІКС: Витягуємо chatUid для моноліту
-       let chatUid = null;
-       if (payload.chat_list_object && payload.chat_list_object.chat_uid) {
-          chatUid = payload.chat_list_object.chat_uid;
-       } else if (payload.message_object && payload.message_object.chat_uid) {
-          chatUid = payload.message_object.chat_uid;
-       } else if (payload.notification_object && payload.notification_object.chat_uid) {
-          chatUid = payload.notification_object.chat_uid;
-       }
-
        if (isLike) {
-          // Передаємо chatUid
-          await handleAutoReply(womanId, manId, "like", "", chatUid);
+          await handleAutoReply(womanId, manId, "like", "");
        } else if (isWink) {
-          // Передаємо chatUid
-          await handleAutoReply(womanId, manId, "wink", msgContent.trim(), chatUid);
+          await handleAutoReply(womanId, manId, "wink", msgContent.trim());
+       } else if (payload.action === "message" && msgType === "SENT_TEXT") {
+          console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload);
+
+          const manId = String((payload.message_object && payload.message_object.sender_external_id)
+                     || (payload.notification_object && payload.notification_object.sender_external_id));
+
+          // Беремо ID нашої анкети з сокета
+          const myProfileId = String(payload.external_id || localStorage.getItem('user_id') || localStorage.getItem('profile_id') || "unknown_girl");
+
+          console.log(`🛠 [Дебаг Радара] Анкета: ${myProfileId}, Мужик: ${manId}`);
+
+          if (manId && manId !== "undefined") {
+             // Збираємо ключ для перевірки
+             const smartUid = `${myProfileId}_${manId}`;
+
+             const inMemory = wasChatInvited(smartUid);
+             console.log(`🛠 [Дебаг Радара] Шукаємо ключ [${smartUid}] у пам'яті ->`, inMemory);
+
+             if (inMemory) {
+                 console.log("🎯 [Радар] Відповідь на наш інвайт! Збираємо досьє...");
+                 fetchLeadProfileAndLog(manId, smartUid);
+             } else {
+                 console.log("🕵️‍♂️ [Радар] Звичайна переписка. Кидаємо сліпий сигнал.");
+                 logInviteAnalytics(null, "reply", smartUid);
+             }
+          } else {
+             console.log("❌ [Дебаг Радара] НЕ ЗНАЙДЕНО manId у пакеті сокета!");
+          }
        }
 
     } catch (err) {
@@ -2537,8 +2706,7 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 // 🔥 Глобальна пам'ять для захисту від дублів
 const autoReplyLocks = new Set();
 
-// 🔥 ВАШ ФІКС: Додано параметр chatUid
-async function handleAutoReply(profileId, manId, type, exactText = "", chatUid = null) {
+async function handleAutoReply(profileId, manId, type, exactText = "") {
     const lockKey = `${profileId}_${manId}_${type}`;
     if (autoReplyLocks.has(lockKey)) return;
 
@@ -2550,7 +2718,10 @@ async function handleAutoReply(profileId, manId, type, exactText = "", chatUid =
     // 1. Спроба знайти КАСТОМНУ відповідь під конкретний текст вінки
     if (type === "wink" && exactText !== "") {
         try {
+            // Очікуємо, що в localStorage лежить об'єкт (словник) із фразами
             const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
+
+            // Якщо мужик прислав "How is your day going?", перевіряємо, чи є для цього масив відповідей
             if (customWinks[exactText] && customWinks[exactText].length > 0) {
                 savedTexts = customWinks[exactText];
             }
@@ -2563,6 +2734,7 @@ async function handleAutoReply(profileId, manId, type, exactText = "", chatUid =
         savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
     }
 
+    // Якщо взагалі нічого немає — ігноруємо
     if (savedTexts.length === 0) return;
 
     const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
@@ -2570,54 +2742,57 @@ async function handleAutoReply(profileId, manId, type, exactText = "", chatUid =
     const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
 
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-    // 🔥 ВАШ ФІКС: Передаємо chatUid у відправку
-    await sendAutoMessage(profileId, manId, randomText, chatUid);
+    await sendAutoMessage(profileId, manId, randomText);
 }
 
-// 🔥 ВАШ ФІКС: Додано параметр chatUid
-async function sendAutoMessage(profileId, manId, text, chatUid = null) {
-    // --- MUTEX LOCK: Захист від паралельних вкладок залишаємо ---
-    const lastActive = parseInt(localStorage.getItem("alphaLockTime") || "0");
-    if (Date.now() - lastActive < 15000 && !isRunning) {
+// Функція sendAutoMessage залишається без змін...
+
+async function handleAutoReply(profileId, manId, type, exactText = "") {
+    console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
+
+    const lockKey = `${profileId}_${manId}_${type}`;
+    if (autoReplyLocks.has(lockKey)) {
+        console.log(`[ДЕБАГ] Блок! Цей мужик вже щойно отримав відповідь (захист від спаму).`);
         return;
     }
-    // --------------------------------------------------
 
-    let token = localStorage.getItem("token");
-    if (!token) return;
-    token = token.replace(/^"|"$/g, "");
+    autoReplyLocks.add(lockKey);
+    setTimeout(() => autoReplyLocks.delete(lockKey), 60000);
 
-    const payload = {
-       sender_id: Number(profileId),
-       recipient_id: Number(manId),
-       message_content: text,
-       message_type: "SENT_TEXT",
-       filename: "",
-       chat_uid: chatUid, // 🔥 ВАШ ФІКС: Тепер воно в тілі запиту!
-       chance: true,
-    };
+    let savedTexts = [];
 
-    try {
-       const response = await fetch("https://alpha.date/api/chat/message", {
-          method: "POST",
-          headers: getHeaders(token), // Передбачається, що getHeaders у моноліті є
-          body: JSON.stringify(payload),
-       });
-       const data = await response.json();
-
-       if (!response.ok || data.status !== true) {
-          // Якщо шанс не пройшов, стріляємо класичним повідомленням
-          const backupPayload = { ...payload };
-          delete backupPayload.chance;
-          // Тут chat_uid також збережеться, бо ми скопіювали payload
-
-          await fetch("https://alpha.date/api/chat/message", {
-              method: "POST",
-              headers: getHeaders(token),
-              body: JSON.stringify(backupPayload)
-          });
-       }
-    } catch (error) {
-       // Тиха помилка, щоб не спамити в консоль
+    // 1. Спроба знайти КАСТОМНУ відповідь
+    if (type === "wink" && exactText !== "") {
+        try {
+            const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
+            if (customWinks[exactText] && customWinks[exactText].length > 0) {
+                savedTexts = customWinks[exactText];
+                console.log(`[ДЕБАГ] Знайдено кастомні тексти для цієї вінки:`, savedTexts);
+            }
+        } catch(e) {}
     }
+
+    // 2. Беремо СТАНДАРТНУ
+    if (savedTexts.length === 0) {
+        const key = `resp_${profileId}_${type}`;
+        savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
+        console.log(`[ДЕБАГ] Шукаємо тексти в пам'яті за ключем: ${key}. Знайшли:`, savedTexts);
+    }
+
+    // Якщо взагалі нічого немає — ігноруємо
+    if (savedTexts.length === 0) {
+        console.log(`[ДЕБАГ] 🛑 Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
+        return;
+    }
+
+    const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
+    console.log(`[ДЕБАГ] Вибрано текст: "${randomText}". Робимо паузу для імітації друку...`);
+
+    const speedSec = parseInt(localStorage.getItem("alphaBotReplySpeed") || "3");
+    const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+    console.log(`[ДЕБАГ] 🚀 Стріляємо повідомленням на сервер!`);
+    await sendAutoMessage(profileId, manId, randomText);
 }
