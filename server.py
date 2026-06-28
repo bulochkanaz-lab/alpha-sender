@@ -343,11 +343,11 @@ async def log_invite(stealth_req: StealthLogRequest):
                 """, (request.chat_uid, key, final_text_to_log))
 
 
+
         elif request.action == "reply" and request.chat_uid:
-
             print(f"\n🚨 [СЕРВЕР] Зайшли в гілку REPLY. Мужик ID: {request.profile_id}")
-            print(f"📦 [СЕРВЕР] Дані анкети (JSON): {request.woman_profile_json[:100] if request.woman_profile_json else 'Немає'}")
-
+            print(
+                f"📦 [СЕРВЕР] Дані анкети (JSON): {request.woman_profile_json[:100] if request.woman_profile_json else 'Немає'}")
             print(f"🛠 [Сервер Дебаг] Отримано запит 'reply' для чату: {request.chat_uid}")
 
             # Робимо SELECT до бази лише один раз!
@@ -355,46 +355,41 @@ async def log_invite(stealth_req: StealthLogRequest):
             ticket_row = cursor.fetchone()
 
             saved_text = ticket_row[0] if ticket_row else None
-            # Якщо тексту немає, записуємо порожній JSON масив як заглушку
-            current_invite_text = saved_text if saved_text else '["Unknown (Old/Manual Chat)"]'
 
-            # ---------------------------------------------------------------------
-            # КРОК A: ЗБЕРІГАЄМО ДОСЬЄ (ПРАЦЮЄ ЗАВЖДИ!)
-            # ---------------------------------------------------------------------
-            if request.profile_id:
-                # Якщо розширення прислало свіжий JSON анкети - оновлюємо її
-                if request.woman_profile_json:
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO woman_profiles (woman_id, profile_json, last_updated)
-                        VALUES (?, ?, CURRENT_TIMESTAMP)
-                    """, (request.woman_id, request.woman_profile_json))
-                    print(f"🔄 [Сервер] Оновлено досьє анкети: {request.woman_id} (Кеш на 14 днів)")
-
-                print(f"🎯 [Сервер Дебаг] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
-                cursor.execute("""
-                    INSERT INTO leads_analytics 
-                    (access_key, chat_uid, woman_id, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, man_profile_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (key, request.chat_uid, request.woman_id, request.profile_id, current_invite_text,
-                    request.lead_age, request.lead_country, request.lead_interests,
-                    request.lead_bio, request.lead_photo, request.man_profile_json))
-                print("✅ [СЕРВЕР] Запис досьє мужика в базу пройшов успішно!")  # 👈 ДОДАТИ ЦЕ
-
-            # ---------------------------------------------------------------------
-            # КРОК Б: ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ
-            # ---------------------------------------------------------------------
             if saved_text:
-                print(f"✅ [Сервер Дебаг] Квиток знайдено! Текст: '{saved_text}'. Робимо reply_count + 1")
+                print(f"✅ [Сервер Дебаг] Квиток знайдено! Текст: '{saved_text}'. Зберігаємо ліда!")
 
+                # --- ЗБЕРІГАЄМО ДОСЬЄ МУЖИКА ТА АНКЕТИ ---
+                if request.profile_id:
+
+                    # Якщо розширення прислало свіжий JSON анкети - оновлюємо її
+                    if request.woman_profile_json:
+                        cursor.execute("""
+                                    INSERT OR REPLACE INTO woman_profiles (woman_id, profile_json, last_updated)
+                                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                                """, (request.woman_id, request.woman_profile_json))
+                        print(f"🔄 [Сервер] Оновлено досьє анкети: {request.woman_id} (Кеш на 14 днів)")
+
+                    print(f"🎯 [Сервер Дебаг] Записуємо досьє мужика ID: {request.profile_id} в leads_analytics")
+                    cursor.execute("""
+                                INSERT INTO leads_analytics 
+                                (access_key, chat_uid, woman_id, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, man_profile_json)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (key, request.chat_uid, request.woman_id, request.profile_id, saved_text,
+                                  request.lead_age, request.lead_country, request.lead_interests,
+                                  request.lead_bio, request.lead_photo, request.man_profile_json))
+                    print("✅ [СЕРВЕР] Запис досьє мужика в базу пройшов успішно!")
+
+                # --- ОНОВЛЮЄМО СТАТИСТИКУ НАЙКРАЩИХ ІНВАЙТІВ ---
                 cursor.execute("""
-                    UPDATE invite_analytics SET reply_count = reply_count + 1
-                    WHERE access_key = ? AND invite_text = ?
-                """, (key, saved_text))
-
+                            UPDATE invite_analytics SET reply_count = reply_count + 1
+                            WHERE access_key = ? AND invite_text = ?
+                        """, (key, saved_text))
+                # --- ВИДАЛЯЄМО КВИТОК ---
                 cursor.execute("DELETE FROM pending_invites WHERE chat_uid = ?", (request.chat_uid,))
+
             else:
-                print(
-                    f"ℹ️ [Сервер Дебаг] Тимчасовий квиток для {request.chat_uid} не знайдено, але ліда успішно збережено!")
+                print(f"ℹ️ [Сервер Дебаг] Звичайна переписка для {request.chat_uid}. Квитка немає, базу не засмічуємо.")
 
         conn.commit()
         return {"status": "success"}
@@ -507,7 +502,7 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
 
     # Дістаємо останні 100 зібраних досьє
     cursor.execute("""
-        SELECT access_key, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, timestamp 
+        SELECT access_key, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, timestamp, man_profile_json
         FROM leads_analytics 
         ORDER BY timestamp DESC 
         LIMIT 100
@@ -526,7 +521,8 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
             "interests": row[5],
             "bio": row[6],
             "photo": row[7],
-            "time": row[8]
+            "time": row[8],
+            "man_json": row[9]
         })
 
     return {"status": "success", "leads": leads}
