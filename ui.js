@@ -170,7 +170,7 @@ function injectBotUI() {
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
                     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro v1</div>
+                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Programs</div>
                     <div class="alpha-lang-switch">
                         <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
                         <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
