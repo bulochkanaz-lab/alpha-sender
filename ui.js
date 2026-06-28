@@ -443,7 +443,7 @@ function injectBotUI() {
 function setupUIEvents(overlay, galleryModal) {
     // ==================== ЗАХИСНА ПЕРЕВІРКА ====================
     if (!window._alphaPhantom || !window._alphaPhantom.shadow) {
-        console.error("[Alpha Sender] window._alphaPhantom.shadow не готовий. setupUIEvents скасовано.");
+        //console.error("[Alpha Sender] window._alphaPhantom.shadow не готовий. setupUIEvents скасовано.");
         return;
     }
 
@@ -1087,7 +1087,7 @@ function setupUIEvents(overlay, galleryModal) {
                     galleryDropZone.style.background = '#f8f9fa';
                 }, 800);
             } catch (err) {
-                console.error('[Галерея] Критична помилка:', err);
+                //console.error('[Галерея] Критична помилка:', err);
                 alert('Сталася помилка під час завантаження. Дивіться консоль.');
             }
         });

@@ -5,28 +5,28 @@
 // ==================== ОНОВЛЕНА ВЕРСІЯ З ДЕТАЛЬНИМ ЛОГУВАННЯМ ====================
 
 async function sendAutoMessage(profileId, manId, text, chatUid = null) {
-    console.log(`[ДЕБАГ][sendAutoMessage] Старт. profileId=${profileId}, manId=${manId}`);
+    //console.log(`[ДЕБАГ][sendAutoMessage] Старт. profileId=${profileId}, manId=${manId}`);
 
     let token = localStorage.getItem("token");
     if (!token) {
-        console.warn(`[ДЕБАГ][sendAutoMessage] Токен відсутній у localStorage`);
+        //console.warn(`[ДЕБАГ][sendAutoMessage] Токен відсутній у localStorage`);
         return false;
     }
     token = token.replace(/^"|"$/g, "");
-    console.log(`[ДЕБАГ][sendAutoMessage] Токен отримано (довжина: ${token.length})`);
+    //console.log(`[ДЕБАГ][sendAutoMessage] Токен отримано (довжина: ${token.length})`);
 
     // Логуємо, чи існує getHeaders
     if (typeof getHeaders !== 'function') {
-        console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА: getHeaders не є функцією!`);
+        //console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА: getHeaders не є функцією!`);
         return false;
     }
 
     let headers;
     try {
         headers = getHeaders(token);
-        console.log(`[ДЕБАГ][sendAutoMessage] Заголовки отримано від getHeaders`);
+        //console.log(`[ДЕБАГ][sendAutoMessage] Заголовки отримано від getHeaders`);
     } catch (e) {
-        console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА при виклику getHeaders:`, e);
+        //console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА при виклику getHeaders:`, e);
         return false;
     }
 
@@ -39,45 +39,45 @@ async function sendAutoMessage(profileId, manId, text, chatUid = null) {
         chat_uid: chatUid
     };
 
-    console.log(`[ДЕБАГ][sendAutoMessage] Підготовлено payload:`, payload);
+    //console.log(`[ДЕБАГ][sendAutoMessage] Підготовлено payload:`, payload);
 
     try {
-        console.log(`[ДЕБАГ][sendAutoMessage] Виконую fetch...`);
+        //console.log(`[ДЕБАГ][sendAutoMessage] Виконую fetch...`);
         const response = await fetch("https://alpha.date/api/chat/message", {
             method: "POST",
             headers: headers,
             body: JSON.stringify(payload)
         });
 
-        console.log(`[ДЕБАГ][sendAutoMessage] Fetch завершено. status=${response.status}, ok=${response.ok}`);
+        //console.log(`[ДЕБАГ][sendAutoMessage] Fetch завершено. status=${response.status}, ok=${response.ok}`);
 
         let data;
         try {
             data = await response.json();
-            console.log(`[ДЕБАГ][sendAutoMessage] Відповідь сервера (JSON):`, data);
+            //console.log(`[ДЕБАГ][sendAutoMessage] Відповідь сервера (JSON):`, data);
         } catch (jsonErr) {
             const text = await response.text();
-            console.error(`[ДЕБАГ][sendAutoMessage] Не вдалося розпарсити JSON. Текст відповіді:`, text);
+            //console.error(`[ДЕБАГ][sendAutoMessage] Не вдалося розпарсити JSON. Текст відповіді:`, text);
             return false;
         }
 
         const success = response.ok && data.status === true;
-        console.log(`[ДЕБАГ][sendAutoMessage] Результат: ${success ? 'УСПІХ' : 'НЕУСПІХ'}`);
+        //console.log(`[ДЕБАГ][sendAutoMessage] Результат: ${success ? 'УСПІХ' : 'НЕУСПІХ'}`);
         return success;
 
     } catch (error) {
-        console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА під час fetch:`, error);
+        //console.error(`[ДЕБАГ][sendAutoMessage] ПОМИЛКА під час fetch:`, error);
         return false;
     }
 }
 
 
 async function handleAutoReply(profileId, manId, type, exactText = "", chatUid = null) {
-    console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
+    //console.log(`[ДЕБАГ] handleAutoReply викликано. profileId: ${profileId}, manId: ${manId}, type: ${type}`);
 
     const lockKey = `${profileId}_${manId}_${type}`;
     if (autoReplyLocks.has(lockKey)) {
-        console.log(`[ДЕБАГ] Блок! Цей мужик вже щойно отримав відповідь (захист від спаму).`);
+        //console.log(`[ДЕБАГ] Блок! Цей мужик вже щойно отримав відповідь (захист від спаму).`);
         return;
     }
 
@@ -92,7 +92,7 @@ async function handleAutoReply(profileId, manId, type, exactText = "", chatUid =
             const customWinks = JSON.parse(localStorage.getItem(`resp_${profileId}_wink_custom`) || "{}");
             if (customWinks[exactText] && customWinks[exactText].length > 0) {
                 savedTexts = customWinks[exactText];
-                console.log(`[ДЕБАГ] Знайдено кастомні тексти для цієї вінки:`, savedTexts);
+                //console.log(`[ДЕБАГ] Знайдено кастомні тексти для цієї вінки:`, savedTexts);
             }
         } catch(e) {}
     }
@@ -101,26 +101,26 @@ async function handleAutoReply(profileId, manId, type, exactText = "", chatUid =
     if (savedTexts.length === 0) {
         const key = `resp_${profileId}_${type}`;
         savedTexts = JSON.parse(localStorage.getItem(key) || "[]");
-        console.log(`[ДЕБАГ] Шукаємо тексти в пам'яті за ключем: ${key}. Знайшли:`, savedTexts);
+        //console.log(`[ДЕБАГ] Шукаємо тексти в пам'яті за ключем: ${key}. Знайшли:`, savedTexts);
     }
 
     if (savedTexts.length === 0) {
-        console.log(`[ДЕБАГ] Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
+        //e.log(`[ДЕБАГ] Відміна: у пам'яті немає жодного збереженого тексту для ${type}!`);
         return;
     }
 
     const randomText = savedTexts[Math.floor(Math.random() * savedTexts.length)];
-    console.log(`[ДЕБАГ] Вибрано текст: "${randomText}". Робимо паузу для імітації друку...`);
+    //console.log(`[ДЕБАГ] Вибрано текст: "${randomText}". Робимо паузу для імітації друку...`);
 
     const speedSec = parseInt(localStorage.getItem("alphaBotReplySpeed") || "3");
     const delayMs = speedSec * 1000 + Math.floor(Math.random() * 1000);
 
     await sleep(delayMs);
 
-    console.log(`[ДЕБАГ] Стріляємо повідомленням на сервер! chatUid=${chatUid}`);
+    //console.log(`[ДЕБАГ] Стріляємо повідомленням на сервер! chatUid=${chatUid}`);
 
     const result = await sendAutoMessage(profileId, manId, randomText, chatUid);
-    console.log(`[ДЕБАГ] Результат відправки автовідповідача: ${result ? 'УСПІШНО' : 'НЕ УСПІШНО'}`);
+    //console.log(`[ДЕБАГ] Результат відправки автовідповідача: ${result ? 'УСПІШНО' : 'НЕ УСПІШНО'}`);
 }
 
 // ==========================================
@@ -208,7 +208,7 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
 
        // Додаємо пастку для відповідача
        if (isWink || isLike) {
-           console.log(`🛠 [Пастка Відповідача] Action: ${payload.action}, MsgType: ${msgType}, Текст: "${msgContent}"`);
+           //console.log(`🛠 [Пастка Відповідача] Action: ${payload.action}, MsgType: ${msgType}, Текст: "${msgContent}"`);
        }
 
        // Витягуємо chat_uid з різних місць payload (сайт може віддавати в різних об'єктах)
@@ -227,27 +227,27 @@ window.addEventListener("AlphaSocketMessage", async function (e) {
           await handleAutoReply(womanId, manId, "wink", msgContent.trim(), chatUid);
        } else if (payload.action === "message" && msgType === "SENT_TEXT") {
 
-          console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload);
+          //console.log("🛠 [Дебаг Радара] ЗЛОВИЛИ ТЕКСТ! Payload:", payload);
 
           const myProfileId = String(womanId);
           const targetManId = String(manId);
 
-          console.log(`🛠 [Дебаг Радара] Анкета: ${myProfileId}, Мужик: ${targetManId}`);
+          //console.log(`🛠 [Дебаг Радара] Анкета: ${myProfileId}, Мужик: ${targetManId}`);
 
           if (targetManId && targetManId !== "undefined") {
              const smartUid = `${myProfileId}_${targetManId}`;
              const inMemory = wasChatInvited(smartUid);
-             console.log(`🛠 [Дебаг Радара] Шукаємо ключ [${smartUid}] у пам'яті ->`, inMemory);
+             //console.log(`🛠 [Дебаг Радара] Шукаємо ключ [${smartUid}] у пам'яті ->`, inMemory);
 
              if (inMemory) {
-                 console.log("🎯 [Радар] Відповідь на наш інвайт! Збираємо досьє...");
+                 //console.log("🎯 [Радар] Відповідь на наш інвайт! Збираємо досьє...");
                  fetchLeadProfileAndLog(targetManId, smartUid);
              } else {
-                 console.log("🕵️‍♂️ [Радар] Звичайна переписка. Кидаємо сліпий сигнал.");
+                 //console.log("🕵️‍♂️ [Радар] Звичайна переписка. Кидаємо сліпий сигнал.");
                  logInviteAnalytics(null, "reply", smartUid);
              }
           } else {
-             console.log("❌ [Дебаг Радара] НЕ ЗНАЙДЕНО manId у пакеті сокета!");
+             //console.log("❌ [Дебаг Радара] НЕ ЗНАЙДЕНО manId у пакеті сокета!");
           }
        }
 

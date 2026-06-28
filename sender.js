@@ -201,7 +201,7 @@ async function startSendingProcess() {
 
                           logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
                           markChatAsInvited(smartUid);
-                          console.log(`🛠 [Дебаг Відправки LOOP] Ключ: ${smartUid}`);
+                          //e.log(`🛠 [Дебаг Відправки LOOP] Ключ: ${smartUid}`);
                       }
 
                       if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
@@ -234,7 +234,7 @@ async function startSendingProcess() {
 
                       logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
                       markChatAsInvited(smartUid);
-                      console.log(`🛠 [Дебаг Відправки SITE_TPL] Ключ: ${smartUid}`);
+                      //e.log(`🛠 [Дебаг Відправки SITE_TPL] Ключ: ${smartUid}`);
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
