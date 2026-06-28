@@ -267,34 +267,18 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
             console.error(`[Дебаг Збирача] Помилка мережі при запиті мужика:`, mErr);
         }
 
-        // 2. РОЗУМНЕ КЕШУВАННЯ АНКЕТИ (Із захистом від не-JSON відповідей)
+        // 2. БЕРЕМО ДАНІ АНКЕТИ З ЛОКАЛЬНОГО ДОВІДНИКА
         let womanProfileJson = null;
-        const syncKey = `alpha_woman_sync_${womanId}`;
-        const lastSync = localStorage.getItem(syncKey);
-        const now = Date.now();
-        const days14 = 14 * 24 * 60 * 60 * 1000;
-
-        if (!lastSync || (now - parseInt(lastSync)) > days14) {
-            console.log(`[Дебаг Збирача] Анкету ${womanId} давно не оновлювали. Стягуємо свіжий JSON...`);
-            try {
-                const womanRes = await fetch(`https://alpha.date/api/operator/myProfile?user_id=${womanId}&activeProfile=false`, {
-                    headers: { "authorization": `Bearer ${token}` }
-                });
-
-                if (womanRes.ok) {
-                    const womanData = await womanRes.json();
-                    if (womanData.status && womanData.user_info) {
-                        womanProfileJson = JSON.stringify(womanData.user_info);
-                        localStorage.setItem(syncKey, now.toString());
-                    }
-                } else {
-                    console.warn(`[Дебаг Збирача] Сайт не віддав анкету (Статус: ${womanRes.status}). Ігноруємо.`);
-                }
-            } catch (wErr) {
-                console.warn(`[Дебаг Збирача] Помилка мережі при запиті анкети.`, wErr);
+        try {
+            const myProfiles = JSON.parse(localStorage.getItem('alpha_my_profiles') || '{}');
+            if (myProfiles[womanId]) {
+                womanProfileJson = JSON.stringify(myProfiles[womanId]);
+                console.log(`[Дебаг Збирача] Анкету ${womanId} успішно взято з довідника! 🚀`);
+            } else {
+                console.warn(`[Дебаг Збирача] Анкета ${womanId} не знайдена в довіднику. Відправляємо порожню заглушку.`);
             }
-        } else {
-            console.log(`[Дебаг Збирача] Анкета ${womanId} є в кеші (до 14 днів). Економимо запит! 🚀`);
+        } catch (e) {
+            console.error("Помилка при читанні довідника анкет", e);
         }
 
         // 3. ВИПРАВЛЯЄМО БАГ З ІНТЕРЕСАМИ (Захист від undefined)
@@ -401,3 +385,31 @@ async function dispatchStealthPayload(detail) {
 window.addEventListener("AlphaAnalyticsLog", (e) => {
     window.postMessage({ type: "ALPHA_ANALYTICS", detail: e.detail }, "*");
 });
+
+// ==================== ОНОВЛЕННЯ ДОВІДНИКА АНКЕТ ====================
+async function syncMyProfiles() {
+    try {
+        let token = localStorage.getItem('token');
+        if (!token) return;
+        token = token.replace(/^"|"$/g, '');
+
+        const res = await fetch("https://alpha.date/api/operator/profiles", {
+            headers: { "authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        const profileMap = {};
+        if (Array.isArray(data)) {
+            data.forEach(p => {
+                profileMap[p.external_id] = p;
+            });
+            localStorage.setItem('alpha_my_profiles', JSON.stringify(profileMap));
+            console.log("✅ [Ядро] Довідник анкет успішно оновлено!");
+        }
+    } catch (e) {
+        console.error("❌ [Ядро] Помилка синхронізації анкет:", e);
+    }
+}
+
+// Запускаємо оновлення довідника через 2 секунди після завантаження скрипта
+setTimeout(syncMyProfiles, 2000);

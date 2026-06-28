@@ -71,34 +71,39 @@
           <table class="admin-table">
             <thead>
               <tr>
-                <th>Фото</th>
+                <th>Мужик</th>
                 <th>Вік / Країна</th>
-                <th>ID Чоловіка</th>
                 <th>Який текст спрацював?</th>
-                <th>Деталі (JSON)</th>
+                <th>Анкета</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="leadsAnalytics.length === 0">
-                <td colspan="5" style="text-align: center; color: #999; padding: 20px;">
+                <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
                   Досьє ще збираються...
                 </td>
               </tr>
               <tr v-for="(lead, idx) in leadsAnalytics" :key="idx">
                 <td>
-                  <img v-if="lead.photo" :src="lead.photo" alt="avatar" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;" />
-                  <div v-else style="width: 50px; height: 50px; border-radius: 50%; background: #eee; display: inline-block;"></div>
+                  <img v-if="lead.photo" :src="lead.photo" alt="man_avatar" class="clickable-avatar"
+                       title="Дивитись досьє чоловіка"
+                       @click="viewJson(lead.man_json, 'Досьє Чоловіка ID: ' + lead.man_id)" />
+                  <div v-else class="empty-avatar" @click="viewJson(lead.man_json, 'Досьє Чоловіка ID: ' + lead.man_id)"></div>
                 </td>
+
                 <td style="font-weight: bold;">
                   {{ lead.age }} р. <br/>
                   <span style="font-size: 0.85em; color: #666;">{{ lead.country }}</span>
                 </td>
-                <td>{{ lead.man_id }}</td>
+
                 <td style="text-align: left; max-width: 300px; white-space: normal; color: #2e7d32; font-style: italic;">
                   "{{ lead.text }}"
                 </td>
+
                 <td>
-                  <button class="btn-small btn-warn" @click="viewLeadJson(lead)">👀 Подивитись досьє</button>
+                  <img :src="getWomanPhoto(lead.woman_json)" alt="woman_avatar" class="clickable-avatar woman-border"
+                       title="Дивитись досьє анкети"
+                       @click="viewJson(lead.woman_json, 'Досьє Анкети ID: ' + lead.woman_id)" />
                 </td>
               </tr>
             </tbody>
@@ -217,10 +222,10 @@
       <div v-if="showJsonModal" class="modal-overlay" @click.self="closeJsonModal">
         <div class="modal-content">
           <div class="modal-header">
-            <h3>Сирі дані для AI (man_profile_json)</h3>
+            <h3 class="modal-title">{{ modalTitle }}</h3>
             <button class="close-btn" @click="closeJsonModal">&times;</button>
           </div>
-          <pre class="json-viewer">{{ currentLeadJson }}</pre>
+          <pre class="json-viewer">{{ currentJson }}</pre>
         </div>
       </div>
 
@@ -237,22 +242,35 @@ import axios from 'axios'
 const leadsAnalytics = ref([])
 
 const showJsonModal = ref(false)
-const currentLeadJson = ref('{}')
+const currentJson = ref('{}')
+const modalTitle = ref('')
 
-const viewLeadJson = (lead) => {
+const viewJson = (rawJson, title) => {
+  modalTitle.value = title
   try {
-    // Парсимо JSON і робимо його красивим (з відступами)
-    const parsed = JSON.parse(lead.man_json || '{}')
-    currentLeadJson.value = JSON.stringify(parsed, null, 2)
+    const parsed = JSON.parse(rawJson || '{}')
+    currentJson.value = Object.keys(parsed).length > 0
+      ? JSON.stringify(parsed, null, 2)
+      : '{"info": "Дані відсутні або ще не зібрані"}'
   } catch (e) {
-    // Якщо раптом щось зламалося, показуємо як є
-    currentLeadJson.value = lead.man_json || 'Немає даних'
+    currentJson.value = rawJson || 'Немає даних'
   }
   showJsonModal.value = true
 }
 
 const closeJsonModal = () => {
   showJsonModal.value = false
+}
+
+const getWomanPhoto = (rawJson) => {
+  const placeholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+  try {
+    if (!rawJson) return placeholder
+    const parsed = JSON.parse(rawJson)
+    return parsed?.user_detail?.photo_link || placeholder
+  } catch(e) {
+    return placeholder
+  }
 }
 
 const fetchLeads = async () => {
@@ -544,4 +562,39 @@ h2 { margin-top: 0; color: #333; }
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px; border-radius: 0 0 8px 8px;
 }
+
+/* Ефекти для клікабельних аватарок */
+.clickable-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 2px solid transparent;
+}
+.clickable-avatar:hover {
+  transform: scale(1.15);
+  border-color: #1976d2;
+  box-shadow: 0 5px 15px rgba(25, 118, 210, 0.4);
+}
+.woman-border:hover {
+  border-color: #e91e63; /* Рожевий акцент для анкети */
+  box-shadow: 0 5px 15px rgba(233, 30, 99, 0.4);
+}
+.empty-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #eee;
+  display: inline-block;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.empty-avatar:hover {
+  transform: scale(1.15);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.modal-title { margin: 0; color: #1976d2; font-size: 16px; font-weight: bold; }
+
 </style>

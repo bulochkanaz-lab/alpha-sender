@@ -13,7 +13,8 @@
     "https://alpha.date/*",
     "*://*.alpha.date/*",
     "https://bulochka-sender.duckdns.org/*",
-    "http://178.105.190.180/*"
+    "http://178.105.190.180:8000/*",
+    "http://178.105.190.180:8001/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -24,6 +25,7 @@
         "https://alpha.date/*"
       ],
       "js": [
+        "config.js",
         "spy.js"
       ],
       "run_at": "document_start",
