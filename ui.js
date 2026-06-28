@@ -569,7 +569,7 @@ function setupUIEvents(overlay, galleryModal) {
         ].sort((a, b) => b.d - a.d); // Сортуємо по спаданню днів (30, 14, 7)
 
         localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
-        showSystemAlert("Збережено", "Налаштування радара оновлено!", "#4caf50");
+        showSystemAlert("Збережено", "Налаштування збережено!", "#4caf50");
     };
 
     // --- ІНШИЙ КОД UI ---
