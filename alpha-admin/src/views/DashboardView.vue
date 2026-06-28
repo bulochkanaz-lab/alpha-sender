@@ -290,7 +290,7 @@ const fetchLeads = async () => {
 
 const router = useRouter()
 const authStore = useAuthStore()
-const SERVER_URL = 'http://178.105.190.180:8001'
+const SERVER_URL = 'http://178.105.190.180:8000'
 
 // СТАН ДОДАТКУ (Таби)
 const activeTab = ref('keys') // 'keys', 'stats', 'profile'
