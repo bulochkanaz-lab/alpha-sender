@@ -502,11 +502,14 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
 
     # Дістаємо останні 100 зібраних досьє
     cursor.execute("""
-        SELECT access_key, profile_id, invite_text, lead_age, lead_country, lead_interests, lead_bio, lead_photo, timestamp, man_profile_json
-        FROM leads_analytics 
-        ORDER BY timestamp DESC 
+        SELECT l.access_key, l.profile_id, l.invite_text, l.lead_age, l.lead_country, 
+                l.lead_interests, l.lead_bio, l.lead_photo, l.timestamp, l.man_profile_json,
+                w.profile_json, l.woman_id
+        FROM leads_analytics l
+        LEFT JOIN woman_profiles w ON l.woman_id = w.woman_id
+        ORDER BY l.timestamp DESC 
         LIMIT 100
-    """)
+        """)
     rows = cursor.fetchall()
     conn.close()
 
@@ -522,7 +525,9 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
             "bio": row[6],
             "photo": row[7],
             "time": row[8],
-            "man_json": row[9]
+            "man_json": row[9],
+            "woman_json": row[10],
+            "woman_id": row[11]
         })
 
     return {"status": "success", "leads": leads}

@@ -75,7 +75,7 @@
                 <th>Вік / Країна</th>
                 <th>ID Чоловіка</th>
                 <th>Який текст спрацював?</th>
-                <th>Інтереси</th>
+                <th>Деталі (JSON)</th>
               </tr>
             </thead>
             <tbody>
@@ -97,8 +97,8 @@
                 <td style="text-align: left; max-width: 300px; white-space: normal; color: #2e7d32; font-style: italic;">
                   "{{ lead.text }}"
                 </td>
-                <td style="text-align: left; max-width: 250px; font-size: 0.9em; color: #555;">
-                  {{ lead.interests }}
+                <td>
+                  <button class="btn-small btn-warn" @click="viewLeadJson(lead)">👀 Подивитись досьє</button>
                 </td>
               </tr>
             </tbody>
@@ -214,6 +214,16 @@
         </div>
       </div>
 
+      <div v-if="showJsonModal" class="modal-overlay" @click.self="closeJsonModal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Сирі дані для AI (man_profile_json)</h3>
+            <button class="close-btn" @click="closeJsonModal">&times;</button>
+          </div>
+          <pre class="json-viewer">{{ currentLeadJson }}</pre>
+        </div>
+      </div>
+
     </main>
   </div>
 </template>
@@ -225,6 +235,25 @@ import { useAuthStore } from '../stores/auth.js'
 import axios from 'axios'
 
 const leadsAnalytics = ref([])
+
+const showJsonModal = ref(false)
+const currentLeadJson = ref('{}')
+
+const viewLeadJson = (lead) => {
+  try {
+    // Парсимо JSON і робимо його красивим (з відступами)
+    const parsed = JSON.parse(lead.man_json || '{}')
+    currentLeadJson.value = JSON.stringify(parsed, null, 2)
+  } catch (e) {
+    // Якщо раптом щось зламалося, показуємо як є
+    currentLeadJson.value = lead.man_json || 'Немає даних'
+  }
+  showJsonModal.value = true
+}
+
+const closeJsonModal = () => {
+  showJsonModal.value = false
+}
 
 const fetchLeads = async () => {
   try {
@@ -482,4 +511,37 @@ h2 { margin-top: 0; color: #333; }
 .mini-stat { background: #f4f6f8; padding: 15px; border-radius: 6px; flex: 1; display: flex; flex-direction: column; align-items: center; }
 .mini-stat span { font-size: 12px; color: #666; margin-bottom: 5px; text-transform: uppercase; }
 .mini-stat strong { font-size: 24px; color: #333; }
+
+/* ========================================== */
+/* МОДАЛЬНЕ ВІКНО ДЛЯ JSON                    */
+/* ========================================== */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; backdrop-filter: blur(3px);
+}
+.modal-content {
+  background: #fff; width: 850px; max-width: 90vw;
+  height: 80vh; max-height: 800px;
+  border-radius: 8px; display: flex; flex-direction: column;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 15px 20px; border-bottom: 1px solid #eee;
+  background: #f8f9fa; border-radius: 8px 8px 0 0;
+}
+.modal-header h3 { margin: 0; color: #1976d2; font-size: 16px;}
+.close-btn {
+  background: none; border: none; font-size: 26px; cursor: pointer; color: #999; line-height: 1;
+}
+.close-btn:hover { color: #d32f2f; }
+.json-viewer {
+  padding: 20px; margin: 0; overflow-y: auto; flex: 1;
+  background: #1e1e1e; /* Темний фон як у редакторі коду */
+  color: #a6e22e; /* Зелений текст */
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px; border-radius: 0 0 8px 8px;
+}
 </style>
