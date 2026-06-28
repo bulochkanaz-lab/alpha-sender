@@ -323,7 +323,7 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
             lead_bio: mInfo.user_reference?.summary || "",
             lead_photo: mInfo.user_detail?.photo_link || "",
             man_profile_json: Object.keys(mInfo).length > 0 ? JSON.stringify(mInfo) : "{}",
-            woman_profile_json: womanProfileJson
+            woman_profile_json: womanProfileJson || "{}"
         };
 
         console.log("🕵️‍♂️ [Дебаг Збирача] ФІНАЛЬНЕ ДОСЬЄ ПЕРЕД ШИФРУВАННЯМ:", finalPayload);
