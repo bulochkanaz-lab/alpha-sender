@@ -173,6 +173,7 @@ function injectBotUI() {
            <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Program</div>`;
 
     overlay.innerHTML = `
+    console.log("DEBUG: Команда в конфігу:", typeof APP_CONFIG !== 'undefined' ? APP_CONFIG.team : "UNDEFINED");
         <div class="alpha-modal">
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
