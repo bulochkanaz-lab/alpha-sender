@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "sender",
+  "version": "1.4.1",
+  "description": "67",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "debugger"
+  ],
+  "host_permissions": [
+    "https://alpha.date/*",
+    "*://*.alpha.date/*",
+    "https://bulochka-sender.duckdns.org/*",
+    "http://178.105.190.180:8000/*",
+    "http://178.105.190.180:8001/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://alpha.date/*"
+      ],
+      "js": [
+        "config.js",
+        "spy.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://alpha.date/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}

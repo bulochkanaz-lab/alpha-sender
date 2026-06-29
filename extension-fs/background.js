@@ -82,9 +82,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     access_key: request.key,
                     hwid: hwid,
                     profiles: request.profiles,
-                    stats_invites: request.stats_invites || 0, // <-- Додали
-                    stats_letters: request.stats_letters || 0  // <-- Додали
-                    //team: "fs"
+                    stats_invites: request.stats_invites || 0,
+                    stats_letters: request.stats_letters || 0,
+                    team: APP_CONFIG.team
                 })
             })
                 .then(res => res.json())
@@ -127,20 +127,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const SERVER_URL = "http://178.105.190.180:8000";
 
         getOrGenerateHWID().then(hwid => {
-            fetch(`${SERVER_URL}/auth`, {
+            fetch(`${APP_CONFIG.serverUrl}/auth`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     access_key: request.key,
                     profiles: request.profiles,
-                    hwid: hwid
+                    hwid: hwid,
+                    team: APP_CONFIG.team
                 })
             })
                 .then(res => res.json())
                 .then(async data => {
                     if (data.status === "success") {
                         try {
-                            const payloadRes = await fetch(`${SERVER_URL}/get_payload?key=${request.key}&hwid=${hwid}`);
+                            const payloadRes = await fetch(`${APP_CONFIG.serverUrl}/get_payload?key=${request.key}&hwid=${hwid}&team=${APP_CONFIG.team}`);
 
                             if (!payloadRes.ok) {
                                 const errText = await payloadRes.text();
