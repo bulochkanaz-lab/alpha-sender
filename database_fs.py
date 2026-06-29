@@ -19,15 +19,22 @@ def init_db():
     CREATE TABLE IF NOT EXISTS keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         access_key TEXT UNIQUE,
-        session_token TEXT,
+        hwid TEXT,             -- 🔥 ОБОВ'ЯЗКОВО ПОВЕРНУЛИ ДЛЯ СТАРИХ КЛІЄНТІВ
+        session_token TEXT,    -- 🔥 ДЛЯ НОВИХ КЛІЄНТІВ
         is_banned INTEGER DEFAULT 0,
         profiles TEXT DEFAULT '[]'
     )
     """)
 
-    # Безпечно додаємо колонку для токена сесій (міграція)
+    # Безпечно додаємо колонку для токена сесій (міграція для існуючих БД)
     try:
         cursor.execute("ALTER TABLE keys ADD COLUMN session_token TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # Безпечно додаємо hwid (на випадок, якщо в існуючій базі його чомусь немає)
+    try:
+        cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
     except sqlite3.OperationalError:
         pass
 
@@ -173,9 +180,8 @@ def login_and_update_session(access_key: str, session_token: str) -> tuple[bool,
         print(f"DB ERROR: {e}")
         return False, "Помилка бази даних"
 
-
 def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
-    """Викликається ПРИ КОЖНОМУ ПІНГУ ТА ДІЇ. Перевіряє, чи сесія актуальна."""
+    """Перевірка під час пінгу: чи не витіснив цю сесію хтось інший"""
     if not access_key or not session_token:
         return False, "Відсутні дані авторизації"
 
@@ -194,11 +200,49 @@ def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
         if is_banned == 1:
             return False, "Ключ заблоковано"
 
-        # Перевірка на конфлікт сесій
+        # Перевіряємо, чи токен у базі збігається з токеном поточного пінгу
         if current_db_token != session_token:
             return False, "Ваш ключ щойно активували на іншому пристрої. Сеанс перервано."
 
         return True, "OK"
+    except Exception as e:
+        print(f"DB ERROR: {e}")
+        return False, "Помилка бази даних"
+
+
+def verify_and_bind_key(access_key: str, hwid: str) -> tuple[bool, str]:
+    if not access_key or not hwid:
+        return False, "Ключ або HWID відсутні"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT is_banned, hwid FROM keys WHERE access_key = ?", (access_key,))
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return False, "Невірний ключ"
+
+        is_banned, current_hwid = row
+
+        if is_banned == 1:
+            conn.close()
+            return False, "Ключ заблоковано"
+
+        # Якщо HWID ще не прив'язаний — прив'язуємо
+        if current_hwid is None:
+            cursor.execute("UPDATE keys SET hwid = ? WHERE access_key = ?", (hwid, access_key))
+            conn.commit()
+            conn.close()
+            return True, "Ключ успішно прив'язано до пристрою"
+
+        # Якщо HWID вже є — порівнюємо
+        conn.close()
+        if current_hwid == hwid:
+            return True, "Авторизація успішна"
+        else:
+            return False, "Цей ключ вже використовується на іншому пристрої"
     except Exception as e:
         print(f"DB ERROR: {e}")
         return False, "Помилка бази даних"

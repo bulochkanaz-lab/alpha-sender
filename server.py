@@ -36,8 +36,8 @@ app.add_middleware(
 
 class AuthRequest(BaseModel):
     access_key: str = ""
-    session_id: str = "default_sess"
-    session_token: str = ""
+    hwid: str = ""           # 👈 Для старих клієнтів
+    session_token: str = ""  # 👈 Для нових клієнтів
     profiles: list = []
     team: str = "alpha"
 
@@ -80,11 +80,12 @@ def decrypt_payload(encrypted_b64: str, key: str) -> str:
 
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
-    session_token: str = ""
+    hwid: str = ""           # 👈
+    session_token: str = ""  # 👈
     profiles: list = []
     team: str = "alpha"
-    stats_invites: int = 0  # <--- Додали лічильник інвайтів
-    stats_letters: int = 0  # <--- Додали лічильник листів
+    stats_invites: int = 0
+    stats_letters: int = 0
 
 class AdminConfigUpdateRequest(BaseModel):
     access_key: str
@@ -126,11 +127,13 @@ async def config_applied(request: ConfigAppliedRequest):
 @app.post("/auth")
 async def authenticate(request: AuthRequest):
     key = request.access_key.replace('"', '').strip()
-    session_token = request.session_token.strip()  # Отримуємо токен сесії
-
     db = database_fs if request.team == "fs" else database
 
-    success, message = db.login_and_update_session(key, session_token)
+    # 🔥 Гібридна логіка
+    if request.session_token:
+        success, message = db.login_and_update_session(key, request.session_token.strip())
+    else:
+        success, message = db.verify_and_bind_key(key, request.hwid.strip())
 
     if success:
         return {"status": "success", "message": message}
@@ -140,12 +143,13 @@ async def authenticate(request: AuthRequest):
 @app.post("/heartbeat")
 async def heartbeat(request: HeartbeatRequest):
     key = request.access_key.replace('"', '').strip()
-    session_token = request.session_token.strip()
-
     db = database_fs if request.team == "fs" else database
 
-    # 🔥 Перевіряємо, чи токен збігається з тим, що в базі
-    success, message = db.verify_session(key, session_token)
+    # 🔥 Гібридна логіка
+    if request.session_token:
+        success, message = db.verify_session(key, request.session_token.strip())
+    else:
+        success, message = db.verify_and_bind_key(key, request.hwid.strip())
 
     if success:
         db.update_profiles(key, request.profiles)
@@ -170,7 +174,6 @@ async def heartbeat(request: HeartbeatRequest):
 
         return {"status": "success"}
 
-    # 🛑 Якщо сесія не збігається — викидаємо оператора!
     if message == "Ключ заблоковано":
         return {"status": "banned", "message": message}
 
@@ -178,13 +181,15 @@ async def heartbeat(request: HeartbeatRequest):
 
 
 @app.get("/get_payload")
-async def get_payload(key: str = "", session_token: str = "", team: str = "alpha"): # Змінили hwid на session_token
+async def get_payload(key: str = "", hwid: str = "", session_token: str = "", team: str = "alpha"):
     key = key.replace('"', '').strip()
-    session_token = session_token.strip()
-
     db = database_fs if team == "fs" else database
 
-    success, msg = db.verify_session(key, session_token)
+    # 🔥 Гібридна логіка
+    if session_token:
+        success, msg = db.verify_session(key, session_token.strip())
+    else:
+        success, msg = db.verify_and_bind_key(key, hwid.strip())
 
     if not success:
         return Response(
