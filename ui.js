@@ -164,6 +164,9 @@ function injectBotUI() {
 
     const overlay = document.createElement("div");
     overlay.id = "alpha-sender-overlay";
+
+    console.log("DEBUG: Команда в конфігу:", typeof APP_CONFIG !== 'undefined' ? APP_CONFIG.team : "UNDEFINED");
+
     // Визначаємо, що показувати: текст для Alpha чи логотип для FS
     const headerContent = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.team === 'fs')
         ? `<div style="margin-bottom: 5px;">
@@ -173,7 +176,6 @@ function injectBotUI() {
            <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Program</div>`;
 
     overlay.innerHTML = `
-    console.log("DEBUG: Команда в конфігу:", typeof APP_CONFIG !== 'undefined' ? APP_CONFIG.team : "UNDEFINED");
         <div class="alpha-modal">
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
