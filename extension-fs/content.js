@@ -229,11 +229,18 @@ async function authenticateAndLoad(accessKey) {
             } else {
                 if(statusMsg) {
                     statusMsg.style.color = "red";
-                    // ДОДАНО: Читаємо message, яке прислав background.js від сервера
                     statusMsg.innerText = `⚠️ ${response.message || "Помилка перевірки доступу"}`;
                 }
-                // Якщо помилка HWID або заблоковано, краще видалити збережений ключ
-                localStorage.removeItem('alphaAccessKey');
+
+                // 🔥 ВИДАЛЯЄМО КЛЮЧ ТІЛЬКИ ЯКЩО ПРОБЛЕМА З СЕСІЄЮ АБО КЛЮЧЕМ (а не при помилці 500 чи поганому інтернеті)
+                if (response && response.message && (
+                    response.message.includes("іншому пристрої") ||
+                    response.message.includes("Невірний ключ") ||
+                    response.message.includes("Сеанс перервано")
+                )) {
+                     localStorage.removeItem('alphaAccessKey');
+                }
+
                 resetLoaderButton(btn);
             }
         });
@@ -319,11 +326,15 @@ window.addEventListener("AlphaAnalyticsLog", (e) => {
     }
 });
 
-// Слухаємо відповідь від фону (якщо ключ заблокували)
+// Слухаємо відповідь від фону (якщо ключ заблокували або сесія перервана)
 chrome.runtime.onMessage.addListener((request) => {
     if (request.action === "banned") {
         localStorage.removeItem('alphaAccessKey');
-        alert("⛔️ Ваш ключ доступу або пристрій був заблокований адміністратором.");
+        alert("⛔️ Ваш ключ доступу був заблокований адміністратором.");
+        location.reload();
+    } else if (request.action === "session_expired") {
+        localStorage.removeItem('alphaAccessKey');
+        alert(`⚠️ ${request.message || "Ваш ключ щойно активували на іншому пристрої. Сеанс перервано."}`);
         location.reload();
     }
 });

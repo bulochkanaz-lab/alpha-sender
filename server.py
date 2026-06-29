@@ -37,7 +37,7 @@ app.add_middleware(
 class AuthRequest(BaseModel):
     access_key: str = ""
     session_id: str = "default_sess"
-    hwid: str = ""
+    session_token: str = ""
     profiles: list = []
     team: str = "alpha"
 
@@ -80,7 +80,7 @@ def decrypt_payload(encrypted_b64: str, key: str) -> str:
 
 class HeartbeatRequest(BaseModel):
     access_key: str = ""
-    hwid: str = ""
+    session_token: str = ""
     profiles: list = []
     team: str = "alpha"
     stats_invites: int = 0  # <--- Додали лічильник інвайтів
@@ -93,19 +93,18 @@ class AdminConfigUpdateRequest(BaseModel):
 
 class ConfigAppliedRequest(BaseModel):
     access_key: str
-    hwid: str
+    session_token: str
     team: str = "alpha"
 
 
 @app.post("/config_applied")
 async def config_applied(request: ConfigAppliedRequest):
-    """Очищає pending_config після того, як розширення успішно його застосувало"""
     key = request.access_key.replace('"', '').strip()
-    hwid = request.hwid.strip()
+    session_token = request.session_token.strip()
 
     db = database_fs if request.team == "fs" else database
 
-    success, message = db.verify_and_bind_key(key, hwid)
+    success, message = db.verify_session(key, session_token)
 
     if success:
         conn = db.get_connection()
@@ -123,14 +122,16 @@ async def config_applied(request: ConfigAppliedRequest):
 
     return {"status": "error", "message": message}
 
+
 @app.post("/auth")
 async def authenticate(request: AuthRequest):
     key = request.access_key.replace('"', '').strip()
-    hwid = request.hwid.strip()
+    session_token = request.session_token.strip()  # Отримуємо токен сесії
 
     db = database_fs if request.team == "fs" else database
 
-    success, message = db.verify_and_bind_key(key, hwid)
+    success, message = db.login_and_update_session(key, session_token)
+
     if success:
         return {"status": "success", "message": message}
     return {"status": "error", "message": message}
@@ -138,21 +139,17 @@ async def authenticate(request: AuthRequest):
 
 @app.post("/heartbeat")
 async def heartbeat(request: HeartbeatRequest):
-    print(
-        f"[ДЕБАГ] Пінг від {request.access_key}: Інвайти={request.stats_invites}, Листи={request.stats_letters}")  # <--- ДОДАЙ ЦЕ
-
     key = request.access_key.replace('"', '').strip()
-    # ... далі твій код ...
-    hwid = request.hwid.strip()
+    session_token = request.session_token.strip()
 
     db = database_fs if request.team == "fs" else database
 
-    success, message = db.verify_and_bind_key(key, hwid)
+    # 🔥 Перевіряємо, чи токен збігається з тим, що в базі
+    success, message = db.verify_session(key, session_token)
 
     if success:
         db.update_profiles(key, request.profiles)
 
-        # --- ОНОВЛЕННЯ СТАТИСТИКИ ТА ПІНГУ ---
         conn = db.get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -160,16 +157,11 @@ async def heartbeat(request: HeartbeatRequest):
             (request.stats_invites, request.stats_letters, key)
         )
         conn.commit()
-        # -----------------------------------
 
-        # Перевіряємо, чи є нові накази від адміна
-        conn = db.get_connection()
-        cursor = conn.cursor()
         cursor.execute("SELECT pending_config FROM keys WHERE access_key = ?", (key,))
         row = cursor.fetchone()
         conn.close()
 
-        # Якщо наказ є - віддаємо його розширенню
         if row and row[0]:
             return {
                 "status": "sync_required",
@@ -178,25 +170,25 @@ async def heartbeat(request: HeartbeatRequest):
 
         return {"status": "success"}
 
+    # 🛑 Якщо сесія не збігається — викидаємо оператора!
     if message == "Ключ заблоковано":
         return {"status": "banned", "message": message}
 
-    return {"status": "error", "message": message}
+    return {"status": "session_expired", "message": message}
 
 
 @app.get("/get_payload")
-async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team: str = "alpha"):
+async def get_payload(key: str = "", session_token: str = "", team: str = "alpha"): # Змінили hwid на session_token
     key = key.replace('"', '').strip()
-    hwid = hwid.strip()
+    session_token = session_token.strip()
 
     db = database_fs if team == "fs" else database
 
-    success, msg = db.verify_and_bind_key(key, hwid)
+    success, msg = db.verify_session(key, session_token)
 
-    # 🛑 ПРАВИЛЬНА ОБРОБКА ПОМИЛКИ ДОСТУПУ (HTTP 401)
     if not success:
         return Response(
-            content=json.dumps({"status": "error", "message": msg or "Invalid key or HWID"}),
+            content=json.dumps({"status": "error", "message": msg}),
             media_type="application/json",
             status_code=401
         )
@@ -583,18 +575,18 @@ async def toggle_ban(request: AdminActionRequest, authorized: bool = Depends(ver
     return {"status": "success", "message": message}
 
 
-@app.post("/admin/reset_hwid")
-async def reset_hwid(request: AdminActionRequest, authorized: bool = Depends(verify_admin)):
-    """Скидає прив'язку до комп'ютера (HWID)"""
+@app.post("/admin/reset_session") # Перейменували
+async def reset_session(request: AdminActionRequest, authorized: bool = Depends(verify_admin)):
+    """Примусово скидає поточну сесію (викидає користувача з мережі)"""
     db = database_fs if request.team == "fs" else database
     conn = db.get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("UPDATE keys SET hwid = NULL WHERE access_key = ?", (request.access_key,))
+    cursor.execute("UPDATE keys SET session_token = NULL WHERE access_key = ?", (request.access_key,))
     conn.commit()
     conn.close()
 
-    return {"status": "success", "message": f"HWID для {request.access_key} скинуто"}
+    return {"status": "success", "message": f"Сесію для {request.access_key} скинуто"}
 
 
 @app.post("/admin/delete_key")
