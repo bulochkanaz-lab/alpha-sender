@@ -170,7 +170,7 @@ function injectBotUI() {
     // Визначаємо, що показувати: текст для Alpha чи логотип для FS
     const headerContent = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.team === 'fs')
         ? `<div style="margin-bottom: 5px;">
-             <img src="https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3eTFjaTVob2JvMDgzYmNyNHl0N25jdWl2M2puZHIwZnZ4eXZ3MHcxayZlcD12MV9naWZzX3NlYXJjaCZjdD1n/kUl8XpMZ1f7hNXJmVR/giphy.gif" alt="FS Logo" style="max-height: 45px; border-radius: 5px; display: block;">
+             <img src="https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3d2hmNXZsMXJqN2VkeWljc3JlMnpqdzhsbXBvazY0aGdyMXp1YWg0ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/OKgrZklo04N6GQlaxX/giphy.gif" alt="FS Logo" style="max-height: 45px; border-radius: 5px; display: block;">
            </div>`
         : `<h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
            <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Program</div>`;
