@@ -202,6 +202,7 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
         )
 
     try:
+        # Уніфікуємо для обох команд
         modules = [
             "smart_search.js",
             "bday_radar.js",
@@ -211,9 +212,7 @@ async def get_payload(key: str = "", session_id: str = "", hwid: str = "", team:
             "sender.js",
             "radar.js"
         ]
-
-        if team == "fs":
-            modules = ["smart_search.js", "payload-fs.js"]
+        # Якщо треба виключити щось специфічне для fs, зроби це тут
 
         # 🔥 СТВОРЮЄМО ФАНТОМА ДО ЗАВАНТАЖЕННЯ ІНШИХ МОДУЛІВ
         raw_js = """
