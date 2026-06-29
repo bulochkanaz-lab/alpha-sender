@@ -164,13 +164,19 @@ function injectBotUI() {
 
     const overlay = document.createElement("div");
     overlay.id = "alpha-sender-overlay";
+    // Визначаємо, що показувати: текст для Alpha чи логотип для FS
+    const headerContent = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.team === 'fs')
+        ? `<div style="margin-bottom: 5px;">
+             <img src="ТУТ_ПОСИЛАННЯ_НА_ГІФКУ" alt="FS Logo" style="max-height: 45px; border-radius: 5px; display: block;">
+           </div>`
+        : `<h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
+           <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Program</div>`;
 
     overlay.innerHTML = `
         <div class="alpha-modal">
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
-                    <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
-                    <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Program</div>
+                    ${headerContent}
                     <div class="alpha-lang-switch">
                         <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
                         <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
