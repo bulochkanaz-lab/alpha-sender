@@ -121,6 +121,26 @@ async function handleAutoReply(profileId, manId, type, exactText = "", chatUid =
 
     const result = await sendAutoMessage(profileId, manId, randomText, chatUid);
     //console.log(`[ДЕБАГ] Результат відправки автовідповідача: ${result ? 'УСПІШНО' : 'НЕ УСПІШНО'}`);
+
+    // 🔥 ДОДАНО: Реєструємо автовідповідь як відправлений інвайт (добивка)
+    if (result) {
+        const smartUid = `${profileId}_${manId}`;
+
+        // 1. Відправляємо в аналітику (щоб відображалось на сервері як відправлений текст)
+        if (typeof logInviteAnalytics === 'function') {
+            logInviteAnalytics(randomText, "sent", smartUid);
+        }
+
+        // 2. Бронюємо чат, щоб коли мужик відповість, Радар сприйняв це як відповідь на інвайт і зібрав досьє
+        if (typeof markChatAsInvited === 'function') {
+            markChatAsInvited(smartUid);
+        }
+
+        // 3. Плюсуємо лічильник інвайтів в UI розширення (можеш закоментувати, якщо не хочеш мішати ручні інвайти з авто)
+        if (typeof incrementStat === 'function') {
+            incrementStat("invites");
+        }
+    }
 }
 
 // ==========================================
