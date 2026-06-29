@@ -167,7 +167,7 @@ async function collectAllMen(token, profileId) {
             await sleep(500);
 
         } catch (error) {
-            console.error("❌ Помилка при зборі сторінки", page, error);
+            //console.error("❌ Помилка при зборі сторінки", page, error);
             hasMore = false;
         }
     }
@@ -290,7 +290,7 @@ async function disableProfile(profileId) {
         const decoded = JSON.parse(atob(base64));
         operatorId = decoded.id;
     } catch (e) {
-        console.error("Помилка парсингу токена:", e);
+        //e.error("Помилка парсингу токена:", e);
         return false;
     }
 
@@ -359,81 +359,6 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
     }
 }
 
-// =====================================================
-// ЕКСПЕРИМЕНТ: ПРИХОВУВАННЯ ПОВІДОМЛЕНЬ
-// =====================================================
-
-// 1. Оновлений удар по API (пробуємо через FormData)
-async function hideMessageById(token, messageId) {
-    try {
-        console.log(`🛠 [Дебаг] Пробуємо приховати ID: ${messageId}`);
-
-        const formData = new FormData();
-        formData.append('message_id', messageId);
-
-        const headers = getHeaders(token);
-        delete headers['content-type']; // Дозволяємо браузеру самому поставити multipart/form-data
-
-        const response = await fetch("https://alpha.date/api/chat/hideMessage", {
-            method: "POST",
-            headers: headers,
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.status === true) {
-            console.log(`✅ [Успіх] Повідомлення ${messageId} приховано!`, data);
-            return true;
-        } else {
-            console.warn(`❌ [Відмова] Відповідь:`, data);
-            return false;
-        }
-    } catch (error) {
-        console.error("❌ [Помилка] Збій запиту hideMessage:", error);
-        return false;
-    }
-}
-
-// 2. Розумна функція, яка сама знаходить твоє ОСТАННЄ повідомлення і ховає його
-async function hideMyLastMessage(token, chatUid, profileId) {
-    console.log(`🕵️‍♂️ [Експеримент] Шукаємо останнє повідомлення анкети ${profileId} у чаті ${chatUid}...`);
-
-    try {
-        // Запитуємо першу сторінку історії чату
-        const response = await fetch("https://alpha.date/api/chatList/chatHistory", {
-            method: "POST",
-            headers: getHeaders(token),
-            body: JSON.stringify({ chat_id: chatUid, page: 1 }),
-        });
-
-        const data = await response.json();
-        const messages = data.response || data.data || [];
-
-        if (!Array.isArray(messages) || messages.length === 0) {
-            console.log("🤷‍♂️ [Експеримент] Історія чату порожня.");
-            return false;
-        }
-
-        // Шукаємо перше (найсвіжіше) повідомлення, яке було відправлене САМЕ НАМИ
-        // Масив зазвичай відсортований від нових до старих (або навпаки, тому шукаємо з кінця або початку залежно від сайту)
-        // На основі твоєї структури, беремо те, де sender_external_id співпадає з нашою анкетою
-        const myLastMsg = messages.find(m => String(m.sender_external_id) === String(profileId));
-
-        if (myLastMsg && myLastMsg.id) {
-            console.log(`🎯 [Експеримент] Знайдено ціль! Текст: "${myLastMsg.message_content}", ID: ${myLastMsg.id}`);
-            // Робимо постріл
-            return await hideMessageById(token, myLastMsg.id);
-        } else {
-            console.log("🤷‍♂️ [Експеримент] Не знайдено жодного твого повідомлення в останній історії.");
-            return false;
-        }
-
-    } catch (error) {
-        console.error("❌ [Помилка] Збій отримання історії для експерименту:", error);
-        return false;
-    }
-}
 
 // =====================================================
 // МАСОВЕ ЗАВАНТАЖЕННЯ ФОТО В ГАЛЕРЕЮ (Bulk Gallery Upload)
@@ -515,7 +440,7 @@ async function uploadSinglePhoto(token, externalId, file, onProgress = null) {
         }
 
     } catch (error) {
-        console.error('[BulkUpload] Помилка:', error);
+        //console.error('[BulkUpload] Помилка:', error);
         return { success: false, filename: file.name, error: error.message };
     }
 }
@@ -581,7 +506,7 @@ async function uploadSingleVideo(token, externalId, file, onProgress = null) {
                     })
                 });
             } catch (thumbErr) {
-                console.warn("[BulkUpload] Помилка генерації прев'ю відео, але відео завантажено", thumbErr);
+                //console.warn("[BulkUpload] Помилка генерації прев'ю відео, але відео завантажено", thumbErr);
             }
 
             if (onProgress) onProgress(file.name, true);
@@ -591,7 +516,7 @@ async function uploadSingleVideo(token, externalId, file, onProgress = null) {
         }
 
     } catch (error) {
-        console.error('[BulkUpload] Помилка завантаження відео:', error);
+        //console.error('[BulkUpload] Помилка завантаження відео:', error);
         return { success: false, filename: file.name, error: error.message };
     }
 }

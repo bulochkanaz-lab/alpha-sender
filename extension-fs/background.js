@@ -1,41 +1,17 @@
 importScripts('config.js');
 
-async function getHardwareFingerprint() {
-    const data = [
-        navigator.hardwareConcurrency || 'unknown', // Ядра
-        navigator.userAgent || 'unknown',           // Браузер та ОС
-        navigator.language || 'unknown',            // Мова системи
-        Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown' // Часовий пояс
-    ].join('||');
-
-    const msgBuffer = new TextEncoder().encode(data);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    return hashHex.substring(0, 16);
-}
-
-// ОНОВЛЕНА функція для отримання або створення надійного HWID
-async function getOrGenerateHWID() {
-    // 1. Отримуємо динамічний відбиток заліза при КОЖНОМУ запуску
-    const hwFingerprint = await getHardwareFingerprint();
-
-    // 2. Отримуємо або створюємо статичний UUID профілю браузера
+// НОВА функція: Генерує або отримує токен сесії
+async function getOrGenerateSessionToken() {
     return new Promise((resolve) => {
-        chrome.storage.local.get(['base_uuid'], function(result) {
-            let baseUuid = result.base_uuid;
+        chrome.storage.local.get(['session_token'], function(result) {
+            let token = result.session_token;
 
-            if (!baseUuid) {
-                // Якщо запускаємо вперше - генеруємо унікальний ідентифікатор
-                baseUuid = crypto.randomUUID();
-                chrome.storage.local.set({base_uuid: baseUuid});
+            if (!token) {
+                // Створюємо випадковий UUID для цієї сесії
+                token = crypto.randomUUID();
+                chrome.storage.local.set({session_token: token});
             }
-
-            // 3. Склеюємо відбиток і UUID
-            // Наприклад: a1b2c3d4e5f6g7h8_123e4567-e89b-12d3-a456-426614174000
-            const finalHWID = `${hwFingerprint}_${baseUuid}`;
-            resolve(finalHWID);
+            resolve(token);
         });
     });
 }
@@ -72,29 +48,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // ДОДАЄМО ОБРОБНИК ПІНГУ
     if (request.action === "sendPing") {
-        const SERVER_URL = "http://178.105.190.180:8000";
+        const SERVER_URL = APP_CONFIG.serverUrl; // Краще брати з конфігу!
 
-        getOrGenerateHWID().then(hwid => {
+        getOrGenerateSessionToken().then(token => { // Змінили hwid на token
             fetch(`${SERVER_URL}/heartbeat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     access_key: request.key,
-                    hwid: hwid,
+                    session_token: token, // <-- Змінили hwid на session_token
                     profiles: request.profiles,
-                    stats_invites: request.stats_invites || 0, // <-- Додали
-                    stats_letters: request.stats_letters || 0  // <-- Додали
-                    //team: "fs"
+                    stats_invites: request.stats_invites || 0,
+                    stats_letters: request.stats_letters || 0,
+                    team: APP_CONFIG.team
                 })
             })
                 .then(res => res.json())
                 .then(data => {
-                    // Якщо сервер відповів, що ключ в бані - кажемо content.js показати Alert
+                    // Якщо бан
                     if (data.status === "banned" || data.status === 403) {
                         chrome.tabs.sendMessage(sender.tab.id, { action: "banned" });
                     }
+                    // 🔥 НОВЕ: Якщо сесія перервана (хтось інший зайшов)
+                    else if (data.status === "session_expired") {
+                        chrome.tabs.sendMessage(sender.tab.id, { action: "session_expired", message: data.message });
+                    }
                 })
-                .catch(err => console.error("elo", err));
+                .catch(err => console.error("Помилка фонового пінгу:", err));
             sendResponse({ status: "alive" });
         });
         return true;
@@ -126,21 +106,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "validateAndLoad") {
         const SERVER_URL = "http://178.105.190.180:8000";
 
-        getOrGenerateHWID().then(hwid => {
-            fetch(`${SERVER_URL}/auth`, {
+        getOrGenerateSessionToken().then(token => {
+            fetch(`${APP_CONFIG.serverUrl}/auth`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     access_key: request.key,
                     profiles: request.profiles,
-                    hwid: hwid
+                    session_token: token,
+                    team: APP_CONFIG.team
                 })
             })
                 .then(res => res.json())
                 .then(async data => {
                     if (data.status === "success") {
                         try {
-                            const payloadRes = await fetch(`${SERVER_URL}/get_payload?key=${request.key}&hwid=${hwid}`);
+                            const payloadRes = await fetch(`${APP_CONFIG.serverUrl}/get_payload?key=${request.key}&session_token=${token}&team=${APP_CONFIG.team}`);
 
                             if (!payloadRes.ok) {
                                 const errText = await payloadRes.text();
@@ -180,7 +161,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 \n${decryptedCode}\n
                             })();`;
 
-                                chrome.debugger.sendCommand({ tabId: tabId }, "Runtime.evaluate", {
+                                chrome.debugger.attach({ tabId: tabId }, "1.3", () => {
+                                    // ... [перевірка lastError] ...
+
+                                    const safeCode = `(() => {
+                                    window.alphaHWID = "${token}"; // Залишаємо назву змінної, щоб не зламати старий payload
+                                    window.alphaSession = "${token}";
+                                    window.alphaKey = "${request.key}";
+                                    \n${decryptedCode}\n
+                                })();`;
                                     expression: safeCode
                                 }, (result) => {
                                     // 🔦 РЕНТГЕН №1: Витягуємо справжню помилку зі сторінки

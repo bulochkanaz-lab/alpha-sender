@@ -165,12 +165,26 @@ function injectBotUI() {
     const overlay = document.createElement("div");
     overlay.id = "alpha-sender-overlay";
 
+    console.log("DEBUG: Команда в конфігу:", typeof APP_CONFIG !== 'undefined' ? APP_CONFIG.team : "UNDEFINED");
+
+    // Визначаємо, що показувати: текст для Alpha чи логотип для FS
+    const headerContent = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.team === 'fs')
+        ? `<div style="margin-bottom: 5px;">
+             <img src="https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3d2hmNXZsMXJqN2VkeWljc3JlMnpqdzhsbXBvazY0aGdyMXp1YWg0ZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/OKgrZklo04N6GQlaxX/giphy.gif" alt="FS Logo" style="max-height: 45px; border-radius: 5px; display: block;">
+           </div>`
+        : `<h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
+           <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Program</div>`;
+
     overlay.innerHTML = `
         <div class="alpha-modal">
             <div class="alpha-sidebar">
                 <div class="alpha-sidebar-header">
+<<<<<<< HEAD
                     <h3 data-lang="title" style="margin: 0; color: #1976d2; font-size: 18px;">⚙ Alpha Sender Pro</h3>
                     <div style="font-size: 11px; color: #999; font-style: italic; margin-top: 2px;">Vibro Program</div>
+=======
+                    ${headerContent}
+>>>>>>> master
                     <div class="alpha-lang-switch">
                         <span id="langUaBtn" style="cursor: pointer; opacity: 1;" title="Українська">🇺🇦</span>
                         <span id="langRuBtn" style="cursor: pointer; opacity: 0.4;" title="Русский">🇷🇺</span>
@@ -443,7 +457,7 @@ function injectBotUI() {
 function setupUIEvents(overlay, galleryModal) {
     // ==================== ЗАХИСНА ПЕРЕВІРКА ====================
     if (!window._alphaPhantom || !window._alphaPhantom.shadow) {
-        console.error("[Alpha Sender] window._alphaPhantom.shadow не готовий. setupUIEvents скасовано.");
+        //console.error("[Alpha Sender] window._alphaPhantom.shadow не готовий. setupUIEvents скасовано.");
         return;
     }
 
@@ -569,7 +583,7 @@ function setupUIEvents(overlay, galleryModal) {
         ].sort((a, b) => b.d - a.d); // Сортуємо по спаданню днів (30, 14, 7)
 
         localStorage.setItem("alpha_bday_config", JSON.stringify(bdaySet));
-        showSystemAlert("Збережено", "Налаштування радара оновлено!", "#4caf50");
+        showSystemAlert("Збережено", "Налаштування збережено!", "#4caf50");
     };
 
     // --- ІНШИЙ КОД UI ---
@@ -1087,7 +1101,7 @@ function setupUIEvents(overlay, galleryModal) {
                     galleryDropZone.style.background = '#f8f9fa';
                 }, 800);
             } catch (err) {
-                console.error('[Галерея] Критична помилка:', err);
+                //console.error('[Галерея] Критична помилка:', err);
                 alert('Сталася помилка під час завантаження. Дивіться консоль.');
             }
         });
@@ -1542,85 +1556,6 @@ function injectSearchButton() {
             progressFill.style.width = "100%";
         });
         middleBlock.insertAdjacentElement('afterend', searchContainer);
-    });
-}
-
-function injectHideButtons() {
-    const myMessages = document.querySelectorAll('.styles_clmn_3_chat_message_content__uCgtO');
-
-    myMessages.forEach(msgNode => {
-        if (msgNode.querySelector('.alpha-hide-btn-inline')) return;
-
-        let msgId = null;
-
-        const translatorDiv = msgNode.querySelector('[data-aht-content-id]');
-        if (translatorDiv) {
-            const rawId = translatorDiv.getAttribute('data-aht-content-id');
-            msgId = rawId.replace('mess-', '');
-        }
-
-        if (!msgId) {
-            const parentWithId = msgNode.closest('[id*="15"], [data-id], [data-message-id]');
-            if (parentWithId) {
-                msgId = (parentWithId.id || parentWithId.getAttribute('data-id') || parentWithId.getAttribute('data-message-id') || "").replace(/\D/g, '');
-            }
-        }
-
-        if (!msgId) return;
-
-        const hideBtn = document.createElement('div');
-        hideBtn.className = 'alpha-hide-btn-inline';
-        hideBtn.innerHTML = '☠️';
-        hideBtn.title = 'Хак-видалення (працює завжди)';
-
-        hideBtn.style.cssText = `
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 8px;
-            opacity: 0.5;
-            transition: 0.2s;
-            user-select: none;
-        `;
-
-        hideBtn.onmouseover = () => hideBtn.style.opacity = '1';
-        hideBtn.onmouseout = () => hideBtn.style.opacity = '0.5';
-
-        hideBtn.onclick = async (e) => {
-            e.stopPropagation();
-
-            const token = localStorage.getItem('token');
-            if (!token) return;
-
-            hideBtn.innerHTML = '⏳';
-            hideBtn.style.opacity = '1';
-
-            const success = await hideMessageById(token.replace(/^"|"$/g, ''), msgId);
-
-            if (success) {
-                const wrapper = msgNode.parentElement;
-                wrapper.style.transition = "opacity 0.3s, transform 0.3s";
-                wrapper.style.opacity = "0";
-                wrapper.style.transform = "scale(0.95)";
-                setTimeout(() => wrapper.remove(), 300);
-            } else {
-                hideBtn.innerHTML = '❌';
-                hideBtn.title = 'Сервер відхилив запит';
-                setTimeout(() => { hideBtn.innerHTML = '☠️'; hideBtn.style.opacity = '0.5'; }, 2000);
-            }
-        };
-
-        const infoPanel = msgNode.querySelector('.styles_clmn_3_chat_message_info__XZa1d');
-        if (infoPanel) {
-            infoPanel.style.display = 'flex';
-            infoPanel.style.alignItems = 'center';
-            infoPanel.appendChild(hideBtn);
-        } else {
-            msgNode.style.position = 'relative';
-            hideBtn.style.position = 'absolute';
-            hideBtn.style.right = '-25px';
-            hideBtn.style.bottom = '5px';
-            msgNode.appendChild(hideBtn);
-        }
     });
 }
 
