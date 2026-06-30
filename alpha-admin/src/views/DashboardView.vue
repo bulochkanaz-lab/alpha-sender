@@ -13,7 +13,16 @@
           @click="openTab('stats')">
           📈 Глобальна статистика
         </button>
-        <button :class="{ active: activeTab === 'leads' }" @click="activeTab = 'leads'">База Лідів (Досьє)</button>
+        <button
+          :class="['nav-btn', { active: activeTab === 'leads' }]"
+          @click="openTab('leads')">
+          База Лідів (Досьє)
+        </button>
+        <button
+          :class="['nav-btn', { active: activeTab === 'metrics' }]"
+          @click="openTab('metrics')">
+          📊 Метрики
+        </button>
       </nav>
       <button class="logout-btn" @click="logout">🚪 Вийти</button>
     </aside>
@@ -52,12 +61,29 @@
                   {{ user.is_banned ? 'Так' : 'Ні' }}
                 </span>
               </td>
-              <td class="actions-cell">
-                <button class="btn-small btn-warn" @click="toggleBan(user.access_key)">
-                  {{ user.is_banned ? 'Розбанити' : 'Забанити' }}
-                </button>
-                <button class="btn-small" @click="resetHwid(user.access_key)">🔄 HWID</button>
-                <button class="btn-small btn-danger" @click="deleteKey(user.access_key)">🗑️</button>
+              <td>
+                <div class="flex gap-2 justify-end">
+                  <button
+                    @click.stop="toggleBan(user.access_key)"
+                    class="px-3 py-1.5 text-xs rounded-lg border transition-colors"
+                    :class="user.is_banned
+                      ? 'border-emerald-600 text-emerald-400 hover:bg-emerald-950'
+                      : 'border-orange-600 text-orange-400 hover:bg-orange-950'">
+                    {{ user.is_banned ? 'Розбанити' : 'Забанити' }}
+                  </button>
+
+                  <button
+                    @click.stop="resetHwid(user.access_key)"
+                    class="px-3 py-1.5 text-xs rounded-lg border border-zinc-600 text-zinc-300 hover:bg-zinc-800 transition-colors">
+                    HWID
+                  </button>
+
+                  <button
+                    @click.stop="deleteKey(user.access_key)"
+                    class="px-3 py-1.5 text-xs rounded-lg border border-red-600 text-red-400 hover:bg-red-950 transition-colors">
+                    Видалити
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -65,45 +91,85 @@
       </div>
 
       <div v-if="activeTab === 'leads'">
-        <h2>Зібрані профілі (Ті, хто відповів)</h2>
+        <div class="mb-8">
+          <div class="flex items-end justify-between">
+            <div>
+              <h2 class="text-3xl font-semibold tracking-tight">База Лідів</h2>
+              <p class="text-zinc-400 mt-1">Чоловіки, які відповіли на інвайти</p>
+            </div>
 
-        <div class="profile-card" style="margin-top: 20px; overflow-x: auto;">
-          <table class="admin-table">
+            <!-- Загальна кількість відповідей -->
+            <div class="text-right">
+              <div class="text-sm text-zinc-400">Всього відповідей</div>
+              <div class="text-5xl font-semibold text-emerald-400 tracking-tighter">
+                {{ leadsAnalytics.length }}
+              </div>
+              <div class="text-xs text-zinc-500 mt-0.5">за весь час</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+          <table class="w-full">
             <thead>
-              <tr>
-                <th>Мужик</th>
-                <th>Вік / Країна</th>
-                <th>Який текст спрацював?</th>
-                <th>Анкета</th>
+              <tr class="bg-zinc-950 border-b border-zinc-800 text-sm">
+                <th class="px-6 py-4 text-left font-medium text-zinc-400">Фото</th>
+                <th class="px-6 py-4 text-left font-medium text-zinc-400">Вік / Країна</th>
+                <th class="px-6 py-4 text-left font-medium text-zinc-400">Текст, що спрацював</th>
+                <th class="px-6 py-4 text-left font-medium text-zinc-400">Анкета</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-zinc-800">
               <tr v-if="leadsAnalytics.length === 0">
-                <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
+                <td colspan="4" class="px-6 py-10 text-center text-zinc-500">
                   Досьє ще збираються...
                 </td>
               </tr>
+
               <tr v-for="(lead, idx) in leadsAnalytics" :key="idx">
-                <td>
-                  <img v-if="lead.photo" :src="lead.photo" alt="man_avatar" class="clickable-avatar"
-                       title="Дивитись досьє чоловіка"
-                       @click="viewJson(lead.man_json, 'Досьє Чоловіка ID: ' + lead.man_id)" />
-                  <div v-else class="empty-avatar" @click="viewJson(lead.man_json, 'Досьє Чоловіка ID: ' + lead.man_id)"></div>
+                <!-- Фото чоловіка -->
+                <td class="px-6 py-4">
+                  <div
+                    class="w-12 h-12 rounded-full overflow-hidden border border-zinc-700 cursor-pointer hover:border-emerald-500 transition-all"
+                    @click="viewJson(lead.man_json, 'Досьє Чоловіка ID: ' + lead.man_id)">
+                    <img
+                      v-if="lead.photo"
+                      :src="lead.photo"
+                      alt="man_avatar"
+                      class="w-full h-full object-cover"
+                    />
+                    <div v-else class="w-full h-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">
+                      ?
+                    </div>
+                  </div>
                 </td>
 
-                <td style="font-weight: bold;">
-                  {{ lead.age }} р. <br/>
-                  <span style="font-size: 0.85em; color: #666;">{{ lead.country }}</span>
+                <!-- Вік / Країна -->
+                <td class="px-6 py-4">
+                  <div class="font-semibold">{{ lead.age }} років</div>
+                  <div class="text-sm text-zinc-400">{{ lead.country }}</div>
                 </td>
 
-                <td style="text-align: left; max-width: 300px; white-space: normal; color: #2e7d32; font-style: italic;">
+                <!-- Текст -->
+                <td class="px-6 py-4 text-emerald-400 italic max-w-[380px]">
                   "{{ lead.text }}"
                 </td>
 
-                <td>
-                  <img :src="getWomanPhoto(lead.woman_json)" alt="woman_avatar" class="clickable-avatar woman-border"
-                       title="Дивитись досьє анкети"
-                       @click="viewJson(lead.woman_json, 'Досьє Анкети ID: ' + lead.woman_id)" />
+                <!-- Фото анкети -->
+                <td class="px-6 py-4">
+                  <div
+                    class="w-12 h-12 rounded-full overflow-hidden border border-pink-500/30 cursor-pointer hover:border-pink-500 transition-all"
+                    @click="viewJson(lead.woman_json, 'Досьє Анкети ID: ' + lead.woman_id)">
+                    <img
+                      v-if="getWomanPhoto(lead.woman_json)"
+                      :src="getWomanPhoto(lead.woman_json)"
+                      alt="woman_avatar"
+                      class="w-full h-full object-cover"
+                    />
+                    <div v-else class="w-full h-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-500">
+                      ?
+                    </div>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -157,59 +223,176 @@
         </div>
       </div>
 
-      <div v-if="activeTab === 'profile' && selectedUser">
-        <div class="profile-header">
-          <button class="btn-back" @click="openTab('keys')">⬅ Повернутися до списку</button>
-          <h2>Деталі ключа: <span class="highlight">{{ selectedUser.access_key }}</span></h2>
+      <!-- ==================== МЕТРИКИ ==================== -->
+      <div v-if="activeTab === 'metrics'">
+        <div class="mb-8">
+          <h2 class="text-3xl font-semibold tracking-tight">Метрики</h2>
+          <p class="text-zinc-400 mt-1">Аналітика ефективності</p>
         </div>
 
-        <div class="profile-layout">
-          <div class="profile-card">
-            <h3>Інформація</h3>
-            <p><strong>ID:</strong> {{ selectedUser.id }}</p>
-            <p><strong>Баланс:</strong> {{ selectedUser.balance }}</p>
-            <p><strong>Остання активність:</strong> {{ formatTime(selectedUser.last_ping) }}</p>
-            <p><strong>HWID:</strong> {{ selectedUser.hwid || 'Не прив\'язано' }}</p>
+        <!-- Топ ключів за лідів -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="font-semibold text-xl">Топ ключів за кількістю лідів</h3>
+              <p class="text-sm text-zinc-400 mt-1">Які ключі приносять найбільше відповідей</p>
+            </div>
+            <div class="text-right">
+              <div class="text-3xl font-semibold text-emerald-400">{{ topKeysByLeads.length }}</div>
+              <div class="text-xs text-zinc-500">ключів у топі</div>
+            </div>
           </div>
 
-          <div class="profile-card">
-            <h3>Активність за поточну сесію</h3>
-            <div style="display: flex; gap: 20px; margin-top: 15px;">
-              <div class="mini-stat">
-                <span>Інвайти</span>
-                <strong>{{ selectedUser.stats_invites || 0 }}</strong>
+          <div v-if="topKeysByLeads.length === 0" class="py-12 text-center text-zinc-500">
+            Поки що немає даних для відображення
+          </div>
+
+          <VueApexCharts
+            v-else
+            type="bar"
+            height="420"
+            :options="topKeysChartOptions"
+            :series="[{
+              name: 'Кількість лідів',
+              data: topKeysByLeads.map(k => k.count)
+            }]"
+          />
+        </div>
+
+        <!-- ==================== ЛІДИ ЗА ДНЯМИ ==================== -->
+        <div class="mt-8">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-xl">Ліди за днями</h3>
+
+            <!-- Селектор днів -->
+            <div class="flex gap-2">
+              <button
+                v-for="d in [7, 14, 30]"
+                :key="d"
+                @click="fetchLeadsByDay(d)"
+                :class="[
+                  'px-4 py-1.5 text-sm rounded-xl transition-colors',
+                  leadsByDayPeriod === d
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                ]">
+                {{ d }} днів
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+            <div v-if="leadsByDayLoading" class="flex justify-center items-center h-[320px]">
+              <div class="text-zinc-400">Завантаження...</div>
+            </div>
+
+            <div v-else-if="leadsByDayData.length === 0" class="flex justify-center items-center h-[320px] text-zinc-500">
+              Немає даних за обраний період
+            </div>
+
+            <VueApexCharts
+              v-else
+              type="bar"
+              height="320"
+              :options="leadsByDayChartOptions"
+              :series="[{
+                name: 'Кількість лідів',
+                data: leadsByDayData.map(item => item.count)
+              }]"
+            />
+          </div>
+        </div>
+
+        <!-- Інформація -->
+        <div class="mt-6 text-sm text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+          <p>
+            Графік показує топ-10 ключів, які зібрали найбільшу кількість відповідей (лідів) за весь час.
+          </p>
+        </div>
+      </div>
+
+      <div v-if="activeTab === 'profile' && selectedUser">
+        <div class="flex items-center gap-4 mb-8">
+          <button @click="openTab('keys')"
+                  class="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors">
+            ← Назад до списку
+          </button>
+          <h2 class="text-2xl font-semibold">Профіль ключа:
+            <span class="text-emerald-400 font-mono">{{ selectedUser.access_key }}</span>
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Інформація -->
+          <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+            <h3 class="font-semibold mb-4 text-lg">Інформація</h3>
+            <div class="space-y-3 text-sm">
+              <div class="flex justify-between">
+                <span class="text-zinc-400">ID</span>
+                <span class="font-mono">{{ selectedUser.id }}</span>
               </div>
-              <div class="mini-stat">
-                <span>Листи</span>
-                <strong>{{ selectedUser.stats_letters || 0 }}</strong>
+              <div class="flex justify-between">
+                <span class="text-zinc-400">Баланс</span>
+                <span>{{ selectedUser.balance || 0 }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-zinc-400">Остання активність</span>
+                <span>{{ formatTime(selectedUser.last_ping) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-zinc-400">HWID</span>
+                <span class="font-mono text-xs break-all">{{ selectedUser.hwid || 'Не прив\'язано' }}</span>
               </div>
             </div>
           </div>
 
-          <div class="profile-card" style="grid-column: 1 / -1;">
-            <h3>Ефективність шаблонів</h3>
-            <table class="admin-table">
+          <!-- Активність -->
+          <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+            <h3 class="font-semibold mb-4 text-lg">Активність за сесію</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <div class="text-zinc-400 text-sm">Інвайти</div>
+                <div class="text-3xl font-semibold text-orange-400 mt-1">
+                  {{ selectedUser.stats_invites || 0 }}
+                </div>
+              </div>
+              <div>
+                <div class="text-zinc-400 text-sm">Листи</div>
+                <div class="text-3xl font-semibold text-emerald-400 mt-1">
+                  {{ selectedUser.stats_letters || 0 }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Ефективність шаблонів -->
+        <div class="mt-8">
+          <h3 class="font-semibold mb-4 text-lg">Ефективність шаблонів</h3>
+          <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <table class="w-full text-sm">
               <thead>
-                <tr>
-                  <th>Текст інвайту</th>
-                  <th>Відправлено</th>
-                  <th>Відповідей</th>
-                  <th>Конверсія (%)</th>
+                <tr class="bg-zinc-950 border-b border-zinc-800">
+                  <th class="px-6 py-4 text-left">Текст інвайту</th>
+                  <th class="px-6 py-4 text-center">Відправлено</th>
+                  <th class="px-6 py-4 text-center">Відповідей</th>
+                  <th class="px-6 py-4 text-center">Конверсія</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="divide-y divide-zinc-800">
                 <tr v-if="!selectedUser.invite_analytics || selectedUser.invite_analytics.length === 0">
-                  <td colspan="4" style="text-align: center; color: #999; padding: 20px;">
-                    Дані збираються... Розширення ще не відправило жодного інвайту.
+                  <td colspan="4" class="px-6 py-8 text-center text-zinc-500">
+                    Дані ще збираються...
                   </td>
                 </tr>
                 <tr v-for="(stat, idx) in selectedUser.invite_analytics" :key="idx">
-                  <td style="text-align: left; max-width: 450px; white-space: normal; word-break: break-word;">
-                    {{ stat.text }}
-                  </td>
-                  <td style="font-weight: bold; color: #f57c00;">{{ stat.sent }}</td>
-                  <td style="font-weight: bold; color: #2e7d32;">{{ stat.replied }}</td>
-                  <td :style="{ color: stat.conversion >= 10 ? '#52c41a' : '#faad14', fontWeight: 'bold' }">
+                  <td class="px-6 py-4 max-w-[500px]">{{ stat.text }}</td>
+                  <td class="px-6 py-4 text-center font-semibold text-orange-400">{{ stat.sent }}</td>
+                  <td class="px-6 py-4 text-center font-semibold text-emerald-400">{{ stat.replied }}</td>
+                  <td class="px-6 py-4 text-center font-bold"
+                      :class="stat.conversion >= 10 ? 'text-emerald-400' : 'text-yellow-400'">
                     {{ stat.conversion }}%
                   </td>
                 </tr>
@@ -263,13 +446,24 @@ const closeJsonModal = () => {
 }
 
 const getWomanPhoto = (rawJson) => {
-  const placeholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
   try {
-    if (!rawJson) return placeholder
+    if (!rawJson) return null
+
     const parsed = JSON.parse(rawJson)
-    return parsed?.user_detail?.photo_link || placeholder
-  } catch(e) {
-    return placeholder
+
+    // Спочатку шукаємо photo_link на верхньому рівні
+    if (parsed?.photo_link) {
+      return parsed.photo_link
+    }
+
+    // Якщо немає — шукаємо всередині user_detail (старий варіант)
+    if (parsed?.user_detail?.photo_link) {
+      return parsed.user_detail.photo_link
+    }
+
+    return null
+  } catch (e) {
+    return null
   }
 }
 
@@ -327,6 +521,11 @@ const totalLetters = computed(() => users.value.reduce((sum, u) => sum + (u.stat
 const openTab = (tabName) => {
   activeTab.value = tabName
   if (tabName !== 'profile') selectedUser.value = null
+
+  // Автоматично завантажуємо дані для вкладки Метрики
+  if (tabName === 'metrics' && leadsByDayData.value.length === 0) {
+    fetchLeadsByDay(7)
+  }
 }
 
 const openUserProfile = (user) => {
@@ -406,195 +605,406 @@ onMounted(() => {
   setInterval(fetchUsers, 10000)
   setInterval(fetchGlobalStats, 30000) // Оновлюємо топ кожні 30 сек
 })
+
+// ==================== МЕТРИКИ ====================
+import VueApexCharts from 'vue3-apexcharts'
+
+const metricsPeriod = ref(7) // 7, 14 або 30 днів
+
+// Демо-дані для графіків (поки немає реальних даних по датах)
+const invitesByDay = ref([
+  { date: '2026-06-23', count: 87 },
+  { date: '2026-06-24', count: 124 },
+  { date: '2026-06-25', count: 98 },
+  { date: '2026-06-26', count: 156 },
+  { date: '2026-06-27', count: 132 },
+  { date: '2026-06-28', count: 189 },
+  { date: '2026-06-29', count: 143 }
+])
+
+const leadsByDay = ref([
+  { date: '2026-06-23', count: 12 },
+  { date: '2026-06-24', count: 19 },
+  { date: '2026-06-25', count: 14 },
+  { date: '2026-06-26', count: 27 },
+  { date: '2026-06-27', count: 21 },
+  { date: '2026-06-28', count: 31 },
+  { date: '2026-06-29', count: 24 }
+])
+
+const topKeysByLeads = computed(() => {
+  const stats = {}
+
+  leadsAnalytics.value.forEach(lead => {
+    const key = lead.woman_id || 'unknown'
+    if (!stats[key]) {
+      stats[key] = 0
+    }
+    stats[key]++
+  })
+
+  return Object.entries(stats)
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+})
+
+// Опції для ApexCharts
+const invitesChartOptions = computed(() => ({
+  chart: { type: 'bar', height: 350, toolbar: { show: false } },
+  xaxis: { categories: invitesByDay.value.map(d => d.date) },
+  colors: ['#f59e0b'],
+  plotOptions: { bar: { borderRadius: 4 } }
+}))
+
+const leadsChartOptions = computed(() => ({
+  chart: { type: 'bar', height: 350, toolbar: { show: false } },
+  xaxis: { categories: leadsByDay.value.map(d => d.date) },
+  colors: ['#22c55e'],
+  plotOptions: { bar: { borderRadius: 4 } }
+}))
+
+const topKeysChartOptions = computed(() => ({
+  chart: {
+    type: 'bar',
+    height: 420,
+    toolbar: { show: false }
+  },
+  plotOptions: {
+    bar: {
+      horizontal: true,
+      borderRadius: 6,
+      dataLabels: { position: 'center' }
+    }
+  },
+  dataLabels: {
+    enabled: true,
+    style: { colors: ['#fff'] },
+    formatter: (val) => val
+  },
+  xaxis: {
+    categories: topKeysByLeads.value.map(item => item.key),
+    labels: { style: { colors: '#94a3b8' } }
+  },
+  yaxis: {
+    labels: { style: { colors: '#cbd5e1' } }
+  },
+  colors: ['#22c55e'],
+  grid: { borderColor: '#334155' },
+  tooltip: {
+    theme: 'dark'
+  }
+}))
+
+// ==================== ЛІДИ ЗА ДНЯМИ ====================
+const leadsByDayData = ref([])
+const leadsByDayLoading = ref(false)
+const leadsByDayPeriod = ref(7)
+
+const leadsByDayChartOptions = computed(() => ({
+  chart: {
+    type: 'bar',
+    height: 340,
+    toolbar: { show: false },
+    animations: { enabled: true }
+  },
+  plotOptions: {
+    bar: {
+      borderRadius: 6,
+      columnWidth: '60%'
+    }
+  },
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: leadsByDayData.value.map(item => item.date),
+    labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
+  },
+  yaxis: {
+    labels: { style: { colors: '#94a3b8' } }
+  },
+  colors: ['#22c55e'],
+  grid: {
+    borderColor: '#334155',
+    strokeDashArray: 2
+  },
+  tooltip: { theme: 'dark' }
+}))
+
+const fetchLeadsByDay = async (days = 7) => {
+  leadsByDayPeriod.value = days
+  leadsByDayLoading.value = true
+
+  try {
+    const response = await axios.get(`${SERVER_URL}/admin/metrics/leads-by-day`, {
+      params: { days },
+      headers: { 'admin-token': authStore.token }
+    })
+
+    if (response.data.status === 'success') {
+      leadsByDayData.value = response.data.data
+    }
+  } catch (e) {
+    console.error("Помилка завантаження лідів за днями:", e)
+    leadsByDayData.value = []
+  } finally {
+    leadsByDayLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
-/* СУЧАСНИЙ ДИЗАЙН (CSS) */
 .dashboard-layout {
   display: flex;
   height: 100vh;
-  background-color: #f4f6f8;
-  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background-color: #0f172a; /* Темний фон */
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #e2e8f0;
 }
 
 .sidebar {
   width: 250px;
-  background: #ffffff;
-  border-right: 1px solid #e1e8ed;
+  background: #1e293b;
+  border-right: 1px solid #334155;
   display: flex;
   flex-direction: column;
 }
 
 .logo {
-  padding: 20px;
+  padding: 22px 20px;
   font-size: 20px;
-  font-weight: bold;
-  color: #1976d2;
-  border-bottom: 1px solid #e1e8ed;
+  font-weight: 600;
+  color: #f1f5f9;
+  border-bottom: 1px solid #334155;
 }
 
 .nav-menu {
   flex: 1;
-  padding: 20px 0;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
 .nav-btn {
-  padding: 15px 20px;
+  padding: 12px 16px;
   background: none;
   border: none;
   text-align: left;
   font-size: 15px;
   cursor: pointer;
-  color: #555;
-  border-left: 4px solid transparent;
-  transition: 0.2s;
+  color: #94a3b8;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.nav-btn:hover { background: #f0f4f8; }
-.nav-btn.active { background: #e3f2fd; color: #1976d2; border-left-color: #1976d2; font-weight: bold; }
+.nav-btn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.nav-btn.active {
+  background: #334155;
+  color: #22c55e; /* Зелений акцент */
+  font-weight: 600;
+}
 
 .logout-btn {
-  padding: 15px;
-  background: #fff0f0;
-  color: #d32f2f;
+  padding: 14px;
+  background: #450a0a;
+  color: #f87171;
   border: none;
-  border-top: 1px solid #e1e8ed;
+  border-top: 1px solid #334155;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 500;
+  transition: background 0.2s;
 }
 
+.logout-btn:hover {
+  background: #7f1d1d;
+}
+
+/* Контент */
 .content-area {
   flex: 1;
-  padding: 30px;
+  padding: 32px 40px;
   overflow-y: auto;
+  background: #0f172a;
 }
 
-h2 { margin-top: 0; color: #333; }
+h2 {
+  margin-top: 0;
+  color: #f1f5f9;
+  font-size: 26px;
+  font-weight: 600;
+}
 
 /* Таблиці */
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
-  border-radius: 8px;
+  background: #1e293b;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
-.admin-table th, .admin-table td {
-  padding: 15px;
-  text-align: center;
-  border-bottom: 1px solid #eee;
+.admin-table th {
+  background: #334155;
+  font-weight: 600;
+  color: #cbd5e1;
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.admin-table th { background: #fafafa; font-weight: 600; color: #555; }
-.admin-table tr:hover { background: #fdfdfd; }
+.admin-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #334155;
+  vertical-align: middle;
+}
+
+.admin-table tr:hover {
+  background: #334155;
+}
 
 .key-cell {
   font-family: monospace;
-  font-weight: bold;
-  color: #1976d2;
+  color: #22c55e;
+  font-weight: 600;
   cursor: pointer;
 }
-.key-cell:hover { text-decoration: underline; }
 
-.muted { color: #999; }
-
-/* Бейджики */
-.badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-.badge.success { background: #e8f5e9; color: #2e7d32; }
-.badge.danger { background: #ffebee; color: #c62828; }
-.badge.offline { background: #f5f5f5; color: #757575; }
-
-/* Кнопки в таблиці */
-.btn-small { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: #fff; transition: 0.2s; }
-.btn-small:hover { background: #f0f0f0; }
-.btn-warn { color: #ed6c02; border-color: #ed6c02; }
-.btn-danger { color: #d32f2f; border-color: #d32f2f; }
-
-/* Статистика і Профіль */
-.stats-grid { display: flex; gap: 20px; }
-.stat-card { flex: 1; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center; }
-.stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #666; text-transform: uppercase; }
-.stat-number { font-size: 36px; font-weight: bold; color: #1976d2; }
-
-.profile-header { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
-.btn-back { padding: 8px 15px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-.highlight { color: #1976d2; }
-
-.profile-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.profile-card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-.mini-stat { background: #f4f6f8; padding: 15px; border-radius: 6px; flex: 1; display: flex; flex-direction: column; align-items: center; }
-.mini-stat span { font-size: 12px; color: #666; margin-bottom: 5px; text-transform: uppercase; }
-.mini-stat strong { font-size: 24px; color: #333; }
-
-/* ========================================== */
-/* МОДАЛЬНЕ ВІКНО ДЛЯ JSON                    */
-/* ========================================== */
-.modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.6);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 9999; backdrop-filter: blur(3px);
-}
-.modal-content {
-  background: #fff; width: 850px; max-width: 90vw;
-  height: 80vh; max-height: 800px;
-  border-radius: 8px; display: flex; flex-direction: column;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-}
-.modal-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 15px 20px; border-bottom: 1px solid #eee;
-  background: #f8f9fa; border-radius: 8px 8px 0 0;
-}
-.modal-header h3 { margin: 0; color: #1976d2; font-size: 16px;}
-.close-btn {
-  background: none; border: none; font-size: 26px; cursor: pointer; color: #999; line-height: 1;
-}
-.close-btn:hover { color: #d32f2f; }
-.json-viewer {
-  padding: 20px; margin: 0; overflow-y: auto; flex: 1;
-  background: #1e1e1e; /* Темний фон як у редакторі коду */
-  color: #a6e22e; /* Зелений текст */
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13px; border-radius: 0 0 8px 8px;
+.key-cell:hover {
+  text-decoration: underline;
 }
 
-/* Ефекти для клікабельних аватарок */
-.clickable-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  object-fit: cover;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border: 2px solid transparent;
-}
-.clickable-avatar:hover {
-  transform: scale(1.15);
-  border-color: #1976d2;
-  box-shadow: 0 5px 15px rgba(25, 118, 210, 0.4);
-}
-.woman-border:hover {
-  border-color: #e91e63; /* Рожевий акцент для анкети */
-  box-shadow: 0 5px 15px rgba(233, 30, 99, 0.4);
-}
-.empty-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: #eee;
+/* Бейджи */
+.badge {
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
   display: inline-block;
-  cursor: pointer;
-  transition: 0.2s;
 }
-.empty-avatar:hover {
-  transform: scale(1.15);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-.modal-title { margin: 0; color: #1976d2; font-size: 16px; font-weight: bold; }
 
+.badge.success {
+  background: #166534;
+  color: #4ade80;
+}
+
+.badge.danger {
+  background: #7f1d1d;
+  color: #f87171;
+}
+
+.badge.offline {
+  background: #475569;
+  color: #94a3b8;
+}
+
+/* Аватарки в таблиці Лідів */
+.w-12.h-12 {
+  width: 48px;
+  height: 48px;
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.object-cover {
+  object-fit: cover;
+}
+
+/* Hover ефекти для аватарок */
+div[class*="w-12 h-12"] {
+  transition: all 0.2s ease;
+}
+
+div[class*="w-12 h-12"]:hover {
+  transform: scale(1.08);
+}
+
+/* ==========================================
+   МОДАЛЬНЕ ВІКНО ДЛЯ JSON
+   ========================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: #1e293b;
+  width: 900px;
+  max-width: 95vw;
+  max-height: 85vh;
+  border-radius: 16px;
+  border: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #334155;
+  border-bottom: 1px solid #475569;
+}
+
+.modal-title {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 8px;
+}
+
+.close-btn:hover {
+  color: #f87171;
+}
+
+.json-viewer {
+  padding: 24px;
+  margin: 0;
+  overflow-y: auto;
+  flex: 1;
+  background: #0f172a;
+  color: #a3e635;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 </style>
