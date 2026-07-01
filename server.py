@@ -135,8 +135,9 @@ async def authenticate(request: AuthRequest):
     key = request.access_key.replace('"', '').strip()
     db = database_fs if request.team == "fs" else database
 
+    # При вході використовуємо login_and_update_session
     if request.session_token:
-        success, message = db.verify_session(key, request.session_token.strip())
+        success, message = db.login_and_update_session(key, request.session_token.strip())
     else:
         success, message = db.verify_and_bind_key(key, request.hwid.strip())
 
