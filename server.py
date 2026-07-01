@@ -327,10 +327,12 @@ async def log_invite(stealth_req: StealthLogRequest):
 
             # 2. Плюсуємо відправку для фінального комбо (тепер це масив)
             cursor.execute("""
-                INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count)
-                VALUES (?, ?, 1, 0)
+                INSERT INTO invite_analytics (access_key, invite_text, sent_count, reply_count, last_sent_at)
+                VALUES (?, ?, 1, 0, CURRENT_TIMESTAMP)
                 ON CONFLICT(access_key, invite_text) 
-                DO UPDATE SET sent_count = sent_count + 1
+                DO UPDATE SET 
+                    sent_count = sent_count + 1,
+                    last_sent_at = CURRENT_TIMESTAMP
             """, (key, final_text_to_log))
 
             # 3. Оновлюємо квиток новим масивом
@@ -529,6 +531,40 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
         })
 
     return {"status": "success", "leads": leads}
+
+@app.get("/admin/metrics/invites-by-day")
+async def get_invites_by_day(
+    days: int = 7,
+    authorized: bool = Depends(verify_admin)
+):
+    """Повертає кількість відправлених інвайтів за останні N днів"""
+    try:
+        conn = database.get_connection()
+        cursor = conn.cursor()
+
+        query = """
+            SELECT DATE(last_sent_at) as date, SUM(sent_count) as count
+            FROM invite_analytics
+            WHERE last_sent_at >= datetime('now', '-{} days')
+            GROUP BY DATE(last_sent_at)
+            ORDER BY date ASC
+        """.format(days)
+
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        conn.close()
+
+        data = [{"date": row[0], "count": row[1]} for row in rows]
+
+        return {
+            "status": "success",
+            "period_days": days,
+            "data": data
+        }
+
+    except Exception as e:
+        print(f"[ERROR] /admin/metrics/invites-by-day: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.post("/admin/config")
 async def update_user_config(request: AdminConfigUpdateRequest, authorized: bool = Depends(verify_admin)):

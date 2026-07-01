@@ -45,7 +45,7 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # Якщо колонка вже є, нічого не робимо
 
-    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНАЛІТИКИ ТЕКСТІВ ІНВАЙТІВ (ВИРІВНЯНО ВІДСТУП)
+    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНАЛІТИКИ ТЕКСТІВ ІНВАЙТІВ
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS invite_analytics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +56,15 @@ def init_db():
         UNIQUE(access_key, invite_text)
     )
     """)
+
+    # Безпечне додавання колонки last_sent_at
+    try:
+        cursor.execute("""
+            ALTER TABLE invite_analytics 
+            ADD COLUMN last_sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        """)
+    except sqlite3.OperationalError:
+        pass
 
     # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ "КВИТКІВ" (ВИРІВНЯНО ВІДСТУП)
     cursor.execute("""
