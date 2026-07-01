@@ -135,7 +135,10 @@ async def authenticate(request: AuthRequest):
     key = request.access_key.replace('"', '').strip()
     db = database_fs if request.team == "fs" else database
 
-    success, message = db.verify_and_bind_key(key, request.hwid.strip() if request.hwid else request.session_token.strip())
+    if request.session_token:
+        success, message = db.verify_session(key, request.session_token.strip())
+    else:
+        success, message = db.verify_and_bind_key(key, request.hwid.strip())
 
     if success:
         return {"status": "success", "message": message}

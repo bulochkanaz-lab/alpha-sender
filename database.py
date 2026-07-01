@@ -286,3 +286,83 @@ def delete_keys(keys_list: list) -> int:
     conn.close()
 
     return count
+
+def login_and_update_session(access_key: str, session_token: str) -> tuple[bool, str]:
+    """Логін по session_token + оновлення токена"""
+    if not access_key or not session_token:
+        return False, "Ключ або токен сесії відсутні"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT is_banned, session_token FROM keys WHERE access_key = ?",
+            (access_key,)
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return False, "Невірний ключ"
+
+        is_banned, current_token = row
+
+        if is_banned == 1:
+            conn.close()
+            return False, "Ключ заблоковано"
+
+        # Якщо токен ще не встановлений — встановлюємо
+        if current_token is None:
+            cursor.execute(
+                "UPDATE keys SET session_token = ? WHERE access_key = ?",
+                (session_token, access_key)
+            )
+            conn.commit()
+            conn.close()
+            return True, "Ключ успішно авторизовано (нова сесія)"
+
+        # Якщо токен вже є — перевіряємо
+        conn.close()
+        if current_token == session_token:
+            return True, "Авторизація успішна"
+        else:
+            return False, "Цей ключ вже використовується на іншому пристрої"
+
+    except Exception as e:
+        print(f"DB ERROR login_and_update_session: {e}")
+        return False, "Помилка бази даних"
+
+
+def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
+    """Перевірка валідності session_token"""
+    if not access_key or not session_token:
+        return False, "Ключ або токен сесії відсутні"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT is_banned, session_token FROM keys WHERE access_key = ?",
+            (access_key,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return False, "Невірний ключ"
+
+        is_banned, current_token = row
+
+        if is_banned == 1:
+            return False, "Ключ заблоковано"
+
+        if current_token == session_token:
+            return True, "Сесія валідна"
+        else:
+            return False, "Сесія недійсна або застаріла"
+
+    except Exception as e:
+        print(f"DB ERROR verify_session: {e}")
+        return False, "Помилка бази даних"
