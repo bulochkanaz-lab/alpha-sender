@@ -506,7 +506,7 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
         FROM leads_analytics l
         LEFT JOIN woman_profiles w ON l.woman_id = w.woman_id
         ORDER BY l.timestamp DESC 
-        LIMIT 100
+        LIMIT 10000
         """)
     rows = cursor.fetchall()
     conn.close()
