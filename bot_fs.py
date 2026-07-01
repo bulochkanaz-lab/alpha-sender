@@ -199,36 +199,54 @@ async def process_gen_keys(message: types.Message, state: FSMContext):
 # ==========================================
 @dp.message(F.text == "📋 База ключів")
 async def btn_view_db_handler(message: types.Message):
-    if not is_admin(message.from_user.id): return
-
-    keys = database.get_all_keys()
-    print(f"[DEBUG] Отримано ключів: {len(keys)}")  # ← додай це
-    print(f"[DEBUG] Перший запис: {keys[0] if keys else 'немає'}")  # ← додай це
-
-    if not keys:
-        await message.answer("📭 База порожня.")
+    if not is_admin(message.from_user.id):
         return
 
-    response = "📊 **Ваша база ключів:**\n\n"
+    try:
+        keys = database.get_all_keys()
+        print(f"[DEBUG] Отримано ключів: {len(keys)}")
+        print(f"[DEBUG] Перший запис: {keys[0] if keys else 'немає'}")
 
-    for key, is_banned, profiles_json in keys:
-        status = "🔴 Заблокований" if is_banned else "🟢 Активний"
-        try:
-            profiles = json.loads(profiles_json)
-        except json.JSONDecodeError:
-            profiles = []
+        if not keys:
+            await message.answer("📭 База порожня.")
+            return
 
-        if profiles:
-            profiles_text = ", ".join(str(p) for p in profiles)
-        else:
-            profiles_text = "Немає активних"
+        # Розбиваємо на частини, щоб не перевищити 4096 символів
+        messages = []
+        current = "📊 **Ваша база ключів:**\n\n"
 
-        response += f"🔑 **Ключ:** `{key}`\n"
-        response += f"ℹ️ **Статус:** {status}\n"
-        response += f"📄 **Анкети ({len(profiles)} шт):** {profiles_text}\n"
-        response += "➖➖➖➖➖➖➖➖➖➖\n"
+        for key, is_banned, profiles_json in keys:
+            status = "🔴 Заблокований" if is_banned else "🟢 Активний"
 
-    await message.answer(response, parse_mode="Markdown")
+            # Безпечний парсинг profiles
+            try:
+                profiles = json.loads(profiles_json) if profiles_json else []
+            except (json.JSONDecodeError, TypeError, Exception):
+                profiles = []
+
+            profiles_text = ", ".join(str(p) for p in profiles) if profiles else "Немає активних"
+
+            block = (
+                f"🔑 **Ключ:** `{key}`\n"
+                f"ℹ️ **Статус:** {status}\n"
+                f"📄 **Анкети ({len(profiles)} шт):** {profiles_text}\n"
+                "➖➖➖➖➖➖➖➖➖➖\n"
+            )
+
+            if len(current) + len(block) > 3800:  # запас для безпеки
+                messages.append(current)
+                current = block
+            else:
+                current += block
+
+        messages.append(current)
+
+        for msg in messages:
+            await message.answer(msg, parse_mode="Markdown")
+
+    except Exception as e:
+        print(f"[ERROR] btn_view_db_handler: {e}")
+        await message.answer("❌ Помилка при отриманні бази ключів. Дивіться логи.")
 
 
 async def main():
