@@ -613,20 +613,20 @@ async def delete_key(request: AdminActionRequest, authorized: bool = Depends(ver
 async def get_leads_by_day(
     days: int = 7,
     access_key: Optional[str] = None,
-    admin_token: str = Header(None)
+    admin_token: str = Header(None),
+    authorized: bool = Depends(verify_admin)
 ):
-    if not verify_admin_token(admin_token):
-        return {"status": "error", "message": "Invalid admin token"}
-
     try:
+        conn = database.get_connection()   # ← беремо з database
         cursor = conn.cursor()
 
         query = """
             SELECT DATE(timestamp) as date, COUNT(*) as count
             FROM leads_analytics
-            WHERE timestamp >= datetime('now', ? || ' days')
-        """
-        params = [f"-{days}"]
+            WHERE timestamp >= datetime('now', '-{} days')
+        """.format(days)
+
+        params = []
 
         if access_key:
             query += " AND access_key = ?"
@@ -636,6 +636,7 @@ async def get_leads_by_day(
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
+        conn.close()
 
         data = [{"date": row[0], "count": row[1]} for row in rows]
 
@@ -647,4 +648,5 @@ async def get_leads_by_day(
         }
 
     except Exception as e:
+        print(f"[ERROR] /admin/metrics/leads-by-day: {e}")
         return {"status": "error", "message": str(e)}
