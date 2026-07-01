@@ -200,10 +200,13 @@ async def process_gen_keys(message: types.Message, state: FSMContext):
 @dp.message(F.text == "📋 База ключів")
 async def btn_view_db_handler(message: types.Message):
     if not is_admin(message.from_user.id): return
+
     keys = database.get_all_keys()
+    print(f"[DEBUG] Отримано ключів: {len(keys)}")  # ← додай це
+    print(f"[DEBUG] Перший запис: {keys[0] if keys else 'немає'}")  # ← додай це
 
     if not keys:
-        await message.answer("📭 База порожня. Додай перший ключ!")
+        await message.answer("📭 База порожня.")
         return
 
     response = "📊 **Ваша база ключів:**\n\n"
