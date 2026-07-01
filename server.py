@@ -16,7 +16,7 @@ from fastapi import Header
 
 app = FastAPI()
 
-ADMIN_SECRET_TOKEN = "SuperSecretAlphaKey_2026_ChangeMe" # Зміниш на щось складне
+ADMIN_SECRET_TOKEN = "MxO0JkLprocFIdot666mENetVicrojsdep76AIOBUSERMONSTERglith3000ShoterL"
 
 def verify_admin(admin_token: str = Header(None)):
     if admin_token != ADMIN_SECRET_TOKEN:
