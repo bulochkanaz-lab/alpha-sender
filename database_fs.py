@@ -181,7 +181,7 @@ def login_and_update_session(access_key: str, session_token: str) -> tuple[bool,
         return False, "Помилка бази даних"
 
 def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
-    """Перевірка під час пінгу: чи не витіснив цю сесію хтось інший"""
+    """Перевірка під час пінгу"""
     if not access_key or not session_token:
         return False, "Відсутні дані авторизації"
 
@@ -200,11 +200,17 @@ def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
         if is_banned == 1:
             return False, "Ключ заблоковано"
 
-        # Перевіряємо, чи токен у базі збігається з токеном поточного пінгу
-        if current_db_token != session_token:
-            return False, "Ваш ключ щойно активували на іншому пристрої. Сеанс перервано."
+        # Якщо в базі ще немає токена — пускаємо (перший пінг після входу)
+        if current_db_token is None:
+            return True, "OK"
 
-        return True, "OK"
+        # Якщо токен збігається — пускаємо
+        if current_db_token == session_token:
+            return True, "OK"
+
+        # Якщо не збігається — сеанс перервано
+        return False, "Ваш ключ щойно активували на іншому пристрої. Сеанс перервано."
+
     except Exception as e:
         print(f"DB ERROR: {e}")
         return False, "Помилка бази даних"
