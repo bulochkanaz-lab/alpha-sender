@@ -342,4 +342,31 @@ def delete_keys(keys_list: list) -> int:
 
     return count
 
+def get_keys_count() -> int:
+    """Повертає загальну кількість ключів у базі"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM keys")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+
+def get_keys_page(limit: int = 10, offset: int = 0):
+    """
+    Повертає список ключів для однієї сторінки пагінації.
+    Повертає: [(access_key, is_banned, profiles), ...]
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT access_key, is_banned, profiles 
+        FROM keys 
+        ORDER BY id ASC
+        LIMIT ? OFFSET ?
+    """, (limit, offset))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
 init_db()

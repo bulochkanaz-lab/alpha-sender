@@ -9,6 +9,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import database_fs as database
 
 # Просто вставляєш сюди токен, який дав BotFather для нового бота
@@ -35,6 +36,9 @@ main_kb = ReplyKeyboardMarkup(
 # ==========================================
 class ToggleBanStates(StatesGroup):
     waiting_for_key = State()
+
+class KeysViewStates(StatesGroup):
+    viewing = State()
 
 
 class DeleteKeysStates(StatesGroup):
@@ -198,56 +202,92 @@ async def process_gen_keys(message: types.Message, state: FSMContext):
 # БАЗА КЛЮЧІВ
 # ==========================================
 @dp.message(F.text == "📋 База ключів")
-async def btn_view_db_handler(message: types.Message):
+async def btn_view_db_handler(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
 
-    try:
-        keys = database.get_all_keys()
-        print(f"[DEBUG] Отримано ключів: {len(keys)}")
-        print(f"[DEBUG] Перший запис: {keys[0] if keys else 'немає'}")
+    await state.clear()                    # ← примусово чистимо попередній state
+    await show_keys_page(message, state, page=0)
 
-        if not keys:
-            await message.answer("📭 База порожня.")
-            return
+async def show_keys_page(message_or_callback, state: FSMContext, page: int):
+    """Показує одну сторінку ключів (створює або редагує повідомлення)"""
+    limit = 10
+    offset = page * limit
 
-        # Розбиваємо на частини, щоб не перевищити 4096 символів
-        messages = []
-        current = "📊 **Ваша база ключів:**\n\n"
+    total_keys = database.get_keys_count()
+    keys = database.get_keys_page(limit=limit, offset=offset)
+
+    if not keys:
+        text = "📭 База порожня."
+        keyboard = None
+    else:
+        text = f"📊 **База ключів** (сторінка {page + 1} з {(total_keys + limit - 1) // limit})\n\n"
 
         for key, is_banned, profiles_json in keys:
             status = "🔴 Заблокований" if is_banned else "🟢 Активний"
-
-            # Безпечний парсинг profiles
             try:
                 profiles = json.loads(profiles_json) if profiles_json else []
-            except (json.JSONDecodeError, TypeError, Exception):
+            except (json.JSONDecodeError, TypeError):
                 profiles = []
 
             profiles_text = ", ".join(str(p) for p in profiles) if profiles else "Немає активних"
 
-            block = (
+            text += (
                 f"🔑 **Ключ:** `{key}`\n"
                 f"ℹ️ **Статус:** {status}\n"
                 f"📄 **Анкети ({len(profiles)} шт):** {profiles_text}\n"
                 "➖➖➖➖➖➖➖➖➖➖\n"
             )
 
-            if len(current) + len(block) > 3800:  # запас для безпеки
-                messages.append(current)
-                current = block
-            else:
-                current += block
+        # Створюємо Inline клавіатуру пагінації
+        keyboard = get_pagination_keyboard(page, total_keys, limit)
 
-        messages.append(current)
+    if isinstance(message_or_callback, types.Message):
+        # Перше повідомлення
+        await message_or_callback.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+    else:
+        # Редагування існуючого повідомлення (при натисканні кнопок)
+        await message_or_callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
-        for msg in messages:
-            await message.answer(msg, parse_mode="Markdown")
+    await state.set_state(KeysViewStates.viewing)
+    await state.update_data(current_page=page)
 
-    except Exception as e:
-        print(f"[ERROR] btn_view_db_handler: {e}")
-        await message.answer("❌ Помилка при отриманні бази ключів. Дивіться логи.")
+def get_pagination_keyboard(current_page: int, total_keys: int, limit: int):
+    total_pages = (total_keys + limit - 1) // limit
+    buttons = []
 
+    if current_page > 0:
+        buttons.append(InlineKeyboardButton(text="◀️ Назад", callback_data=f"keys_page:{current_page - 1}"))
+
+    if current_page < total_pages - 1:
+        buttons.append(InlineKeyboardButton(text="Далі ▶️", callback_data=f"keys_page:{current_page + 1}"))
+
+    row = buttons if buttons else []
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[row])
+
+    # Додаємо кнопку закриття
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="❌ Закрити", callback_data="keys_close")
+    ])
+
+    return keyboard
+
+@dp.callback_query(F.data.startswith("keys_page:"))
+async def keys_pagination_handler(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("⛔ Доступ заборонено", show_alert=True)
+        return
+
+    page = int(callback.data.split(":")[1])
+    await show_keys_page(callback, state, page=page)
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "keys_close")
+async def keys_close_handler(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.delete()
+    await callback.answer()
 
 async def main():
     database.init_db()
