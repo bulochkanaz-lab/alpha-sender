@@ -303,6 +303,49 @@
           </div>
         </div>
 
+        <!-- ==================== ІНВАЙТИ ЗА ДНЯМИ ==================== -->
+        <div class="mt-8">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-xl">Інвайти за днями</h3>
+
+            <div class="flex gap-2">
+              <button
+                v-for="d in [7, 14, 30]"
+                :key="d"
+                @click="fetchInvitesByDay(d)"
+                :class="[
+                  'px-4 py-1.5 text-sm rounded-xl transition-colors',
+                  invitesByDayPeriod === d
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                ]">
+                {{ d }} днів
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+            <div v-if="invitesByDayLoading" class="flex justify-center items-center h-[320px]">
+              <div class="text-zinc-400">Завантаження...</div>
+            </div>
+
+            <div v-else-if="invitesByDayData.length === 0" class="flex justify-center items-center h-[320px] text-zinc-500">
+              Немає даних за обраний період
+            </div>
+
+            <VueApexCharts
+              v-else
+              type="bar"
+              height="320"
+              :options="invitesByDayChartOptions"
+              :series="[{
+                name: 'Кількість інвайтів',
+                data: invitesByDayData.map(item => item.count)
+              }]"
+            />
+          </div>
+        </div>
+
         <!-- Інформація -->
         <div class="mt-6 text-sm text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
           <p>
@@ -523,8 +566,13 @@ const openTab = (tabName) => {
   if (tabName !== 'profile') selectedUser.value = null
 
   // Автоматично завантажуємо дані для вкладки Метрики
-  if (tabName === 'metrics' && leadsByDayData.value.length === 0) {
-    fetchLeadsByDay(7)
+  if (tabName === 'metrics') {
+    if (leadsByDayData.value.length === 0) {
+      fetchLeadsByDay(7)
+    }
+    if (invitesByDayData.value.length === 0) {
+      fetchInvitesByDay(7)
+    }
   }
 }
 
@@ -748,6 +796,61 @@ const fetchLeadsByDay = async (days = 7) => {
     leadsByDayData.value = []
   } finally {
     leadsByDayLoading.value = false
+  }
+}
+
+// ==================== ІНВАЙТИ ЗА ДНЯМИ ====================
+const invitesByDayData = ref([])
+const invitesByDayLoading = ref(false)
+const invitesByDayPeriod = ref(7)
+
+const invitesByDayChartOptions = computed(() => ({
+  chart: {
+    type: 'bar',
+    height: 340,
+    toolbar: { show: false },
+    animations: { enabled: true }
+  },
+  plotOptions: {
+    bar: {
+      borderRadius: 6,
+      columnWidth: '60%'
+    }
+  },
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: invitesByDayData.value.map(item => item.date),
+    labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
+  },
+  yaxis: {
+    labels: { style: { colors: '#94a3b8' } }
+  },
+  colors: ['#f59e0b'], // помаранчевий колір для інвайтів
+  grid: {
+    borderColor: '#334155',
+    strokeDashArray: 2
+  },
+  tooltip: { theme: 'dark' }
+}))
+
+const fetchInvitesByDay = async (days = 7) => {
+  invitesByDayPeriod.value = days
+  invitesByDayLoading.value = true
+
+  try {
+    const response = await axios.get(`${SERVER_URL}/admin/metrics/invites-by-day`, {
+      params: { days },
+      headers: { 'admin-token': authStore.token }
+    })
+
+    if (response.data.status === 'success') {
+      invitesByDayData.value = response.data.data
+    }
+  } catch (e) {
+    console.error("Помилка завантаження інвайтів за днями:", e)
+    invitesByDayData.value = []
+  } finally {
+    invitesByDayLoading.value = false
   }
 }
 </script>

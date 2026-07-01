@@ -14,7 +14,11 @@ from fastapi.responses import Response
 from typing import Optional
 from fastapi import Header
 
-app = FastAPI()
+app = FastAPI(
+    docs_url=None,      # Вимикає /docs
+    redoc_url=None,     # Вимикає /redoc
+    openapi_url=None    # Вимикає /openapi.json
+)
 
 ADMIN_SECRET_TOKEN = "MxO0JkLprocFIdot666mENetVicrojsdep76AIOBUSERMONSTERglith3000ShoterL"
 
