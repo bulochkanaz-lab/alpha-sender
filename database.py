@@ -271,7 +271,7 @@ def toggle_ban_key(access_key: str) -> tuple[bool, str]:
 
 
 def delete_keys(keys_list: list) -> int:
-    """Видаляє список ключів з бази"""
+    """Видаляє список. ключів з бази"""
     if not keys_list:
         return 0
 
