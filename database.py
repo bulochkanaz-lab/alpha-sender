@@ -10,6 +10,37 @@ DB_PATH = os.path.join(BASE_DIR, "admin_panel.db")
 def get_connection():
     return sqlite3.connect(DB_PATH)
 
+def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
+    """Перевірка валідності session_token (для heartbeat і get_payload)"""
+    if not access_key or not session_token:
+        return False, "Ключ або токен відсутні"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT is_banned, session_token FROM keys WHERE access_key = ?",
+            (access_key,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return False, "Невірний ключ"
+
+        is_banned, current_token = row
+
+        if is_banned == 1:
+            return False, "Ключ заблоковано"
+
+        if current_token == session_token:
+            return True, "OK"
+        else:
+            return False, "Сесія недійсна або застаріла"
+
+    except Exception as e:
+        print(f"DB ERROR verify_session: {e}")
+        return False, "Помилка бази даних"
 
 def init_db():
     conn = get_connection()

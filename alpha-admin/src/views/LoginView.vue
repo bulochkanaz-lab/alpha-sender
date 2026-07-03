@@ -36,7 +36,7 @@ const login = async () => {
   try {
     // Стукаємо на твій локальний сервер 8001
     // Передаємо токен у заголовку admin-token, як того вимагає твій FastAPI
-    const response = await axios.get('http://178.105.190.180:8000/admin/keys', {
+    const response = await axios.get('http://178.105.164.198:8000/admin/keys', {
       headers: { 'admin-token': inputToken.value }
     })
 
