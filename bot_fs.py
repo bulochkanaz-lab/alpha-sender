@@ -25,7 +25,8 @@ main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔑 Додати ключ"), KeyboardButton(text="📋 База ключів")],
         [KeyboardButton(text="🗑 Видалити ключі"), KeyboardButton(text="➕ Згенерувати ключі")],
-        [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути HWID")]
+        [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути прив'язку (ID)")],
+        [KeyboardButton(text="🧨 Скинути ВСІ прив'язки")]
     ],
     resize_keyboard=True
 )
@@ -123,12 +124,25 @@ async def process_toggle_ban(message: types.Message, state: FSMContext):
 
 
 # ==========================================
-# ЛОГІКА СКИНУТИ HWID
+# ЛОГІКА МАСОВОГО СКИДАННЯ ПРИВ'ЯЗОК
 # ==========================================
-@dp.message(F.text == "🔄 Скинути HWID")
+@dp.message(F.text == "🧨 Скинути ВСІ прив'язки")
+async def process_reset_all_hwids(message: types.Message):
+    if not is_admin(message.from_user.id): return
+
+    updated_count = database.reset_all_licenses()
+    await message.answer(
+        f"✅ Масове скидання успішне!\nЛіцензії та сесії скасовано для <b>{updated_count}</b> ключів.",
+        parse_mode="HTML"
+    )
+
+# ==========================================
+# ЛОГІКА СКИНУТИ ПРИВ'ЯЗКУ (ID ОПЕРАТОРА)
+# ==========================================
+@dp.message(F.text == "🔄 Скинути прив'язку (ID)")
 async def prompt_reset_hwid(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введіть ключ, для якого потрібно скинути прив'язку до пристрою:")
+    await message.answer("Введіть ключ, для якого потрібно скинути профіль оператора та сесію:")
     await state.set_state(ResetHwidStates.waiting_for_key)
 
 
@@ -137,8 +151,8 @@ async def process_reset_hwid(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
     key_to_reset = message.text.strip()
 
-    if database.reset_hwid(key_to_reset):
-        await message.answer(f"✅ Прив'язку до пристрою для ключа <code>{key_to_reset}</code> успішно скинуто!",
+    if database.reset_license(key_to_reset):
+        await message.answer(f"✅ Прив'язку та поточну сесію для ключа <code>{key_to_reset}</code> успішно скинуто!",
                              parse_mode="HTML")
     else:
         await message.answer("❌ Такого ключа не знайдено в базі.")

@@ -42,41 +42,49 @@ def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
         print(f"DB ERROR verify_session: {e}")
         return False, "Помилка бази даних"
 
+
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # ==========================================
+    # 1. ГОЛОВНА ТАБЛИЦЯ КЛЮЧІВ (Уніфікована)
+    # ==========================================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         access_key TEXT UNIQUE,
-        hwid TEXT,
+        hwid TEXT,             -- Залишаємо виключно щоб не зламати старі файли SQLite (в коді ігноруватимемо)
+        operator_id TEXT,      -- 🔥 НАША НОВА ЛІЦЕНЗІЯ (Захист від передачі ключа)
+        session_token TEXT,    -- 🟢 ЖИВА СЕСІЯ (Захист від мульти-входу)
         is_banned INTEGER DEFAULT 0,
-        profiles TEXT DEFAULT '[]'
+        profiles TEXT DEFAULT '[]',
+        pending_config TEXT,
+        stats_invites INTEGER DEFAULT 0,
+        stats_letters INTEGER DEFAULT 0,
+        last_ping TIMESTAMP
     )
     """)
 
-    # Колонка для зберігання наказів (C&C)
-    try:
-        cursor.execute("ALTER TABLE keys ADD COLUMN pending_config TEXT")
-    except sqlite3.OperationalError:
-        pass  # Якщо колонка вже є
+    # --- БЕЗПЕЧНА МІГРАЦІЯ ДЛЯ СТАРИХ БАЗ ---
+    # Цей блок пройдеться по старим базам і додасть нові колонки, якщо їх ще немає.
+    columns_to_add = [
+        ("operator_id", "TEXT"),
+        ("session_token", "TEXT"),
+        ("pending_config", "TEXT"),
+        ("stats_invites", "INTEGER DEFAULT 0"),
+        ("stats_letters", "INTEGER DEFAULT 0"),
+        ("last_ping", "TIMESTAMP")
+    ]
+    for col_name, col_type in columns_to_add:
+        try:
+            cursor.execute(f"ALTER TABLE keys ADD COLUMN {col_name} {col_type}")
+        except sqlite3.OperationalError:
+            pass  # Якщо колонка вже існує, йдемо далі
 
-    # Колонки для статистики та онлайну
-    try:
-        cursor.execute("ALTER TABLE keys ADD COLUMN stats_invites INTEGER DEFAULT 0")
-        cursor.execute("ALTER TABLE keys ADD COLUMN stats_letters INTEGER DEFAULT 0")
-        cursor.execute("ALTER TABLE keys ADD COLUMN last_ping TIMESTAMP")
-    except sqlite3.OperationalError:
-        pass  # Якщо колонки вже є
-
-    # Безпечно додаємо колонку hwid до вже існуючої таблиці
-    try:
-        cursor.execute("ALTER TABLE keys ADD COLUMN hwid TEXT")
-    except sqlite3.OperationalError:
-        pass  # Якщо колонка вже є, нічого не робимо
-
-    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНАЛІТИКИ ТЕКСТІВ ІНВАЙТІВ
+    # ==========================================
+    # 2. АНАЛІТИКА ІНВАЙТІВ (З фіксацією часу)
+    # ==========================================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS invite_analytics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,16 +96,15 @@ def init_db():
     )
     """)
 
-    # Безпечне додавання колонки last_sent_at
+    # Синхронізація: додаємо час відправки для FS, бо в Alpha він уже був
     try:
-        cursor.execute("""
-            ALTER TABLE invite_analytics 
-            ADD COLUMN last_sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        """)
+        cursor.execute("ALTER TABLE invite_analytics ADD COLUMN last_sent_at DATETIME DEFAULT CURRENT_TIMESTAMP")
     except sqlite3.OperationalError:
         pass
 
-    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ "КВИТКІВ" (ВИРІВНЯНО ВІДСТУП)
+    # ==========================================
+    # 3. КВИТКИ (PENDING INVITES)
+    # ==========================================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS pending_invites (
         chat_uid TEXT PRIMARY KEY,
@@ -106,33 +113,37 @@ def init_db():
     )
     """)
 
-    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ АНКЕТ (ОНОВЛЮЄТЬСЯ РАЗ НА 14 ДНІВ)
+    # ==========================================
+    # 4. АНКЕТИ
+    # ==========================================
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS woman_profiles (
-            woman_id TEXT PRIMARY KEY,
-            profile_json TEXT,
-            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
+    CREATE TABLE IF NOT EXISTS woman_profiles (
+        woman_id TEXT PRIMARY KEY,
+        profile_json TEXT,
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
 
-    # СТВОРЮЄМО ТАБЛИЦЮ ДЛЯ ДОСЬЄ МУЖИКІВ (ЛІДІВ)
+    # ==========================================
+    # 5. ЛІДИ (ДОСЬЄ ДЛЯ АНАЛІЗУ КОНВЕРСІЇ)
+    # ==========================================
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS leads_analytics (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            access_key TEXT,
-            chat_uid TEXT,
-            woman_id TEXT,     -- 🔥 ID анкети (для зв'язку)
-            profile_id TEXT,   -- 🔥 ID мужика
-            invite_text TEXT,
-            lead_age INTEGER,
-            lead_country TEXT,
-            lead_interests TEXT,
-            lead_bio TEXT,
-            lead_photo TEXT,
-            man_profile_json TEXT, -- 🔥 Сирий JSON мужика
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
+    CREATE TABLE IF NOT EXISTS leads_analytics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        access_key TEXT,
+        chat_uid TEXT,
+        woman_id TEXT,     
+        profile_id TEXT,   
+        invite_text TEXT,
+        lead_age INTEGER,
+        lead_country TEXT,
+        lead_interests TEXT,
+        lead_bio TEXT,
+        lead_photo TEXT,
+        man_profile_json TEXT, 
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
 
     conn.commit()
     conn.close()
@@ -230,15 +241,26 @@ def reset_all_hwids() -> int:
     conn.close()
     return updated
 
-def reset_hwid(access_key: str) -> bool:
+
+def reset_all_licenses() -> int:
+    """Скидає operator_id та session_token для всіх ключів"""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE keys SET hwid = NULL WHERE access_key = ?", (access_key,))
+    cursor.execute("UPDATE keys SET operator_id = NULL, session_token = NULL")
+    updated = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return updated
+
+def reset_license(access_key: str) -> bool:
+    """Скидає ліцензію для одного конкретного ключа"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE keys SET operator_id = NULL, session_token = NULL WHERE access_key = ?", (access_key,))
     updated = cursor.rowcount
     conn.commit()
     conn.close()
     return updated > 0
-
 
 def get_all_keys():
     conn = get_connection()
