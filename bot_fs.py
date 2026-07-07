@@ -77,7 +77,7 @@ async def command_start_handler(message: types.Message):
 @dp.message(F.text == "🔑 Додати ключ")
 async def btn_add_key_handler(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Напиши новий ключ (наприклад: HjurRhfiIU7Mpp):")
+    await message.answer("Напиши новий ключ (наприклад: Obsidian):")
     await state.set_state(AdminStates.waiting_for_key)
 
 
