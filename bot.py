@@ -5,22 +5,22 @@ import random
 import string
 import sqlite3
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import database
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 token_path = os.path.join(BASE_DIR, "token.txt")
 
-# Перевіряємо, чи існує файл token.txt
+# Перевіряємо, чи існує файл token.txt[cite: 1]
 if os.path.exists(token_path):
     with open(token_path, "r", encoding="utf-8") as f:
         BOT_TOKEN = f.read().strip()
 else:
-    # Якщо файлу немає, використовуємо твій старий бойовий токен
+    # Якщо файлу немає, використовуємо твій старий бойовий токен[cite: 1]
     BOT_TOKEN = "8994271135:AAGbLxX2z4g2dXeio2oYvjwMhphSKau9H34"
 
 ADMIN_IDS = [7898484797, 5844872531, 249944251]
@@ -28,13 +28,22 @@ ADMIN_IDS = [7898484797, 5844872531, 249944251]
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Клавіатура
+# ==========================================
+# КЛАВІАТУРИ
+# ==========================================
 main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🔑 Додати ключ"), KeyboardButton(text="📋 База ключів")],
         [KeyboardButton(text="🗑 Видалити ключі"), KeyboardButton(text="➕ Згенерувати ключі")],
         [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути прив'язку (ID)")],
         [KeyboardButton(text="🧨 Скинути ВСІ прив'язки")]
+    ],
+    resize_keyboard=True
+)
+
+cancel_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="❌ Скасувати")]
     ],
     resize_keyboard=True
 )
@@ -50,8 +59,10 @@ class ToggleBanStates(StatesGroup):
 class DeleteKeysStates(StatesGroup):
     waiting_for_keys = State()
 
+
 class KeysViewStates(StatesGroup):
     viewing = State()
+
 
 class ResetHwidStates(StatesGroup):
     waiting_for_key = State()
@@ -66,15 +77,31 @@ class AdminStates(StatesGroup):
 
 
 # ==========================================
-# ДОПОМІЖНІ ФУНКЦІЇ
+# ДОПОМІЖНІ ФУНКЦІЇ ТА СКАСУВАННЯ
 # ==========================================
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
-@dp.message(CommandStart())
-async def command_start_handler(message: types.Message):
+@dp.message(F.text == "❌ Скасувати")
+@dp.message(Command("cancel"))
+async def cancel_handler(message: types.Message, state: FSMContext):
+    """Дозволяє адміну скасувати будь-яку дію і вийти зі стану"""
     if not is_admin(message.from_user.id): return
+
+    current_state = await state.get_state()
+    if current_state is None:
+        await message.answer("Немає активних дій для скасування.", reply_markup=main_kb)
+        return
+
+    await state.clear()
+    await message.answer("🚫 Дію скасовано. Повернення до головного меню.", reply_markup=main_kb)
+
+
+@dp.message(CommandStart())
+async def command_start_handler(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await state.clear()
     await message.answer("👋 Привіт, Адміне! Головне меню:", reply_markup=main_kb)
 
 
@@ -84,7 +111,7 @@ async def command_start_handler(message: types.Message):
 @dp.message(F.text == "🔑 Додати ключ")
 async def btn_add_key_handler(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Напиши новий ключ (наприклад: Obsidian):")
+    await message.answer("Напиши новий ключ (наприклад: Obsidian):", reply_markup=cancel_kb)
     await state.set_state(AdminStates.waiting_for_key)
 
 
@@ -92,12 +119,20 @@ async def btn_add_key_handler(message: types.Message, state: FSMContext):
 async def save_new_key(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
     new_key = message.text.strip()
+
+    # Базовий захист від порожнього вводу
+    if not new_key:
+        await message.answer("⚠️ Ключ не може бути порожнім. Спробуй ще раз або натисни 'Скасувати'.")
+        return
+
     success = database.add_key(new_key)
 
     if success:
-        await message.answer(f"✅ Ключ `{new_key}` успішно додано до бази!", parse_mode="Markdown")
+        await message.answer(f"✅ Ключ <code>{new_key}</code> успішно додано до бази!", parse_mode="HTML",
+                             reply_markup=main_kb)
     else:
-        await message.answer(f"⚠️ Помилка! Ключ `{new_key}` вже існує в базі.")
+        await message.answer(f"⚠️ Помилка! Ключ <code>{new_key}</code> вже існує в базі.", parse_mode="HTML",
+                             reply_markup=main_kb)
     await state.clear()
 
 
@@ -107,7 +142,7 @@ async def save_new_key(message: types.Message, state: FSMContext):
 @dp.message(F.text == "⛔ Заблокувати/Розблокувати")
 async def prompt_toggle_ban(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введіть ключ, щоб змінити його статус:")
+    await message.answer("Введіть ключ, щоб змінити його статус:", reply_markup=cancel_kb)
     await state.set_state(ToggleBanStates.waiting_for_key)
 
 
@@ -121,36 +156,22 @@ async def process_toggle_ban(message: types.Message, state: FSMContext):
         if new_status == "banned":
             await message.answer(
                 f"🔴 Ключ <code>{key_to_toggle}</code> ЗАБЛОКОВАНО!\nСкрипт зупиниться при наступній перевірці.",
-                parse_mode="HTML")
+                parse_mode="HTML", reply_markup=main_kb)
         else:
             await message.answer(f"🟢 Ключ <code>{key_to_toggle}</code> РОЗБЛОКОВАНО!\nДоступ відновлено.",
-                                 parse_mode="HTML")
+                                 parse_mode="HTML", reply_markup=main_kb)
     else:
-        await message.answer("❌ Такого ключа не знайдено в базі.")
+        await message.answer("❌ Такого ключа не знайдено в базі.", reply_markup=main_kb)
     await state.clear()
 
-
-
-
-# ==========================================
-# ЛОГІКА МАСОВОГО СКИДАННЯ HWID
-# ==========================================
-@dp.message(F.text == "🧨 Скинути ВСІ HWID одночасно")
-async def process_reset_all_hwids(message: types.Message):
-    if not is_admin(message.from_user.id): return
-
-    updated_count = database.reset_all_hwids()
-    await message.answer(
-        f"✅ Масове скидання успішне!\nПрив'язку до пристрою скасовано для <b>{updated_count}</b> ключів.",
-        parse_mode="HTML"
-    )
 
 # ==========================================
 # ЛОГІКА МАСОВОГО СКИДАННЯ ПРИВ'ЯЗОК
 # ==========================================
 @dp.message(F.text == "🧨 Скинути ВСІ прив'язки")
-async def process_reset_all_hwids(message: types.Message):
+async def process_reset_all_hwids(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
+    await state.clear()
 
     updated_count = database.reset_all_licenses()
     await message.answer(
@@ -158,13 +179,14 @@ async def process_reset_all_hwids(message: types.Message):
         parse_mode="HTML"
     )
 
+
 # ==========================================
 # ЛОГІКА СКИНУТИ ПРИВ'ЯЗКУ (ID ОПЕРАТОРА)
 # ==========================================
 @dp.message(F.text == "🔄 Скинути прив'язку (ID)")
 async def prompt_reset_hwid(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Введіть ключ, для якого потрібно скинути профіль оператора та сесію:")
+    await message.answer("Введіть ключ, для якого потрібно скинути профіль оператора та сесію:", reply_markup=cancel_kb)
     await state.set_state(ResetHwidStates.waiting_for_key)
 
 
@@ -175,9 +197,9 @@ async def process_reset_hwid(message: types.Message, state: FSMContext):
 
     if database.reset_license(key_to_reset):
         await message.answer(f"✅ Прив'язку та поточну сесію для ключа <code>{key_to_reset}</code> успішно скинуто!",
-                             parse_mode="HTML")
+                             parse_mode="HTML", reply_markup=main_kb)
     else:
-        await message.answer("❌ Такого ключа не знайдено в базі.")
+        await message.answer("❌ Такого ключа не знайдено в базі.", reply_markup=main_kb)
     await state.clear()
 
 
@@ -187,21 +209,24 @@ async def process_reset_hwid(message: types.Message, state: FSMContext):
 @dp.message(F.text == "🗑 Видалити ключі")
 async def prompt_delete_keys(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Надішліть ключі для видалення (через пробіл або з нового рядка):")
+    await message.answer("Надішліть ключі для видалення (через пробіл або з нового рядка):", reply_markup=cancel_kb)
     await state.set_state(DeleteKeysStates.waiting_for_keys)
 
 
 @dp.message(DeleteKeysStates.waiting_for_keys)
 async def process_delete_keys(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    keys_to_delete = message.text.split()
+
+    # Видаляємо порожні рядки і зайві пробіли для захисту
+    keys_to_delete = [k.strip() for k in message.text.split() if k.strip()]
 
     if not keys_to_delete:
-        await message.answer("⚠️ Ви не ввели жодного ключа. Спробуйте ще раз.")
+        await message.answer("⚠️ Ви не ввели жодного коректного ключа. Спробуйте ще раз або натисніть 'Скасувати'.")
         return
 
     deleted_count = database.delete_keys(keys_to_delete)
-    await message.answer(f"✅ Успішно видалено {deleted_count} ключів із {len(keys_to_delete)} запитаних.")
+    await message.answer(f"✅ Успішно видалено <b>{deleted_count}</b> ключів із <b>{len(keys_to_delete)}</b> запитаних.",
+                         parse_mode="HTML", reply_markup=main_kb)
     await state.clear()
 
 
@@ -211,26 +236,36 @@ async def process_delete_keys(message: types.Message, state: FSMContext):
 @dp.message(F.text == "➕ Згенерувати ключі")
 async def prompt_gen_keys(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
-    await message.answer("Скільки ключів згенерувати?")
+    await message.answer("Скільки ключів згенерувати?", reply_markup=cancel_kb)
     await state.set_state(GenerateStates.waiting_for_count)
 
 
 @dp.message(GenerateStates.waiting_for_count)
 async def process_gen_keys(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
+
     try:
-        count = int(message.text)
+        count = int(message.text.strip())
+        if count <= 0 or count > 500:  # Обмеження для безпеки
+            raise ValueError
     except ValueError:
-        await message.answer("Введіть число!")
+        await message.answer("⚠️ Введіть коректне число від 1 до 500!")
         return
 
     generated = []
     for _ in range(count):
         new_key = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
         if database.add_key(new_key):
-            generated.append(new_key)
+            generated.append(f"<code>{new_key}</code>")
 
-    await message.answer(f"✅ Згенеровано {len(generated)} ключів:\n\n" + "\n".join(generated))
+    response_text = f"✅ Згенеровано <b>{len(generated)}</b> ключів:\n\n" + "\n".join(generated)
+
+    # Якщо повідомлення занадто довге для Telegram, розбиваємо його (Telegram ліміт 4096 символів)
+    if len(response_text) > 4000:
+        await message.answer("✅ Ключі згенеровано! Вони додані в базу.", reply_markup=main_kb)
+    else:
+        await message.answer(response_text, parse_mode="HTML", reply_markup=main_kb)
+
     await state.clear()
 
 
@@ -258,7 +293,8 @@ async def show_keys_page(message_or_callback, state: FSMContext, page: int):
         text = "📭 База порожня. Додай перший ключ!"
         keyboard = None
     else:
-        text = f"📊 **База ключів** (сторінка {page + 1} з {(total_keys + limit - 1) // limit})\n\n"
+        # Переведено на HTML
+        text = f"📊 <b>База ключів</b> (сторінка {page + 1} з {(total_keys + limit - 1) // limit})\n\n"
 
         for key, is_banned, profiles_json in keys:
             status = "🔴 Заблокований" if is_banned else "🟢 Активний"
@@ -270,9 +306,9 @@ async def show_keys_page(message_or_callback, state: FSMContext, page: int):
             profiles_text = ", ".join(str(p) for p in profiles) if profiles else "Немає активних"
 
             text += (
-                f"🔑 **Ключ:** `{key}`\n"
-                f"ℹ️ **Статус:** {status}\n"
-                f"📄 **Анкети ({len(profiles)} шт):** {profiles_text}\n"
+                f"🔑 <b>Ключ:</b> <code>{key}</code>\n"
+                f"ℹ️ <b>Статус:</b> {status}\n"
+                f"📄 <b>Анкети ({len(profiles)} шт):</b> {profiles_text}\n"
                 "➖➖➖➖➖➖➖➖➖➖\n"
             )
 
@@ -280,9 +316,9 @@ async def show_keys_page(message_or_callback, state: FSMContext, page: int):
         keyboard = get_pagination_keyboard(page, total_keys, limit)
 
     if isinstance(message_or_callback, types.Message):
-        await message_or_callback.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+        await message_or_callback.answer(text, parse_mode="HTML", reply_markup=keyboard)
     else:
-        await message_or_callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+        await message_or_callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
 
     await state.set_state(KeysViewStates.viewing)
     await state.update_data(current_page=page)
