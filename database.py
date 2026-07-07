@@ -419,3 +419,26 @@ def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
     except Exception as e:
         print(f"DB ERROR verify_session: {e}")
         return False, "Помилка бази даних"
+
+def get_keys_count() -> int:
+    """Повертає загальну кількість ключів у базі"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM keys")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def get_keys_page(limit: int = 10, offset: int = 0):
+    """Повертає список ключів для однієї сторінки пагінації."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT access_key, is_banned, profiles 
+        FROM keys 
+        ORDER BY id ASC
+        LIMIT ? OFFSET ?
+    """, (limit, offset))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
