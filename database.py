@@ -42,6 +42,87 @@ def verify_session(access_key: str, session_token: str) -> tuple[bool, str]:
         print(f"DB ERROR verify_session: {e}")
         return False, "Помилка бази даних"
 
+def login_and_bind(access_key: str, operator_id: str, session_token: str) -> tuple[bool, str]:
+    """Гібридна авторизація: Прив'язка до профілю + Жива сесія"""
+    if not access_key or not operator_id or not session_token:
+        return False, "Неповні дані для авторизації"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT is_banned, operator_id FROM keys WHERE access_key = ?", (access_key,))
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return False, "Невірний ключ"
+
+        is_banned, db_operator_id = row
+
+        if is_banned == 1:
+            conn.close()
+            return False, "Ключ заблоковано адміністратором"
+
+        # 1. ПЕРЕВІРКА ЛІЦЕНЗІЇ (Чий це ключ?)
+        if db_operator_id is None:
+            # Перший вхід — намертво прив'язуємо ключ до цього профілю
+            cursor.execute(
+                "UPDATE keys SET operator_id = ?, session_token = ? WHERE access_key = ?",
+                (operator_id, session_token, access_key)
+            )
+            conn.commit()
+            conn.close()
+            return True, "Ключ успішно прив'язано до вашого профілю!"
+
+        if str(db_operator_id) != str(operator_id):
+            conn.close()
+            return False, f"Помилка: Цей ключ вже належить іншому оператору."
+
+        # 2. ОНОВЛЕННЯ СЕСІЇ (Якщо ліцензія збігається)
+        # Перезаписуємо токен. Якщо клієнт був відкритий десь ще, його викине.
+        cursor.execute(
+            "UPDATE keys SET session_token = ? WHERE access_key = ?",
+            (session_token, access_key)
+        )
+        conn.commit()
+        conn.close()
+        return True, "Авторизація успішна"
+
+    except Exception as e:
+        print(f"DB ERROR login_and_bind: {e}")
+        return False, "Внутрішня помилка бази даних"
+
+
+def verify_session_only(access_key: str, session_token: str) -> tuple[bool, str]:
+    """Швидка перевірка активної сесії для heartbeat"""
+    if not access_key or not session_token:
+        return False, "Помилка сесії"
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT is_banned, session_token FROM keys WHERE access_key = ?", (access_key,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return False, "Невірний ключ"
+
+        is_banned, db_token = row
+
+        if is_banned == 1:
+            return False, "Ключ заблоковано"
+
+        if db_token == session_token:
+            return True, "OK"
+        else:
+            return False, "Увага: Ваш ключ активували в іншому місці. Сеанс перервано."
+
+    except Exception as e:
+        print(f"DB ERROR verify_session_only: {e}")
+        return False, "Помилка бази даних"
 
 def init_db():
     conn = get_connection()
