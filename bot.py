@@ -20,7 +20,7 @@ if os.path.exists(token_path):
         BOT_TOKEN = f.read().strip()
 else:
     # Якщо файлу немає, використовуємо твій старий бойовий токен
-    BOT_TOKEN = "8812111232:AAGVEyNU0hB_Xe1Z3NCeFhzuWJKKzpTE3cE"
+    BOT_TOKEN = "8994271135:AAGbLxX2z4g2dXeio2oYvjwMhphSKau9H34"
 
 ADMIN_IDS = [7898484797, 5844872531, 249944251]
 

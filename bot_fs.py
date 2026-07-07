@@ -13,7 +13,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import database_fs as database
 
 # Просто вставляєш сюди токен, який дав BotFather для нового бота
-BOT_TOKEN = "8708522521:AAGQ_q8_qx2hRkMLcukO79_W3CCfGMYV3js"
+BOT_TOKEN = "8859229937:AAGUEp0yHfxmdqxnKHVehxv4TiXaDcIxe4g"
 
 ADMIN_IDS = [7898484797, 8502175321]
 
