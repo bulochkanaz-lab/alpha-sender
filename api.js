@@ -247,11 +247,23 @@ function formatAttachmentsForMail(rawAttachments, imageMap) {
 }
 
 async function sendLetter(token, profileId, recipientId, template, imageMap) {
+    const man = Number(recipientId);
+    const woman = Number(profileId);
+
+
+    await simulateCheckClick(token);
+
+
+    const textLength = template.message_content ? template.message_content.length : 0;
+    const humanDelay = getDynamicDelay(textLength);
+    await sleep(humanDelay);
+
+
     const formattedAttachments = formatAttachmentsForMail(template.attachments, imageMap);
 
     const bodyData = {
-       user_id: Number(profileId),
-       recipients: [recipientId],
+       user_id: woman,
+       recipients: [man],
        message_content: template.message_content,
        message_type: template.message_type || "SENT_TEXT",
        attachments: formattedAttachments,

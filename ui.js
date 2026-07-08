@@ -223,7 +223,12 @@ function injectBotUI() {
                         <div style="width: 1px; background: #ccc; margin: 0 10px;"></div>
                         <div><span>В роботі:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
                     </div>
-                    <span id="uiCloseBtn" class="alpha-close">&times;</span>
+
+                    <!-- Контейнер для кнопок виходу та закриття -->
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <img id="uiLogoutBtn" src="https://cdn-icons-png.flaticon.com/512/557/557332.png" alt="Logout" style="width: 22px; height: 22px; cursor: pointer; opacity: 0.5; transition: 0.2s;" title="Вийти з акаунта" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
+                        <span id="uiCloseBtn" class="alpha-close">&times;</span>
+                    </div>
                 </div>
 
                 <div class="alpha-tab-area">
@@ -932,6 +937,26 @@ function setupUIEvents(overlay, galleryModal) {
     applyTranslations(localStorage.getItem("alphaLang") || "ua");
 
     window._alphaPhantom.shadow.getElementById("uiCloseBtn").onclick = () => (overlay.style.display = "none");
+
+    // ЛОГІКА КНОПКИ ВИХОДУ (Розлогін)
+    const logoutBtn = window._alphaPhantom.shadow.getElementById("uiLogoutBtn");
+    if (logoutBtn) {
+        logoutBtn.onclick = () => {
+            if (confirm("🚪 Ви впевнені, що хочете вийти з акаунту? Ваш ключ доступу буде видалено з цього браузера.")) {
+                // 1. Зупиняємо розсилку, якщо вона зараз іде
+                if (typeof isRunning !== 'undefined' && isRunning) {
+                    window._alphaPhantom.shadow.getElementById("uiStopBtn").click();
+                }
+
+                // 2. Знищуємо ключі доступу
+                localStorage.removeItem("alphaAccessKey");
+                localStorage.removeItem("alphaSessionId");
+
+                // 3. Оновлюємо сторінку, щоб розширення перезапустилося і показало екран вводу ключа
+                window.location.reload();
+            }
+        };
+    }
 
     window._alphaPhantom.shadow.getElementById("uiStartBtn").onclick = () => {
        if (isRunning) return;
