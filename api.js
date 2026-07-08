@@ -314,48 +314,59 @@ async function disableProfile(profileId) {
     }
 }
 
+async function simulateCheckClick(token) {
+    try {
+        await fetch("https://alpha.date/api/operator/checkClick", {
+            method: "GET",
+            headers: getHeaders(token)
+        });
+    } catch (e) {
+        // Ігноруємо помилки мережі, щоб не зупиняти розсилку
+    }
+}
+
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
     const man = Number(recipientId);
     const woman = Number(profileId);
 
+    // 1. ПРОГРІВ: Імітуємо фокус на чаті (щоб обійти Shadowban)
+    await simulateCheckClick(token);
+
+    // 2. ІМІТАЦІЯ ЛЮДИНИ: Мікро-пауза перед відправкою (300 - 800 мс)
+    const humanDelay = Math.floor(Math.random() * (800 - 300 + 1)) + 300;
+    await sleep(humanDelay);
+
+    // 3. ЗБИРАЄМО ЄДИНИЙ ПРАВИЛЬНИЙ PAYLOAD
     const payload = {
-       sender_id: woman,
-       recipient_id: man,
-       message_content: template.message_content,
-       message_type: template.message_type || "SENT_TEXT",
-       filename: "",
-       chance: true
+        sender_id: woman,
+        recipient_id: man,
+        message_content: template.message_content,
+        message_type: template.message_type || "SENT_TEXT",
+        filename: ""
     };
 
+    // Розумний вибір: якщо вже є чат - б'ємо туди, якщо ні - використовуємо chance
+    if (chatUid) {
+        payload.chat_uid = chatUid;
+    } else {
+        payload.chance = true;
+    }
+
     try {
-       const response = await fetch("https://alpha.date/api/chat/message", {
-          method: "POST",
-          headers: getHeaders(token),
-          body: JSON.stringify(payload)
-       });
+        // 4. ОДИН ТОЧНИЙ ПОСТРІЛ ЗАМІСТЬ ДВОХ
+        const response = await fetch("https://alpha.date/api/chat/message", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify(payload)
+        });
 
-       const data = await response.json();
+        const data = await response.json();
 
-       if (response.ok && data.status === true) {
-          return true;
-       } else {
-          const backupPayload = { ...payload, chat_uid: chatUid };
-          delete backupPayload.chance;
+        // Якщо сервер сказав status: true — інвайт успішно доставлено
+        return (response.ok && data.status === true);
 
-          const backupResponse = await fetch("https://alpha.date/api/chat/message", {
-              method: "POST", headers: getHeaders(token), body: JSON.stringify(backupPayload)
-          });
-          const backupData = await backupResponse.json();
-
-          if (backupResponse.ok && backupData.status === true) {
-              //console.log(`✅ [УСПІХ-КЛАСИКА] Інвайт залетів до ${man}!`);
-              return true;
-          } else {
-              return false;
-          }
-       }
     } catch (error) {
-       return false;
+        return false;
     }
 }
 
