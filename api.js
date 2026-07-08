@@ -363,6 +363,23 @@ async function simulateCheckClick(token) {
     } catch (e) { }
 }
 
+function getDynamicDelay(textLength) {
+    // 1. Базова затримка: час реакції (клік у поле, підготовка до введення)
+    // Людина завжди витрачає на це від 1 до 1.5 секунди
+    const baseDelay = Math.floor(Math.random() * (1500 - 1000 + 1)) + 1000;
+
+    // 2. Час на роботу з текстом (друкування або візуальна перевірка після вставки)
+    // Даємо 15 мілісекунд на кожен символ.
+    // Короткий інвайт (50 симв.) = +750 мс. Довгий лист (300 симв.) = +4.5 сек.
+    const typingTime = textLength * 15;
+
+    // 3. Фактор хаосу (Jitter)
+    // Математична похибка від 0 до 500 мілісекунд, щоб зламати алгоритми
+    const jitter = Math.floor(Math.random() * 500);
+
+    return baseDelay + typingTime + jitter;
+}
+
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
     const man = Number(recipientId);
     const woman = Number(profileId);
@@ -379,10 +396,10 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
     await simulateCheckClick(token);
 
     // ==========================================
-    // 2. ІМІТАЦІЯ ДІЙ (Пауза на вставку тексту)
+    // 2. АЛГОРИТМІЧНА ІМІТАЦІЯ ДРУКУ (Динамічний таймінг)
     // ==========================================
-    // Робимо паузу від 1.5 до 3 секунд (імітуємо гарячі клавіші Ctrl+V)
-    const humanDelay = Math.floor(Math.random() * (3000 - 1500 + 1)) + 1500;
+    const textLength = template.message_content ? template.message_content.length : 0;
+    const humanDelay = getDynamicDelay(textLength);
     await sleep(humanDelay);
 
     // ==========================================
