@@ -325,18 +325,69 @@ async function simulateCheckClick(token) {
     }
 }
 
+// ==========================================
+// СИСТЕМА ПРОГРІВУ ТА ІМІТАЦІЇ ЛЮДИНИ
+// ==========================================
+
+async function simulateChatOpen(token, chatUid) {
+    if (!chatUid) return; // Якщо це абсолютно новий мужик, історії ще немає
+
+    try {
+        // 1. Імітуємо клік на діалог (завантаження опцій чату)
+        await fetch("https://alpha.date/api/chatList/chatOptions", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify({ chat_id: chatUid })
+        });
+
+        // Мікро-пауза: людина чекає, поки відмалюється вікно (200-400 мс)
+        await sleep(Math.floor(Math.random() * (400 - 200 + 1)) + 200);
+
+        // 2. Імітуємо завантаження історії повідомлень на екран
+        await fetch("https://alpha.date/api/chatList/chatHistory", {
+            method: "POST",
+            headers: getHeaders(token),
+            body: JSON.stringify({ chat_id: chatUid, page: 1 })
+        });
+    } catch (e) {
+        // Ігноруємо помилки, щоб не зупиняти головний цикл
+    }
+}
+
+async function simulateCheckClick(token) {
+    try {
+        await fetch("https://alpha.date/api/operator/checkClick", {
+            method: "GET",
+            headers: getHeaders(token)
+        });
+    } catch (e) { }
+}
+
 async function sendInvite(token, profileId, recipientId, template, chatUid) {
     const man = Number(recipientId);
     const woman = Number(profileId);
 
-    // 1. ПРОГРІВ: Імітуємо фокус на чаті (щоб обійти Shadowban)
+    // ==========================================
+    // 1. ПОВНИЙ ЛАНЦЮЖОК ПРОГРІВУ (Анти-Shadowban)
+    // ==========================================
+    if (chatUid) {
+        // Людина відкриває існуючий чат (завантажує історію та опції)
+        await simulateChatOpen(token, chatUid);
+    }
+
+    // Людина клікає мишкою в поле вводу тексту
     await simulateCheckClick(token);
 
-    // 2. ІМІТАЦІЯ ЛЮДИНИ: Мікро-пауза перед відправкою (300 - 800 мс)
-    const humanDelay = Math.floor(Math.random() * (800 - 300 + 1)) + 300;
+    // ==========================================
+    // 2. ІМІТАЦІЯ ДІЙ (Пауза на вставку тексту)
+    // ==========================================
+    // Робимо паузу від 1.5 до 3 секунд (імітуємо гарячі клавіші Ctrl+V)
+    const humanDelay = Math.floor(Math.random() * (3000 - 1500 + 1)) + 1500;
     await sleep(humanDelay);
 
-    // 3. ЗБИРАЄМО ЄДИНИЙ ПРАВИЛЬНИЙ PAYLOAD
+    // ==========================================
+    // 3. ФОРМУВАННЯ ПРАВИЛЬНОГО ПАКЕТУ
+    // ==========================================
     const payload = {
         sender_id: woman,
         recipient_id: man,
@@ -345,7 +396,6 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
         filename: ""
     };
 
-    // Розумний вибір: якщо вже є чат - б'ємо туди, якщо ні - використовуємо chance
     if (chatUid) {
         payload.chat_uid = chatUid;
     } else {
@@ -353,7 +403,9 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
     }
 
     try {
-        // 4. ОДИН ТОЧНИЙ ПОСТРІЛ ЗАМІСТЬ ДВОХ
+        // ==========================================
+        // 4. ФІНАЛЬНИЙ ПОСТРІЛ
+        // ==========================================
         const response = await fetch("https://alpha.date/api/chat/message", {
             method: "POST",
             headers: getHeaders(token),
@@ -361,8 +413,6 @@ async function sendInvite(token, profileId, recipientId, template, chatUid) {
         });
 
         const data = await response.json();
-
-        // Якщо сервер сказав status: true — інвайт успішно доставлено
         return (response.ok && data.status === true);
 
     } catch (error) {
