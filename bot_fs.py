@@ -21,15 +21,17 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # Клавіатура
-main_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🔑 Додати ключ"), KeyboardButton(text="📋 База ключів")],
-        [KeyboardButton(text="🗑 Видалити ключі"), KeyboardButton(text="➕ Згенерувати ключі")],
-        [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути прив'язку (ID)")],
+main_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="🔑 Додати ключ", callback_data="btn_add"),
+         InlineKeyboardButton(text="📋 База ключів", callback_data="btn_view")],
+        [InlineKeyboardButton(text="🗑 Видалити ключі", callback_data="btn_del"),
+         InlineKeyboardButton(text="➕ Згенерувати ключі", callback_data="btn_gen")],
+        [InlineKeyboardButton(text="⛔ Забл. / Розбл.", callback_data="btn_ban"),
+         InlineKeyboardButton(text="🔄 Скинути ID", callback_data="btn_reset_id")],
         [InlineKeyboardButton(text="🧨 Скинути ВСІ прив'язки", callback_data="btn_reset_all")],
         [InlineKeyboardButton(text="💣 ВИДАЛИТИ ВСЮ БАЗУ", callback_data="btn_del_all")]
-    ],
-    resize_keyboard=True
+    ]
 )
 
 
