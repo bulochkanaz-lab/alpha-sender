@@ -36,17 +36,14 @@ async function startSendingProcess() {
 
     token = token.replace(/^"|"$/g, "");
 
+    // Зчитуємо наші налаштування з пам'яті
     const settings = JSON.parse(localStorage.getItem("alphaBotSettings") || "{}");
     const useAllProfiles = settings.useAllProfiles !== undefined ? settings.useAllProfiles : true;
     const singleProfileId = settings.profileId || "";
 
-    const uiDelayEl = document.getElementById("uiDelay");
-    const uiPhaseEl = document.getElementById("uiPhaseDelay");
-    const uiBreakEl = document.getElementById("uiBreakTime");
-
-    const delaySeconds = uiDelayEl && uiDelayEl.value !== "" ? parseInt(uiDelayEl.value) : 4;
-    const phaseDelayMinutes = uiPhaseEl && uiPhaseEl.value !== "" ? parseInt(uiPhaseEl.value) : 2;
-    const breakTimeMinutes = uiBreakEl && uiBreakEl.value !== "" ? parseInt(uiBreakEl.value) : 10;
+    const delaySeconds = settings.delay !== undefined ? settings.delay : 4;
+    const phaseDelayMinutes = settings.phaseDelay !== undefined ? settings.phaseDelay : 2;
+    const breakTimeMinutes = settings.breakTime !== undefined ? settings.breakTime : 10;
 
     let profilesToProcess = [];
 
