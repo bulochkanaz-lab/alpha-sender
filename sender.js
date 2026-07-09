@@ -135,77 +135,44 @@ async function startSendingProcess() {
              const client = clientsList[i];
              const historyTexts = await getRecentHistoryTexts(token, client.chat_uid);
 
-             if (!useSiteTpl) {
-                // --- КАСТОМНІ ТЕКСТИ (Власні інвайти) ---
-                if (inviteMode === "batch") {
-                   let sentCount = 0;
+             if (inviteMode === "batch") {
+                // --- РЕЖИМ: BATCH (Усі зразу) ---
+                let sentCount = 0;
 
-                   for (let t = 0; t < inviteTemplates.length; t++) {
-                      if (!isRunning) break;
+                for (let t = 0; t < inviteTemplates.length; t++) {
+                   if (!isRunning) break;
 
-                      const template = inviteTemplates[t];
-                      const normalizedText = String(template.message_content).trim().toLowerCase();
+                   const template = inviteTemplates[t];
+                   const normalizedText = String(template.message_content).trim().toLowerCase();
 
-                      if (!historyTexts.includes(normalizedText)) {
-                         const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
-
-                         if (success) {
-                             incrementStat("invites");
-                             if (typeof updatePopup === 'function') updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
-                             sentCount++;
-
-                             // --- БРОНЬОВАНИЙ КЛЮЧ ---
-                             const targetManId = String(client.external_id || client.user_id || client.id);
-                             const myProfileId = String(currentProfile.id); // Використовуємо реальний ID
-                             const smartUid = `${myProfileId}_${targetManId}`;
-
-                             logInviteAnalytics(template.message_content, "sent", smartUid);
-                             markChatAsInvited(smartUid);
-                             //console.log(`🛠 [Дебаг Відправки BATCH] Ключ: ${smartUid}`);
-                         }
-
-                         if (t < inviteTemplates.length - 1 && isRunning) await sleep(2000);
-                      }
-                   }
-
-                   if (sentCount > 0 && i < clientsList.length - 1 && isRunning) {
-                      await sleep(delaySeconds * 1000);
-                   }
-                } else {
-                   // --- РЕЖИМ: LOOP ---
-                   let templateToSend = null;
-
-                   for (let t = 0; t < inviteTemplates.length; t++) {
-                      const normalizedText = String(inviteTemplates[t].message_content).trim().toLowerCase();
-
-                      if (!historyTexts.includes(normalizedText)) {
-                         templateToSend = inviteTemplates[t];
-                         break;
-                      }
-                   }
-
-                   if (templateToSend) {
-                      const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
+                   if (!historyTexts.includes(normalizedText)) {
+                      const success = await sendInvite(token, currentProfile.id, client.id, template, client.chat_uid);
 
                       if (success) {
                           incrementStat("invites");
                           if (typeof updatePopup === 'function') updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                          sentCount++;
 
                           // --- БРОНЬОВАНИЙ КЛЮЧ ---
                           const targetManId = String(client.external_id || client.user_id || client.id);
                           const myProfileId = String(currentProfile.id);
                           const smartUid = `${myProfileId}_${targetManId}`;
 
-                          logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
+                          logInviteAnalytics(template.message_content, "sent", smartUid);
                           markChatAsInvited(smartUid);
-                          //e.log(`🛠 [Дебаг Відправки LOOP] Ключ: ${smartUid}`);
                       }
 
-                      if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
+                      // Мікро-пауза між відправкою кількох інвайтів одному мужику (захист від спам-фільтру)
+                      if (t < inviteTemplates.length - 1 && isRunning) await sleep(2000);
                    }
                 }
+
+                if (sentCount > 0 && i < clientsList.length - 1 && isRunning) {
+                   await sleep(delaySeconds * 1000);
+                }
+
              } else {
-                // --- ШАБЛОНИ З САЙТУ ---
+                // --- РЕЖИМ: LOOP (По одному на коло) ---
                 let templateToSend = null;
 
                 for (let t = 0; t < inviteTemplates.length; t++) {
@@ -221,17 +188,16 @@ async function startSendingProcess() {
                    const success = await sendInvite(token, currentProfile.id, client.id, templateToSend, client.chat_uid);
 
                    if (success) {
-                      incrementStat("invites");
-                      if (typeof updatePopup === 'function') updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
+                       incrementStat("invites");
+                       if (typeof updatePopup === 'function') updatePopup(`Інвайти йдуть...`, false, profileNameDisplay);
 
-                      // --- БРОНЬОВАНИЙ КЛЮЧ ---
-                      const targetManId = String(client.external_id || client.user_id || client.id);
-                      const myProfileId = String(currentProfile.id);
-                      const smartUid = `${myProfileId}_${targetManId}`;
+                       // --- БРОНЬОВАНИЙ КЛЮЧ ---
+                       const targetManId = String(client.external_id || client.user_id || client.id);
+                       const myProfileId = String(currentProfile.id);
+                       const smartUid = `${myProfileId}_${targetManId}`;
 
-                      logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
-                      markChatAsInvited(smartUid);
-                      //e.log(`🛠 [Дебаг Відправки SITE_TPL] Ключ: ${smartUid}`);
+                       logInviteAnalytics(templateToSend.message_content, "sent", smartUid);
+                       markChatAsInvited(smartUid);
                    }
 
                    if (i < clientsList.length - 1 && isRunning) await sleep(delaySeconds * 1000);
