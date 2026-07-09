@@ -948,7 +948,7 @@ function setupUIEvents(overlay, galleryModal) {
     const logoutBtn = window._alphaPhantom.shadow.getElementById("uiLogoutBtn");
     if (logoutBtn) {
         logoutBtn.onclick = () => {
-            if (confirm("🚪 Ви впевнені, що хочете вийти з акаунту? Ваш ключ доступу буде видалено з цього браузера.")) {
+            if (confirm("🚪 Ви впевнені, що хочете вийти з акаунту?")) {
                 // 1. Зупиняємо розсилку, якщо вона зараз іде
                 if (typeof isRunning !== 'undefined' && isRunning) {
                     window._alphaPhantom.shadow.getElementById("uiStopBtn").click();
