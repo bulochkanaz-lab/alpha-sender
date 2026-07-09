@@ -37,7 +37,8 @@ main_kb = InlineKeyboardMarkup(
          InlineKeyboardButton(text="➕ Згенерувати ключі", callback_data="btn_gen")],
         [InlineKeyboardButton(text="⛔ Заблокувати / Розблокувати", callback_data="btn_ban")],
         [InlineKeyboardButton(text="🔄 Скинути прив'язку (ID)", callback_data="btn_reset_id")],
-        [InlineKeyboardButton(text="🧨 Скинути ВСІ прив'язки", callback_data="btn_reset_all")]
+        [InlineKeyboardButton(text="🧨 Скинути ВСІ прив'язки", callback_data="btn_reset_all")],
+        [InlineKeyboardButton(text="ВИДАЛИТИ ВСІ КЛЮЧІ", callback_data="btn_del_all")]
     ]
 )
 
@@ -58,6 +59,7 @@ class AdminStates(StatesGroup):
     waiting_for_delete = State()
     waiting_for_gen = State()
     viewing_keys = State()
+    waiting_for_del_all_pass = State()
 
 
 # ==========================================
@@ -236,36 +238,44 @@ async def process_delete_keys(message: types.Message, state: FSMContext):
     await update_main_menu(state, message.chat.id, text + "\n\n👋 <b>Головне меню:</b>")
 
 
-@dp.message(Command("delete_all"))
-async def handle_delete_all(message: types.Message):
-    # ЗАХИСТ: Перевіряємо, чи це взагалі адмін пише
-    if not is_admin(message.from_user.id):
-        return
+# ==========================================
+# ЯДЕРНА КНОПКА (ОЧИЩЕННЯ ВСІЄЇ БАЗИ)
+# ==========================================
+@dp.callback_query(F.data == "btn_del_all")
+async def prompt_delete_all(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
 
-    # Розбиваємо повідомлення на слова: ["/delete_all", "Uypp09"]
-    args = message.text.split()
+    await update_main_menu(
+        state,
+        callback.message.chat.id,
+        "⚠️ <b>УВАГА! Це незворотна дія!</b>\nДля підтвердження повного очищення бази ключів введіть пароль:",
+        cancel_kb
+    )
+    await state.set_state(AdminStates.waiting_for_del_all_pass)
+    await callback.answer()
 
-    # Перевіряємо, чи передали пароль взагалі
-    if len(args) < 2:
-        await message.reply(
-            "⚠️ Обережно! Це небезпечна зона.\n"
-            "Щоб видалити всі ключі, введіть команду з паролем:\n"
-            "Приклад: <code>/delete_all ваш_пароль</code>",
-            parse_mode="HTML"
-        )
-        return
 
-    password = args[1]
+@dp.message(AdminStates.waiting_for_del_all_pass)
+async def process_delete_all_pass(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.delete()
 
     # Строга перевірка пароля
-    if password != "Uypp09":
-        await message.reply("❌ Невірний пароль! Масове видалення скасовано.")
+    if message.text.strip() != "Uypp09":
+        await state.set_state(None)
+        await update_main_menu(state, message.chat.id,
+                               "❌ Невірний пароль! Масове видалення скасовано.\n\n👋 <b>Головне меню:</b>")
         return
 
     # Якщо пароль правильний — виконуємо очищення
     deleted_count = database.delete_all_keys()
 
-    await message.reply(f"🗑 <b>Успіх!</b> Всі ключі ({deleted_count} шт.) були назавжди видалені з бази.", parse_mode="HTML")
+    await state.set_state(None)
+    await update_main_menu(
+        state,
+        message.chat.id,
+        f"🗑 <b>Успіх!</b> Всі ключі ({deleted_count} шт.) були назавжди видалені з бази.\n\n👋 <b>Головне меню:</b>"
+    )
 
 # ==========================================
 # ЛОГІКА ГЕНЕРАЦІЇ КЛЮЧІВ

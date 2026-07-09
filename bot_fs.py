@@ -26,7 +26,8 @@ main_kb = ReplyKeyboardMarkup(
         [KeyboardButton(text="🔑 Додати ключ"), KeyboardButton(text="📋 База ключів")],
         [KeyboardButton(text="🗑 Видалити ключі"), KeyboardButton(text="➕ Згенерувати ключі")],
         [KeyboardButton(text="⛔ Заблокувати/Розблокувати"), KeyboardButton(text="🔄 Скинути прив'язку (ID)")],
-        [KeyboardButton(text="🧨 Скинути ВСІ прив'язки")]
+        [InlineKeyboardButton(text="🧨 Скинути ВСІ прив'язки", callback_data="btn_reset_all")],
+        [InlineKeyboardButton(text="💣 ВИДАЛИТИ ВСЮ БАЗУ", callback_data="btn_del_all")]
     ],
     resize_keyboard=True
 )
@@ -56,6 +57,9 @@ class GenerateStates(StatesGroup):
 
 class AdminStates(StatesGroup):
     waiting_for_key = State()
+
+class DeleteAllStates(StatesGroup):
+    waiting_for_pass = State()
 
 
 # ==========================================
@@ -102,25 +106,6 @@ async def prompt_toggle_ban(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id): return
     await message.answer("Введіть ключ, щоб змінити його статус:")
     await state.set_state(ToggleBanStates.waiting_for_key)
-
-
-@dp.message(ToggleBanStates.waiting_for_key)
-async def process_toggle_ban(message: types.Message, state: FSMContext):
-    if not is_admin(message.from_user.id): return
-    key_to_toggle = message.text.strip()
-    success, new_status = database.toggle_ban_key(key_to_toggle)
-
-    if success:
-        if new_status == "banned":
-            await message.answer(
-                f"🔴 Ключ <code>{key_to_toggle}</code> ЗАБЛОКОВАНО!\nСкрипт зупиниться при наступній перевірці.",
-                parse_mode="HTML")
-        else:
-            await message.answer(f"🟢 Ключ <code>{key_to_toggle}</code> РОЗБЛОКОВАНО!\nДоступ відновлено.",
-                                 parse_mode="HTML")
-    else:
-        await message.answer("❌ Такого ключа не знайдено в базі.")
-    await state.clear()
 
 
 # ==========================================
@@ -182,19 +167,47 @@ async def process_delete_keys(message: types.Message, state: FSMContext):
     await message.answer(f"✅ Успішно видалено {deleted_count} ключів із {len(keys_to_delete)} запитаних.")
     await state.clear()
 
-def delete_all_keys() -> int:
-    """Повністю очищає таблицю ключів. Використовувати вкрай обережно!"""
-    conn = get_connection()
-    cursor = conn.cursor()
 
-    # Видаляємо всі записи з таблиці keys
-    cursor.execute("DELETE FROM keys")
-    count = cursor.rowcount
+# ==========================================
+# ЯДЕРНА КНОПКА (ОЧИЩЕННЯ ВСІЄЇ БАЗИ)
+# ==========================================
+@dp.callback_query(F.data == "btn_del_all")
+async def prompt_delete_all(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
 
-    conn.commit()
-    conn.close()
+    await update_main_menu(
+        state,
+        callback.message.chat.id,
+        "⚠️ <b>УВАГА! Це незворотна дія!</b>\nДля підтвердження повного очищення бази ключів введіть пароль:",
+        cancel_kb
+    )
+    # Використовуємо наш новий ізольований стан
+    await state.set_state(DeleteAllStates.waiting_for_pass)
+    await callback.answer()
 
-    return count
+
+@dp.message(DeleteAllStates.waiting_for_pass)
+async def process_delete_all_pass(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id): return
+    await message.delete()
+
+    # Строга перевірка пароля
+    if message.text.strip() != "Uypp09":
+        await state.set_state(None)
+        await update_main_menu(state, message.chat.id,
+                               "❌ Невірний пароль! Масове видалення скасовано.\n\n👋 <b>Головне меню:</b>")
+        return
+
+    # Якщо пароль правильний — виконуємо очищення
+    # ПЕРЕКОНАЙСЯ, ЩО ТУТ ВИКЛИКАЄТЬСЯ ПРАВИЛЬНА БАЗА (наприклад, database_fs, якщо вона так імпортована)
+    deleted_count = database.delete_all_keys()
+
+    await state.set_state(None)
+    await update_main_menu(
+        state,
+        message.chat.id,
+        f"🗑 <b>Успіх!</b> Всі ключі ({deleted_count} шт.) були назавжди видалені з бази.\n\n👋 <b>Головне меню:</b>"
+    )
 
 # ==========================================
 # ЛОГІКА ГЕНЕРАЦІЇ КЛЮЧІВ
