@@ -3,8 +3,10 @@ import asyncio
 import json
 import random
 import string
+from aiogram import types
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, Command
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -233,6 +235,37 @@ async def process_delete_keys(message: types.Message, state: FSMContext):
     await state.set_state(None)
     await update_main_menu(state, message.chat.id, text + "\n\n👋 <b>Головне меню:</b>")
 
+
+@dp.message(Command("delete_all"))
+async def handle_delete_all(message: types.Message):
+    # ЗАХИСТ: Перевіряємо, чи це взагалі адмін пише
+    if not is_admin(message.from_user.id):
+        return
+
+    # Розбиваємо повідомлення на слова: ["/delete_all", "Uypp09"]
+    args = message.text.split()
+
+    # Перевіряємо, чи передали пароль взагалі
+    if len(args) < 2:
+        await message.reply(
+            "⚠️ Обережно! Це небезпечна зона.\n"
+            "Щоб видалити всі ключі, введіть команду з паролем:\n"
+            "Приклад: <code>/delete_all ваш_пароль</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    password = args[1]
+
+    # Строга перевірка пароля
+    if password != "Uypp09":
+        await message.reply("❌ Невірний пароль! Масове видалення скасовано.")
+        return
+
+    # Якщо пароль правильний — виконуємо очищення
+    deleted_count = database.delete_all_keys()
+
+    await message.reply(f"🗑 <b>Успіх!</b> Всі ключі ({deleted_count} шт.) були назавжди видалені з бази.", parse_mode="HTML")
 
 # ==========================================
 # ЛОГІКА ГЕНЕРАЦІЇ КЛЮЧІВ

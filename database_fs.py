@@ -473,4 +473,19 @@ def get_keys_page(limit: int = 10, offset: int = 0):
     conn.close()
     return rows
 
+
+def delete_all_keys() -> int:
+    """Повністю очищає таблицю ключів. Використовувати вкрай обережно!"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Видаляємо всі записи з таблиці keys
+    cursor.execute("DELETE FROM keys")
+    count = cursor.rowcount
+
+    conn.commit()
+    conn.close()
+
+    return count
+
 init_db()

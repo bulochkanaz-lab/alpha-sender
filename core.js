@@ -364,10 +364,15 @@ async function dispatchStealthPayload(detail) {
         // 2. Шифруємо
         const encryptedPayload = await encryptData(rawJson, detail.access_key);
 
+        // Визначаємо команду динамічно з глобального конфігу, якщо він існує
+        const currentTeam = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.team)
+            ? APP_CONFIG.team
+            : (detail.team || "alpha");
+
         // 3. Формуємо захищений запит
         const stealthBody = {
             access_key: detail.access_key,
-            team: detail.team || "alpha",
+            team: currentTeam,
             payload: encryptedPayload
         };
 

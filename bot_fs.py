@@ -182,6 +182,19 @@ async def process_delete_keys(message: types.Message, state: FSMContext):
     await message.answer(f"✅ Успішно видалено {deleted_count} ключів із {len(keys_to_delete)} запитаних.")
     await state.clear()
 
+def delete_all_keys() -> int:
+    """Повністю очищає таблицю ключів. Використовувати вкрай обережно!"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Видаляємо всі записи з таблиці keys
+    cursor.execute("DELETE FROM keys")
+    count = cursor.rowcount
+
+    conn.commit()
+    conn.close()
+
+    return count
 
 # ==========================================
 # ЛОГІКА ГЕНЕРАЦІЇ КЛЮЧІВ
