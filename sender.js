@@ -263,7 +263,7 @@ async function startSendingProcess() {
        if (!isRunning) break;
 
        // ==========================================
-       // ФАЗА 2: ЛИСТИ
+       // ФАЗА 2: ЛИСТИ (Строга послідовність + Анти-дубль)
        // ==========================================
        if (hasLetters) {
           if (typeof updatePopup === 'function') updatePopup(`Розсилка листів...`, false, profileNameDisplay);
@@ -272,12 +272,27 @@ async function startSendingProcess() {
              if (!isRunning) break;
 
              const client = clientsList[i];
-             const randomTemplate = letterTemplates[Math.floor(Math.random() * letterTemplates.length)];
-             const isDuplicate = await isDuplicateInHistory(token, client.chat_uid, randomTemplate.message_content);
 
-             if (isDuplicate) continue;
+             // 1. Завантажуємо історію чату (або беремо вже завантажену, якщо Фаза 1 її стягнула)
+             const historyTexts = await getRecentHistoryTexts(token, client.chat_uid);
+             let templateToSend = null;
 
-             const success = await sendLetter(token, currentProfile.id, client.id, randomTemplate, imageMap);
+             // 2. Йдемо по списку листів строго ПО ПОРЯДКУ
+             for (let t = 0; t < letterTemplates.length; t++) {
+                 const normalizedText = String(letterTemplates[t].message_content).trim().toLowerCase();
+
+                 // 3. Локальна перевірка: чи є такий текст в історії?
+                 if (!historyTexts.includes(normalizedText)) {
+                     templateToSend = letterTemplates[t];
+                     break; // Знайшли унікальний текст - зупиняємо пошук
+                 }
+             }
+
+             // Якщо всі доступні листи вже були відправлені - йдемо до наступного чоловіка
+             if (!templateToSend) continue;
+
+             // 4. Відправляємо гарантовано унікальний лист
+             const success = await sendLetter(token, currentProfile.id, client.id, templateToSend, imageMap);
 
              if (success) {
                 incrementStat("letters");

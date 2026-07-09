@@ -175,35 +175,6 @@ async function collectAllMen(token, profileId) {
     return allClients;
 }
 
-async function isDuplicateInHistory(token, chatUid, textToCheck) {
-    if (!chatUid || !textToCheck) return false;
-
-    try {
-       const response = await fetch("https://alpha.date/api/chatList/chatHistory", {
-          method: "POST",
-          headers: getHeaders(token),
-          body: JSON.stringify({ chat_id: chatUid, page: 1 }),
-       });
-
-       const data = await response.json();
-       const messages = data.response || data.data || [];
-
-       if (!Array.isArray(messages)) return false;
-
-       const normalizedText = String(textToCheck).trim().toLowerCase();
-
-       for (let i = 0; i < messages.length; i++) {
-          const msgContent = messages[i].message_content || "";
-          if (String(msgContent).trim().toLowerCase() === normalizedText) {
-             return true;
-          }
-       }
-       return false;
-    } catch (error) {
-       return false;
-    }
-}
-
 async function getRecentHistoryTexts(token, chatUid) {
     if (!chatUid) return [];
 

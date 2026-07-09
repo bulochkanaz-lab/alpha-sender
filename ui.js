@@ -270,14 +270,6 @@ function injectBotUI() {
                             </select>
                         </div>
 
-                        <div class="alpha-col" style="margin-bottom: 25px;">
-                            <label data-lang="inviteModeLabel" class="alpha-label">Режим відправки інвайтів:</label>
-                            <select id="uiInviteMode" class="alpha-select">
-                                <option value="batch" data-lang="modeBatch">Усі разом</option>
-                                <option value="loop" data-lang="modeLoop">По одному на коло</option>
-                            </select>
-                        </div>
-
                         <button id="uiStartBtn" data-lang="btnStart" class="alpha-btn-primary">▶ Почати розсилку</button>
                         <button id="uiStopBtn" data-lang="btnStop" class="alpha-btn-danger" style="display: none;">⏹ Зупинити</button>
                     </div>
