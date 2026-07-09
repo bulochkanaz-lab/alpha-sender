@@ -247,13 +247,27 @@ function injectBotUI() {
                                 <input type="number" id="uiDelay" class="alpha-input" value="4" min="1">
                             </div>
                             <div class="alpha-col">
+                                <label class="alpha-label">Між анкетами (сек):</label>
+                                <input type="number" id="uiProfileDelay" class="alpha-input" value="30" min="1">
+                            </div>
+                        </div>
+                        <div class="alpha-row">
+                            <div class="alpha-col">
                                 <label data-lang="phaseDelayLabel" class="alpha-label">Пауза Інвайти/Листи (хв):</label>
                                 <input type="number" id="uiPhaseDelay" class="alpha-input" value="2" min="0">
                             </div>
                             <div class="alpha-col">
                                 <label data-lang="breakTimeLabel" class="alpha-label">Глобальна перерва (хв):</label>
-                                <input type="number" id="uiBreakTime" class="alpha-input" value="10" min="5" max="60">
+                                <input type="number" id="uiBreakTime" class="alpha-input" value="10" min="1">
                             </div>
+                        </div>
+
+                        <div class="alpha-col" style="margin-bottom: 25px;">
+                            <label data-lang="inviteModeLabel" class="alpha-label">Режим відправки інвайтів:</label>
+                            <select id="uiInviteMode" class="alpha-select">
+                                <option value="batch" data-lang="modeBatch">Усі разом</option>
+                                <option value="loop" data-lang="modeLoop">По одному на коло</option>
+                            </select>
                         </div>
 
                         <div class="alpha-col" style="margin-bottom: 25px;">
@@ -958,17 +972,50 @@ function setupUIEvents(overlay, galleryModal) {
         };
     }
 
+    // ==========================================
+    // СИСТЕМА АВТОЗБЕРЕЖЕННЯ НАЛАШТУВАНЬ
+    // ==========================================
+    function saveBotSettings() {
+        const delay = parseInt(window._alphaPhantom.shadow.getElementById("uiDelay").value);
+        const profileDelay = parseInt(window._alphaPhantom.shadow.getElementById("uiProfileDelay").value);
+        const phaseDelay = parseInt(window._alphaPhantom.shadow.getElementById("uiPhaseDelay").value);
+        const breakTime = parseInt(window._alphaPhantom.shadow.getElementById("uiBreakTime").value);
+        const inviteMode = window._alphaPhantom.shadow.getElementById("uiInviteMode") ? window._alphaPhantom.shadow.getElementById("uiInviteMode").value : "batch";
+
+        localStorage.setItem("alphaBotSettings", JSON.stringify({
+            delay, profileDelay, phaseDelay, breakTime, inviteMode
+        }));
+    }
+
+    function loadBotSettings() {
+        const settings = JSON.parse(localStorage.getItem("alphaBotSettings") || "{}");
+        if (settings.delay !== undefined) window._alphaPhantom.shadow.getElementById("uiDelay").value = settings.delay;
+        if (settings.profileDelay !== undefined) window._alphaPhantom.shadow.getElementById("uiProfileDelay").value = settings.profileDelay;
+        if (settings.phaseDelay !== undefined) window._alphaPhantom.shadow.getElementById("uiPhaseDelay").value = settings.phaseDelay;
+        if (settings.breakTime !== undefined) window._alphaPhantom.shadow.getElementById("uiBreakTime").value = settings.breakTime;
+        if (settings.inviteMode !== undefined && window._alphaPhantom.shadow.getElementById("uiInviteMode")) {
+            window._alphaPhantom.shadow.getElementById("uiInviteMode").value = settings.inviteMode;
+        }
+    }
+
+    // Вішаємо прослуховувач: як тільки юзер щось змінив — одразу зберігаємо
+    ["uiDelay", "uiProfileDelay", "uiPhaseDelay", "uiBreakTime", "uiInviteMode"].forEach(id => {
+        const el = window._alphaPhantom.shadow.getElementById(id);
+        if (el) el.addEventListener('change', saveBotSettings);
+    });
+
+    // Завантажуємо налаштування одразу при відкритті меню
+    loadBotSettings();
+
+    // Оновлена кнопка СТАРТ
     window._alphaPhantom.shadow.getElementById("uiStartBtn").onclick = () => {
        if (isRunning) return;
        isRunning = true;
        localStorage.removeItem("alphaCurrentPIndex");
 
-       const delay = parseInt(window._alphaPhantom.shadow.getElementById("uiDelay").value);
-       const phaseDelay = parseInt(window._alphaPhantom.shadow.getElementById("uiPhaseDelay").value);
-       const breakTime = parseInt(window._alphaPhantom.shadow.getElementById("uiBreakTime").value);
-       const inviteMode = window._alphaPhantom.shadow.getElementById("uiInviteMode") ? window._alphaPhantom.shadow.getElementById("uiInviteMode").value : "batch";
-       localStorage.setItem("alphaBotSettings", JSON.stringify({ delay, phaseDelay, breakTime, inviteMode }));
+       saveBotSettings(); // Фіксуємо перед стартом
        localStorage.setItem("alphaBotState", "running");
+
        window._alphaPhantom.shadow.getElementById("uiStartBtn").style.display = "none";
        window._alphaPhantom.shadow.getElementById("uiStopBtn").style.display = "block";
        updatePopup("Запуск...", false);

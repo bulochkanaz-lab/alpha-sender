@@ -288,9 +288,19 @@ async function startSendingProcess() {
           }
        }
 
+       // ==========================================
+       // ПЕРЕХІД ДО НАСТУПНОЇ АНКЕТИ
+       // ==========================================
        if (pIndex < profilesToProcess.length - 1 && isRunning) {
           if (typeof updatePopup === 'function') updatePopup(`Наступна анкета...`, false, profileNameDisplay);
-          await sleep(3000);
+
+          // Зчитуємо актуальні налаштування з пам'яті прямо перед паузою
+          const currentSettings = JSON.parse(localStorage.getItem("alphaBotSettings") || "{}");
+
+          // Беремо значення profileDelay (якщо не знайдено - 30 сек)
+          const profileDelaySec = currentSettings.profileDelay !== undefined ? currentSettings.profileDelay : 30;
+
+          await sleep(profileDelaySec * 1000);
        }
     }
 
