@@ -199,7 +199,7 @@ async def get_payload(key: str = "", session_token: str = "", team: str = "alpha
         )
 
     try:
-        # Уніфікуємо для обох команд
+        # Уніфікуємо для обох команд основні файли
         modules = [
             "smart_search.js",
             "bday_radar.js",
@@ -209,7 +209,10 @@ async def get_payload(key: str = "", session_token: str = "", team: str = "alpha
             "sender.js",
             "radar.js"
         ]
-        # Якщо треба виключити щось специфічне для fs, зроби це тут
+
+        # 🔥 Додаємо id_search.js ТІЛЬКИ для команди test
+        if team == "test":
+            modules.append("id_search.js")
 
         # 🔥 СТВОРЮЄМО ФАНТОМА ДО ЗАВАНТАЖЕННЯ ІНШИХ МОДУЛІВ
         raw_js = """
