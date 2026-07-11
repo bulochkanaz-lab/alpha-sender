@@ -113,14 +113,23 @@
         nativeInputValueSetter.call(searchInput, idsArray[0]);
 
         // Симулюємо події, щоб React "побачив", що ми ввели текст
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log("🛠 [Дебаг] Інпут знайдено:", searchInput);
+        console.log("🛠 [Дебаг] Кнопка знайдена:", searchButton);
 
-        // Тиснемо кнопку пошуку (або імітуємо Enter, якщо кнопки чомусь немає)
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+        // Симулюємо натискання Enter прямо в інпуті (найбільш надійний спосіб для React)
+        const enterEvent = new KeyboardEvent('keydown', {
+            bubbles: true, cancelable: true, keyCode: 13, key: 'Enter', code: 'Enter'
+        });
+        searchInput.dispatchEvent(enterEvent);
+
         if (searchButton && searchButton.tagName.toLowerCase() === 'button') {
+            console.log("🛠 [Дебаг] Пробуємо клікнути по кнопці...");
             searchButton.click();
-        } else {
-            searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+            // Деякі React-кнопки реагують на mousedown/mouseup
+            searchButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+            searchButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
         }
     }
 
