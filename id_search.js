@@ -92,7 +92,7 @@
         // Знаходимо кнопку лупи поруч з інпутом
         const searchButton = searchInput.nextElementSibling;
 
-        btnElement.innerText = "🪄 Гіпнотизуємо React...";
+        btnElement.innerText = "React...";
         btnElement.style.pointerEvents = "none";
         btnElement.style.opacity = "0.7";
 
@@ -108,29 +108,30 @@
             }, 3000);
         };
 
-        // Секретна техніка React: міняємо значення інпуту через нативний setter
+        // Секретна техніка React: міняємо значення інпуту
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
         nativeInputValueSetter.call(searchInput, idsArray[0]);
 
-        // Симулюємо події, щоб React "побачив", що ми ввели текст
-        console.log("🛠 [Дебаг] Інпут знайдено:", searchInput);
-        console.log("🛠 [Дебаг] Кнопка знайдена:", searchButton);
-
+        // Збиваємо React-трекер (спеціальний хак для React 16+)
+        if (searchInput._valueTracker) {
+            searchInput._valueTracker.setValue("");
+        }
         searchInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Симулюємо натискання Enter прямо в інпуті (найбільш надійний спосіб для React)
-        const enterEvent = new KeyboardEvent('keydown', {
-            bubbles: true, cancelable: true, keyCode: 13, key: 'Enter', code: 'Enter'
-        });
-        searchInput.dispatchEvent(enterEvent);
+        // Шукаємо кнопку надійніше (всередині батьківського блоку)
+        const searchButton = searchInput.parentElement.querySelector('button');
+        console.log("🛠 [Дебаг 2] Кнопка знайдена:", searchButton);
 
-        if (searchButton && searchButton.tagName.toLowerCase() === 'button') {
-            console.log("🛠 [Дебаг] Пробуємо клікнути по кнопці...");
+        if (searchButton) {
+            // Клікаємо по кнопці
             searchButton.click();
-            // Деякі React-кнопки реагують на mousedown/mouseup
-            searchButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-            searchButton.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        } else {
+            // Якщо кнопки все ж нема, імітуємо ПОВНИЙ цикл натискання Enter
+            searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+            searchInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+            searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
         }
+
     }
 
     // 4. Інжектор нашої кнопки під дублікатами
