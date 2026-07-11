@@ -1,136 +1,130 @@
 // ==========================================
-// Модуль: ID Search (Пошук по дублікатах)
+// Модуль: ID Search (React-Гіпноз)
 // ==========================================
 
 (function() {
     // 1. Допоміжна функція для "сну" (Jitter - імітація людини)
-    const sleep = (min, max) => {
-        const ms = Math.floor(Math.random() * (max - min + 1)) + min;
-        return new Promise(resolve => setTimeout(resolve, ms));
+    const sleep = (min, max) => new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * (max - min + 1)) + min));
+
+    // Стан для нашого перехоплювача
+    let duplicateState = {
+        isActive: false,
+        ids: [],
+        onComplete: null
     };
 
-    // Універсальний шукач токена (перевіряє найпопулярніші ключі в Local Storage)
-    function getSiteToken() {
-        // Якщо токен лежить десь інде, ти завжди зможеш сюди додати правильний ключ
-        return localStorage.getItem('token') ||
-               localStorage.getItem('access_token') ||
-               localStorage.getItem('auth_token') ||
-               localStorage.getItem('jwt') ||
-               "";
-    }
+    // 2. Перехоплювач (Monkey-patching) window.fetch
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const url = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
 
-    // 2. Функція запиту до API
-    async function fetchChatsForId(userId) {
-        const url = 'https://alpha.date/api/chatList/chatListByUserID';
-        const payload = {
-            user_id: "",
-            chat_uid: false,
-            page: 1,
-            freeze: false,
-            limits: null,
-            ONLINE_STATUS: 0,
-            CHAT_TYPE: "DEFAULT",
-            SEARCH: String(userId),
-            blockedByMan: 0,
-            blockedByWoman: 0,
-            showHidden: 0
-        };
+        // Якщо це запит пошуку чатів І ми активували перехоплювач
+        if (duplicateState.isActive && url.includes('/api/chatList/chatListByUserID')) {
+            console.log("🪄 [React-Гіпноз] Перехоплено запит React. Починаємо магію...");
 
-        const token = getSiteToken();
+            duplicateState.isActive = false; // Одразу вимикаємо, щоб наші власні запити йшли нормально
 
-        if (!token) {
-            console.error("[ID Search] Токен не знайдено! Перевір Local Storage.");
-            return [];
-        }
+            const fetchOptions = args[1] || {};
+            let parsedBody = {};
+            try { parsedBody = JSON.parse(fetchOptions.body || '{}'); } catch(e) {}
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    // 👇 БЕРЕМО АВТОРИЗАЦІЮ ЯК У SMART_SEARCH 👇
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
+            let allCombinedChats = [];
 
-            const data = await response.json();
-            if (data && data.status && data.response) {
-                return data.response;
+            // Проходимось по всіх ID з Jitter'ом
+            for (let i = 0; i < duplicateState.ids.length; i++) {
+                const currentId = duplicateState.ids[i];
+                console.log(`[ID Search] Запит для ID: ${currentId} (${i + 1} з ${duplicateState.ids.length})`);
+
+                // Підміняємо ID у пейлоаді
+                parsedBody.SEARCH = String(currentId);
+                const currentOptions = {
+                    ...fetchOptions,
+                    body: JSON.stringify(parsedBody)
+                };
+
+                try {
+                    // Використовуємо ОРИГІНАЛЬНИЙ фетч з усіма заголовками та токенами React
+                    const res = await originalFetch.call(window, url, currentOptions);
+                    const data = await res.json();
+
+                    if (data && data.status && data.response) {
+                        // Додаємо знайдені чати до загального списку
+                        allCombinedChats = allCombinedChats.concat(data.response);
+                    }
+                } catch (error) {
+                    console.error(`[ID Search] Помилка для ${currentId}:`, error);
+                }
+
+                // Jitter: спимо перед наступним запитом (крім останнього)
+                if (i < duplicateState.ids.length - 1) {
+                    await sleep(700, 1800);
+                }
             }
-        } catch (error) {
-            console.error(`[ID Search] Помилка пошуку для ID ${userId}:`, error);
+
+            console.log(`🪄 [React-Гіпноз] Всі запити виконано! Віддаємо Реакту масив з ${allCombinedChats.length} чатів.`);
+
+            // Викликаємо колбек, щоб повернути кнопку в нормальний стан
+            if (duplicateState.onComplete) duplicateState.onComplete();
+
+            // 🔥 НАЙГОЛОВНІШЕ: Повертаємо Реакту підроблений Response
+            return new Response(JSON.stringify({
+                status: true,
+                response: allCombinedChats
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
         }
-        return [];
-    }
 
-    // 3. Рендер чату в ліве меню
-    function renderChatBlock(chatData) {
-        const chatListContainer = document.querySelector('[data-testid="chat-list"] > div');
-        if (!chatListContainer) return;
+        // Всі інші запити пропускаємо без змін
+        return originalFetch.apply(this, args);
+    };
 
-        // Щоб не дублювати чати, які вже є в списку
-        if (document.querySelector(`[data-testid="${chatData.chat_uid}"]`)) return;
+    // 3. Функція імітації вводу та натискання для React
+    function triggerReactHypnosis(idsArray, btnElement) {
+        // Знаходимо інпут пошуку сайту
+        const searchInput = document.querySelector('input[data-testid="idOrName"]');
+        if (!searchInput) {
+            alert("Не знайдено поле пошуку на сайті! Відкрийте панель чатів.");
+            return;
+        }
 
-        const chatHtml = `
-        <div class="styles_clmn_2_chat_block_item__P6pxX styles_in_active__OJkLa" data-testid="${chatData.chat_uid}">
-            <div class="styles_item_left_left__PUWD0 adb-chat-left-icons">
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.99879 1.3423C1.82416 1.3423 1.65668 1.41167 1.5332 1.53515C1.40972 1.65864 1.34035 1.82611 1.34035 2.00074V9.33704L2.7657 7.91169C2.83516 7.84223 2.92936 7.80321 3.02759 7.80321H9.20043C9.37506 7.80321 9.54254 7.73384 9.66602 7.61036C9.7895 7.48688 9.85887 7.3194 9.85887 7.14477V2.00074C9.85887 1.82611 9.7895 1.65864 9.66602 1.53515C9.54254 1.41167 9.37506 1.3423 9.20043 1.3423H1.99879ZM1.00942 1.01137C1.27182 0.748975 1.6277 0.601562 1.99879 0.601562H9.20043C9.57152 0.601562 9.9274 0.748975 10.1898 1.01137C10.4522 1.27377 10.5996 1.62965 10.5996 2.00074V7.14477C10.5996 7.51586 10.4522 7.87174 10.1898 8.13414C9.9274 8.39654 9.57152 8.54395 9.20043 8.54395H3.18101L1.23187 10.4931C1.12595 10.599 0.966643 10.6307 0.828245 10.5734C0.689847 10.516 0.599609 10.381 0.599609 10.2312V2.00074C0.599609 1.62965 0.747022 1.27377 1.00942 1.01137Z" stroke="#6D9BA8" stroke-width="0.5"></path></svg>
-            </div>
-            <div class="styles_clmn_2_chat_block_item_left__8KCVx adb-chat-section-left">
-                <!-- Заглушка -->
-                <img alt="" class="styles_clmn_2_chat_block_item_left_photo__phMom" src="/static/media/profile_img_empty.0b3d6665cd1c1b51de71.jpg">
-            </div>
-            <div class="styles_clmn_2_chat_block_item_middle__CInYn adb-chat-section-middle">
-                <div class="styles_clmn_2_chat_block_item_middle_top__ZcfwH">
-                    <div class="styles_clmn_2_chat_block_item_middle_name__tLfnE notranslate" translate="no" lang="en">ID: ${chatData.male_id}</div>
-                    <div class="styles_clmn_2_chat_block_item_middle_time__Y4gAN">
-                        <span>${new Date(chatData.updated_at).toLocaleDateString('uk-UA')}</span>
-                    </div>
-                </div>
-                <div class="styles_clmn_2_chat_block_item_middle_text__K1Z2U ">Знайдено дублікат (Анкета: ${chatData.female_id})</div>
-            </div>
-        </div>`;
+        // Знаходимо кнопку лупи поруч з інпутом
+        const searchButton = searchInput.nextElementSibling;
 
-        chatListContainer.insertAdjacentHTML('afterbegin', chatHtml);
-    }
-
-    // 4. Логіка обробки натискання
-    async function handleSearchAllDuplicates(idsArray, btnElement) {
-        if (!idsArray || idsArray.length === 0) return;
-
-        btnElement.innerText = "Шукаємо...";
+        btnElement.innerText = "🪄 Гіпнотизуємо React...";
         btnElement.style.pointerEvents = "none";
         btnElement.style.opacity = "0.7";
 
-        console.log(`[ID Search] Починаємо пошук для ${idsArray.length} акаунтів...`);
+        // Активуємо наш перехоплювач
+        duplicateState.isActive = true;
+        duplicateState.ids = idsArray;
+        duplicateState.onComplete = () => {
+            btnElement.innerText = "✅ Готово!";
+            setTimeout(() => {
+                btnElement.innerText = "Знайти всі чати";
+                btnElement.style.pointerEvents = "auto";
+                btnElement.style.opacity = "1";
+            }, 3000);
+        };
 
-        // Послідовний запит із затримкою
-        for (const id of idsArray) {
-            console.log(`[ID Search] Запит для ID: ${id}`);
+        // Секретна техніка React: міняємо значення інпуту через нативний setter
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        nativeInputValueSetter.call(searchInput, idsArray[0]);
 
-            const chats = await fetchChatsForId(id);
+        // Симулюємо події, щоб React "побачив", що ми ввели текст
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-            if (chats.length > 0) {
-                console.log(`[ID Search] Знайдено ${chats.length} чатів для ${id}`);
-                chats.forEach(chat => renderChatBlock(chat));
-            }
-
-            // Засинаємо на випадковий час від 700 до 1800 мс (імітуємо людину)
-            await sleep(700, 1800);
+        // Тиснемо кнопку пошуку (або імітуємо Enter, якщо кнопки чомусь немає)
+        if (searchButton && searchButton.tagName.toLowerCase() === 'button') {
+            searchButton.click();
+        } else {
+            searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
         }
-
-        console.log("[ID Search] Всі запити завершено!");
-        btnElement.innerText = "Знайдено!";
-        setTimeout(() => {
-            btnElement.innerText = "Знайти всі чати";
-            btnElement.style.pointerEvents = "auto";
-            btnElement.style.opacity = "1";
-        }, 3000);
     }
 
-    // 5. Спостерігач за вікном
+    // 4. Інжектор нашої кнопки під дублікатами
     function injectDuplicateButton() {
         const observer = new MutationObserver((mutations) => {
             for (let mutation of mutations) {
@@ -148,7 +142,7 @@
                             searchBtn.style.cssText = `
                                 margin-top: 10px;
                                 padding: 8px;
-                                background: #6D9BA8;
+                                background: linear-gradient(135deg, #6D9BA8 0%, #4a7480 100%);
                                 color: white;
                                 text-align: center;
                                 border-radius: 6px;
@@ -156,11 +150,12 @@
                                 font-size: 13px;
                                 font-weight: bold;
                                 transition: 0.2s;
+                                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                             `;
 
                             searchBtn.addEventListener('click', (e) => {
                                 e.stopPropagation();
-                                handleSearchAllDuplicates(ids, searchBtn);
+                                triggerReactHypnosis(ids, searchBtn);
                             });
 
                             duplicatesContainer.appendChild(searchBtn);
@@ -174,5 +169,4 @@
     }
 
     injectDuplicateButton();
-
 })();
