@@ -662,39 +662,61 @@ async def delete_key(request: AdminActionRequest, authorized: bool = Depends(ver
 
     return {"status": "success", "message": f"Ключ {request.access_key} назавжди видалено"}
 
+
 @app.get("/admin/metrics/leads-by-day")
 async def get_leads_by_day(
-    days: int = 7,
-    team: str = "alpha", # 🔥 Додали параметр команди
-    access_key: Optional[str] = None,
-    admin_token: str = Header(None),
-    authorized: bool = Depends(verify_admin)
+        days: int = 7,
+        team: str = "alpha",
+        access_key: Optional[str] = None,
+        admin_token: str = Header(None),
+        authorized: bool = Depends(verify_admin)
 ):
     try:
-        # 🔥 Динамічно обираємо базу
-        db = database_fs if team == "fs" else database
-        conn = db.get_connection()
-        cursor = conn.cursor()
+        # 1. Визначаємо бази для опитування
+        if team == "all":
+            databases_to_query = [database, database_fs]
+        elif team == "fs":
+            databases_to_query = [database_fs]
+        else:
+            databases_to_query = [database]
 
-        query = """
-            SELECT DATE(timestamp) as date, COUNT(*) as count
-            FROM leads_analytics
-            WHERE timestamp >= datetime('now', '-{} days')
-        """.format(days)
+        # 2. Словник для математичного злиття по датах
+        combined_data = {}
 
-        params = []
+        for db in databases_to_query:
+            conn = db.get_connection()
+            cursor = conn.cursor()
 
-        if access_key:
-            query += " AND access_key = ?"
-            params.append(access_key)
+            query = """
+                SELECT DATE(timestamp) as date, COUNT(*) as count
+                FROM leads_analytics
+                WHERE timestamp >= datetime('now', '-{} days')
+            """.format(days)
 
-        query += " GROUP BY DATE(timestamp) ORDER BY date ASC"
+            params = []
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+            if access_key:
+                query += " AND access_key = ?"
+                params.append(access_key)
 
-        data = [{"date": row[0], "count": row[1]} for row in rows]
+            query += " GROUP BY DATE(timestamp) ORDER BY date ASC"
+
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            conn.close()
+
+            # Додаємо або плюсуємо значення до загального словника
+            for row in rows:
+                date_str = row[0]
+                count = row[1]
+
+                if date_str in combined_data:
+                    combined_data[date_str] += count
+                else:
+                    combined_data[date_str] = count
+
+        # 3. Перетворюємо словник назад у масив об'єктів і сортуємо хронологічно
+        data = [{"date": k, "count": v} for k, v in sorted(combined_data.items())]
 
         return {
             "status": "success",
@@ -705,4 +727,61 @@ async def get_leads_by_day(
 
     except Exception as e:
         print(f"[ERROR] /admin/metrics/leads-by-day: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/admin/metrics/invites-by-day")
+async def get_invites_by_day(
+        days: int = 7,
+        team: str = "alpha",
+        admin_token: str = Header(None),
+        authorized: bool = Depends(verify_admin)
+):
+    try:
+        # 1. Визначаємо бази для опитування
+        if team == "all":
+            databases_to_query = [database, database_fs]
+        elif team == "fs":
+            databases_to_query = [database_fs]
+        else:
+            databases_to_query = [database]
+
+        combined_data = {}
+
+        for db in databases_to_query:
+            conn = db.get_connection()
+            cursor = conn.cursor()
+
+            query = """
+                SELECT DATE(last_sent_at) as date, SUM(sent_count) as count
+                FROM invite_analytics
+                WHERE last_sent_at >= datetime('now', '-{} days')
+                GROUP BY DATE(last_sent_at)
+                ORDER BY date ASC
+            """.format(days)
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            conn.close()
+
+            # Об'єднуємо інвайти по датах
+            for row in rows:
+                date_str = row[0]
+                count = row[1] or 0  # Захист на випадок, якщо SUM поверне NULL
+
+                if date_str in combined_data:
+                    combined_data[date_str] += count
+                else:
+                    combined_data[date_str] = count
+
+        data = [{"date": k, "count": v} for k, v in sorted(combined_data.items())]
+
+        return {
+            "status": "success",
+            "period_days": days,
+            "data": data
+        }
+
+    except Exception as e:
+        print(f"[ERROR] /admin/metrics/invites-by-day: {e}")
         return {"status": "error", "message": str(e)}
