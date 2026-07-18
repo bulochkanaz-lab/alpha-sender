@@ -3,6 +3,17 @@
     <aside class="sidebar">
       <div class="logo">⚙️ Alpha Admin</div>
       <nav class="nav-menu">
+      <div class="px-4 py-3 border-b border-zinc-800">
+        <label class="text-xs text-zinc-500 uppercase tracking-wider mb-1 block">Оберіть команду</label>
+        <select
+          v-model="currentTeam"
+          class="w-full bg-zinc-900 text-zinc-300 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+        >
+          <option value="all">🌍 Усі команди (Глобально)</option>
+          <option value="alpha">Команда Alpha (Основна)</option>
+          <option value="fs">Команда FS (Нова)</option>
+        </select>
+      </div>
         <button
           :class="['nav-btn', { active: activeTab === 'keys' }]"
           @click="openTab('keys')">
@@ -460,17 +471,52 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import axios from 'axios'
+import VueApexCharts from 'vue3-apexcharts'
 
+const router = useRouter()
+const authStore = useAuthStore()
+const SERVER_URL = 'https://obsidian-b.xyz'
+
+// ==========================================
+// СТАН ДОДАТКУ (Таби та Команди)
+// ==========================================
+const activeTab = ref('keys') // 'keys', 'stats', 'profile', 'leads', 'metrics'
+const selectedUser = ref(null)
+
+// Ставимо основну команду за замовчуванням
+const currentTeam = ref('alpha')
+
+// Слідкуємо за зміною команди і перезапрошуємо всі дані для нової бази
+watch(currentTeam, () => {
+  loading.value = true
+  fetchUsers()
+  fetchLeads()
+  fetchGlobalStats()
+
+  // Якщо відкрита вкладка метрик, оновлюємо і її
+  if (activeTab.value === 'metrics') {
+    fetchLeadsByDay(leadsByDayPeriod.value)
+    fetchInvitesByDay(invitesByDayPeriod.value)
+  }
+})
+
+const users = ref([])
+const loading = ref(true)
+const error = ref('')
+const globalAnalytics = ref([])
 const leadsAnalytics = ref([])
 
 const showJsonModal = ref(false)
 const currentJson = ref('{}')
 const modalTitle = ref('')
 
+// ==========================================
+// ЛОГІКА ІНТЕРФЕЙСУ
+// ==========================================
 const viewJson = (rawJson, title) => {
   modalTitle.value = title
   try {
@@ -491,60 +537,15 @@ const closeJsonModal = () => {
 const getWomanPhoto = (rawJson) => {
   try {
     if (!rawJson) return null
-
     const parsed = JSON.parse(rawJson)
-
-    // Спочатку шукаємо photo_link на верхньому рівні
-    if (parsed?.photo_link) {
-      return parsed.photo_link
-    }
-
-    // Якщо немає — шукаємо всередині user_detail (старий варіант)
-    if (parsed?.user_detail?.photo_link) {
-      return parsed.user_detail.photo_link
-    }
-
+    if (parsed?.photo_link) return parsed.photo_link
+    if (parsed?.user_detail?.photo_link) return parsed.user_detail.photo_link
     return null
   } catch (e) {
     return null
   }
 }
 
-// Додай змінну для поточної команди десь біля інших ref
-const currentTeam = ref('fs') // або 'alpha', залежно від того, що хочеш бачити за замовчуванням
-
-const fetchLeads = async () => {
-  try {
-    const response = await axios.get(`${SERVER_URL}/admin/leads`, {
-      params: { team: currentTeam.value }, // 🔥 Ось ключовий момент!
-      headers: { 'admin-token': authStore.token }
-    })
-    if (response.data.status === 'success') {
-      leadsAnalytics.value = response.data.leads
-    }
-  } catch (e) {
-    console.error("Не вдалося завантажити досьє", e)
-  }
-}
-
-// Не забудь додати fetchLeads() у onMounted, там де в тебе fetchUsers() !
-
-const router = useRouter()
-const authStore = useAuthStore()
-const SERVER_URL = 'https://obsidian-b.xyz'
-
-// СТАН ДОДАТКУ (Таби)
-const activeTab = ref('keys') // 'keys', 'stats', 'profile'
-const selectedUser = ref(null)
-
-const users = ref([])
-const loading = ref(true)
-const error = ref('')
-const globalAnalytics = ref([])
-
-// ==========================================
-// ФУНКЦІЇ ДЛЯ ЧАСУ ТА СТАТУСУ
-// ==========================================
 const isOnline = (timestamp) => {
   if (!timestamp) return false
   const pingTime = new Date(timestamp + 'Z').getTime()
@@ -558,25 +559,16 @@ const formatTime = (timestamp) => {
   return date.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
 }
 
-// ОБЧИСЛЕННЯ ГЛОБАЛЬНОЇ СТАТИСТИКИ
 const totalInvites = computed(() => users.value.reduce((sum, u) => sum + (u.stats_invites || 0), 0))
 const totalLetters = computed(() => users.value.reduce((sum, u) => sum + (u.stats_letters || 0), 0))
 
-// ==========================================
-// ЛОГІКА НАВІГАЦІЇ
-// ==========================================
 const openTab = (tabName) => {
   activeTab.value = tabName
   if (tabName !== 'profile') selectedUser.value = null
 
-  // Автоматично завантажуємо дані для вкладки Метрики
   if (tabName === 'metrics') {
-    if (leadsByDayData.value.length === 0) {
-      fetchLeadsByDay(7)
-    }
-    if (invitesByDayData.value.length === 0) {
-      fetchInvitesByDay(7)
-    }
+    if (leadsByDayData.value.length === 0) fetchLeadsByDay(7)
+    if (invitesByDayData.value.length === 0) fetchInvitesByDay(7)
   }
 }
 
@@ -591,16 +583,16 @@ const logout = () => {
 }
 
 // ==========================================
-// РОБОТА З API
+// РОБОТА З API (Додано currentTeam у всі запити)
 // ==========================================
 const fetchUsers = async () => {
   try {
     const response = await axios.get(`${SERVER_URL}/admin/keys`, {
+      params: { team: currentTeam.value },
       headers: { 'admin-token': authStore.token }
     })
     if (response.data.status === 'success') {
       users.value = response.data.keys
-      // Якщо відкритий профіль, оновлюємо його дані теж
       if (selectedUser.value) {
         selectedUser.value = users.value.find(u => u.access_key === selectedUser.value.access_key)
       }
@@ -614,9 +606,24 @@ const fetchUsers = async () => {
   }
 }
 
+const fetchLeads = async () => {
+  try {
+    const response = await axios.get(`${SERVER_URL}/admin/leads`, {
+      params: { team: currentTeam.value },
+      headers: { 'admin-token': authStore.token }
+    })
+    if (response.data.status === 'success') {
+      leadsAnalytics.value = response.data.leads
+    }
+  } catch (e) {
+    console.error("Не вдалося завантажити досьє", e)
+  }
+}
+
 const fetchGlobalStats = async () => {
   try {
     const response = await axios.get(`${SERVER_URL}/admin/global_stats`, {
+      params: { team: currentTeam.value },
       headers: { 'admin-token': authStore.token }
     })
     if (response.data.status === 'success') {
@@ -629,7 +636,10 @@ const fetchGlobalStats = async () => {
 
 const toggleBan = async (key) => {
   try {
-    await axios.post(`${SERVER_URL}/admin/toggle_ban`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
+    await axios.post(`${SERVER_URL}/admin/toggle_ban`,
+      { access_key: key, team: currentTeam.value },
+      { headers: { 'admin-token': authStore.token } }
+    )
     fetchUsers()
   } catch (e) { console.error(e) }
 }
@@ -637,7 +647,10 @@ const toggleBan = async (key) => {
 const resetHwid = async (key) => {
   if (!confirm(`Точно скинути HWID для ${key}?`)) return
   try {
-    await axios.post(`${SERVER_URL}/admin/reset_hwid`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
+    await axios.post(`${SERVER_URL}/admin/reset_hwid`,
+      { access_key: key, team: currentTeam.value },
+      { headers: { 'admin-token': authStore.token } }
+    )
     fetchUsers()
   } catch (e) { console.error(e) }
 }
@@ -645,7 +658,10 @@ const resetHwid = async (key) => {
 const deleteKey = async (key) => {
   if (!confirm(`Точно видалити ключ ${key}?`)) return
   try {
-    await axios.post(`${SERVER_URL}/admin/delete_key`, { access_key: key }, { headers: { 'admin-token': authStore.token } })
+    await axios.post(`${SERVER_URL}/admin/delete_key`,
+      { access_key: key, team: currentTeam.value },
+      { headers: { 'admin-token': authStore.token } }
+    )
     fetchUsers()
   } catch (e) { console.error(e) }
 }
@@ -653,55 +669,41 @@ const deleteKey = async (key) => {
 onMounted(() => {
   fetchUsers()
   fetchLeads()
-  fetchGlobalStats() // <--- Додали
+  fetchGlobalStats()
   setInterval(fetchUsers, 10000)
-  setInterval(fetchGlobalStats, 30000) // Оновлюємо топ кожні 30 сек
+  setInterval(fetchGlobalStats, 30000)
 })
 
-// ==================== МЕТРИКИ ====================
-import VueApexCharts from 'vue3-apexcharts'
+// ==================== МЕТРИКИ ТА ГРАФІКИ ====================
+const metricsPeriod = ref(7)
 
-const metricsPeriod = ref(7) // 7, 14 або 30 днів
-
-// Демо-дані для графіків (поки немає реальних даних по датах)
 const invitesByDay = ref([
-  { date: '2026-06-23', count: 87 },
-  { date: '2026-06-24', count: 124 },
-  { date: '2026-06-25', count: 98 },
-  { date: '2026-06-26', count: 156 },
-  { date: '2026-06-27', count: 132 },
-  { date: '2026-06-28', count: 189 },
+  { date: '2026-06-23', count: 87 }, { date: '2026-06-24', count: 124 },
+  { date: '2026-06-25', count: 98 }, { date: '2026-06-26', count: 156 },
+  { date: '2026-06-27', count: 132 }, { date: '2026-06-28', count: 189 },
   { date: '2026-06-29', count: 143 }
 ])
 
 const leadsByDay = ref([
-  { date: '2026-06-23', count: 12 },
-  { date: '2026-06-24', count: 19 },
-  { date: '2026-06-25', count: 14 },
-  { date: '2026-06-26', count: 27 },
-  { date: '2026-06-27', count: 21 },
-  { date: '2026-06-28', count: 31 },
+  { date: '2026-06-23', count: 12 }, { date: '2026-06-24', count: 19 },
+  { date: '2026-06-25', count: 14 }, { date: '2026-06-26', count: 27 },
+  { date: '2026-06-27', count: 21 }, { date: '2026-06-28', count: 31 },
   { date: '2026-06-29', count: 24 }
 ])
 
 const topKeysByLeads = computed(() => {
   const stats = {}
-
   leadsAnalytics.value.forEach(lead => {
     const key = lead.woman_id || 'unknown'
-    if (!stats[key]) {
-      stats[key] = 0
-    }
+    if (!stats[key]) stats[key] = 0
     stats[key]++
   })
-
   return Object.entries(stats)
     .map(([key, count]) => ({ key, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 })
 
-// Опції для ApexCharts
 const invitesChartOptions = computed(() => ({
   chart: { type: 'bar', height: 350, toolbar: { show: false } },
   xaxis: { categories: invitesByDay.value.map(d => d.date) },
@@ -717,35 +719,14 @@ const leadsChartOptions = computed(() => ({
 }))
 
 const topKeysChartOptions = computed(() => ({
-  chart: {
-    type: 'bar',
-    height: 420,
-    toolbar: { show: false }
-  },
-  plotOptions: {
-    bar: {
-      horizontal: true,
-      borderRadius: 6,
-      dataLabels: { position: 'center' }
-    }
-  },
-  dataLabels: {
-    enabled: true,
-    style: { colors: ['#fff'] },
-    formatter: (val) => val
-  },
-  xaxis: {
-    categories: topKeysByLeads.value.map(item => item.key),
-    labels: { style: { colors: '#94a3b8' } }
-  },
-  yaxis: {
-    labels: { style: { colors: '#cbd5e1' } }
-  },
+  chart: { type: 'bar', height: 420, toolbar: { show: false } },
+  plotOptions: { bar: { horizontal: true, borderRadius: 6, dataLabels: { position: 'center' } } },
+  dataLabels: { enabled: true, style: { colors: ['#fff'] }, formatter: (val) => val },
+  xaxis: { categories: topKeysByLeads.value.map(item => item.key), labels: { style: { colors: '#94a3b8' } } },
+  yaxis: { labels: { style: { colors: '#cbd5e1' } } },
   colors: ['#22c55e'],
   grid: { borderColor: '#334155' },
-  tooltip: {
-    theme: 'dark'
-  }
+  tooltip: { theme: 'dark' }
 }))
 
 // ==================== ЛІДИ ЗА ДНЯМИ ====================
@@ -754,44 +735,24 @@ const leadsByDayLoading = ref(false)
 const leadsByDayPeriod = ref(7)
 
 const leadsByDayChartOptions = computed(() => ({
-  chart: {
-    type: 'bar',
-    height: 340,
-    toolbar: { show: false },
-    animations: { enabled: true }
-  },
-  plotOptions: {
-    bar: {
-      borderRadius: 6,
-      columnWidth: '60%'
-    }
-  },
+  chart: { type: 'bar', height: 340, toolbar: { show: false }, animations: { enabled: true } },
+  plotOptions: { bar: { borderRadius: 6, columnWidth: '60%' } },
   dataLabels: { enabled: false },
-  xaxis: {
-    categories: leadsByDayData.value.map(item => item.date),
-    labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
-  },
-  yaxis: {
-    labels: { style: { colors: '#94a3b8' } }
-  },
+  xaxis: { categories: leadsByDayData.value.map(item => item.date), labels: { style: { colors: '#94a3b8', fontSize: '12px' } } },
+  yaxis: { labels: { style: { colors: '#94a3b8' } } },
   colors: ['#22c55e'],
-  grid: {
-    borderColor: '#334155',
-    strokeDashArray: 2
-  },
+  grid: { borderColor: '#334155', strokeDashArray: 2 },
   tooltip: { theme: 'dark' }
 }))
 
 const fetchLeadsByDay = async (days = 7) => {
   leadsByDayPeriod.value = days
   leadsByDayLoading.value = true
-
   try {
     const response = await axios.get(`${SERVER_URL}/admin/metrics/leads-by-day`, {
-      params: { days },
+      params: { days, team: currentTeam.value },
       headers: { 'admin-token': authStore.token }
     })
-
     if (response.data.status === 'success') {
       leadsByDayData.value = response.data.data
     }
@@ -809,44 +770,24 @@ const invitesByDayLoading = ref(false)
 const invitesByDayPeriod = ref(7)
 
 const invitesByDayChartOptions = computed(() => ({
-  chart: {
-    type: 'bar',
-    height: 340,
-    toolbar: { show: false },
-    animations: { enabled: true }
-  },
-  plotOptions: {
-    bar: {
-      borderRadius: 6,
-      columnWidth: '60%'
-    }
-  },
+  chart: { type: 'bar', height: 340, toolbar: { show: false }, animations: { enabled: true } },
+  plotOptions: { bar: { borderRadius: 6, columnWidth: '60%' } },
   dataLabels: { enabled: false },
-  xaxis: {
-    categories: invitesByDayData.value.map(item => item.date),
-    labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
-  },
-  yaxis: {
-    labels: { style: { colors: '#94a3b8' } }
-  },
-  colors: ['#f59e0b'], // помаранчевий колір для інвайтів
-  grid: {
-    borderColor: '#334155',
-    strokeDashArray: 2
-  },
+  xaxis: { categories: invitesByDayData.value.map(item => item.date), labels: { style: { colors: '#94a3b8', fontSize: '12px' } } },
+  yaxis: { labels: { style: { colors: '#94a3b8' } } },
+  colors: ['#f59e0b'],
+  grid: { borderColor: '#334155', strokeDashArray: 2 },
   tooltip: { theme: 'dark' }
 }))
 
 const fetchInvitesByDay = async (days = 7) => {
   invitesByDayPeriod.value = days
   invitesByDayLoading.value = true
-
   try {
     const response = await axios.get(`${SERVER_URL}/admin/metrics/invites-by-day`, {
-      params: { days },
+      params: { days, team: currentTeam.value },
       headers: { 'admin-token': authStore.token }
     })
-
     if (response.data.status === 'success') {
       invitesByDayData.value = response.data.data
     }

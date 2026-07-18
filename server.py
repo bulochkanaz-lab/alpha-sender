@@ -496,42 +496,58 @@ async def get_global_stats(team: str = "alpha", authorized: bool = Depends(verif
 
 @app.get("/admin/leads")
 async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(verify_admin)):
-    """Віддає список зібраних досьє на тих, хто відповів"""
-    db = database_fs if team == "fs" else database
-    conn = db.get_connection()
-    cursor = conn.cursor()
+    # 1. Визначаємо, які бази опитувати
+    if team == "all":
+        databases_to_query = [database, database_fs]
+    elif team == "fs":
+        databases_to_query = [database_fs]
+    else:
+        databases_to_query = [database]
 
-    # Дістаємо останні 100 зібраних досьє
-    cursor.execute("""
-        SELECT l.access_key, l.profile_id, l.invite_text, l.lead_age, l.lead_country, 
-                l.lead_interests, l.lead_bio, l.lead_photo, l.timestamp, l.man_profile_json,
-                w.profile_json, l.woman_id
-        FROM leads_analytics l
-        LEFT JOIN woman_profiles w ON l.woman_id = w.woman_id
-        ORDER BY l.timestamp DESC 
-        LIMIT 50000
+    all_leads = []
+
+    # 2. Проходимося по кожній базі і збираємо дані
+    for db in databases_to_query:
+        conn = db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT l.access_key, l.profile_id, l.invite_text, l.lead_age, l.lead_country, 
+                   l.lead_interests, l.lead_bio, l.lead_photo, l.timestamp, l.man_profile_json,
+                   w.profile_json, l.woman_id
+            FROM leads_analytics l
+            LEFT JOIN woman_profiles w ON l.woman_id = w.woman_id
+            ORDER BY l.timestamp DESC 
+            LIMIT 50000
         """)
-    rows = cursor.fetchall()
-    conn.close()
+        rows = cursor.fetchall()
+        conn.close()
 
-    leads = []
-    for row in rows:
-        leads.append({
-            "key": row[0],
-            "man_id": row[1],
-            "text": row[2],
-            "age": row[3],
-            "country": row[4],
-            "interests": row[5],
-            "bio": row[6],
-            "photo": row[7],
-            "time": row[8],
-            "man_json": row[9],
-            "woman_json": row[10],
-            "woman_id": row[11]
-        })
+        # Додаємо маркер команди, щоб розуміти, звідки лід (опціонально, але зручно)
+        team_marker = "FS" if db == database_fs else "Alpha"
 
-    return {"status": "success", "leads": leads}
+        for row in rows:
+            all_leads.append({
+                "key": f"[{team_marker}] {row[0]}", # Додаємо префікс до ключа
+                "man_id": row[1],
+                "text": row[2],
+                "age": row[3],
+                "country": row[4],
+                "interests": row[5],
+                "bio": row[6],
+                "photo": row[7],
+                "time": row[8],
+                "man_json": row[9],
+                "woman_json": row[10],
+                "woman_id": row[11]
+            })
+
+    # 3. Якщо баз декілька, сортуємо загальний масив по даті, щоб нові ліди були зверху
+    if team == "all":
+        all_leads.sort(key=lambda x: x["time"], reverse=True)
+
+    # Обрізаємо до ліміту, якщо потрібно
+    return {"status": "success", "leads": all_leads[:50000]}
 
 @app.get("/admin/metrics/invites-by-day")
 async def get_invites_by_day(
