@@ -649,12 +649,15 @@ async def delete_key(request: AdminActionRequest, authorized: bool = Depends(ver
 @app.get("/admin/metrics/leads-by-day")
 async def get_leads_by_day(
     days: int = 7,
+    team: str = "alpha", # 🔥 Додали параметр команди
     access_key: Optional[str] = None,
     admin_token: str = Header(None),
     authorized: bool = Depends(verify_admin)
 ):
     try:
-        conn = database.get_connection()   # ← беремо з database
+        # 🔥 Динамічно обираємо базу
+        db = database_fs if team == "fs" else database
+        conn = db.get_connection()
         cursor = conn.cursor()
 
         query = """

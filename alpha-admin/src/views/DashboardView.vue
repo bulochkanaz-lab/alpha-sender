@@ -510,9 +510,13 @@ const getWomanPhoto = (rawJson) => {
   }
 }
 
+// Додай змінну для поточної команди десь біля інших ref
+const currentTeam = ref('fs') // або 'alpha', залежно від того, що хочеш бачити за замовчуванням
+
 const fetchLeads = async () => {
   try {
     const response = await axios.get(`${SERVER_URL}/admin/leads`, {
+      params: { team: currentTeam.value }, // 🔥 Ось ключовий момент!
       headers: { 'admin-token': authStore.token }
     })
     if (response.data.status === 'success') {
@@ -527,7 +531,7 @@ const fetchLeads = async () => {
 
 const router = useRouter()
 const authStore = useAuthStore()
-const SERVER_URL = 'http://178.105.164.198:8000'
+const SERVER_URL = 'https://obsidian-b.xyz'
 
 // СТАН ДОДАТКУ (Таби)
 const activeTab = ref('keys') // 'keys', 'stats', 'profile'
