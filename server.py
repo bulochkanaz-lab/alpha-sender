@@ -406,97 +406,124 @@ async def log_invite(stealth_req: StealthLogRequest):
 
 @app.get("/admin/keys")
 async def get_admin_keys(team: str = "alpha", authorized: bool = Depends(verify_admin)):
-    db = database_fs if team == "fs" else database
-
-    conn = db.get_connection()
-    cursor = conn.cursor()
-
-    # 1. Отримуємо користувачів
-    cursor.execute(
-        "SELECT access_key, operator_id, is_banned, profiles, pending_config, stats_invites, stats_letters, last_ping FROM keys")
-    rows = cursor.fetchall()
+    if team == "all":
+        databases_to_query = [database, database_fs]
+    elif team == "fs":
+        databases_to_query = [database_fs]
+    else:
+        databases_to_query = [database]
 
     keys_list = []
-    for index, row in enumerate(rows, start=1):
-        user_key = row[0]
+    global_index = 1
 
-        # 2. Для кожного користувача дістаємо його аналітику інвайтів
-        cursor.execute("""
-            SELECT invite_text, sent_count, reply_count 
-            FROM invite_analytics 
-            WHERE access_key = ?
-            ORDER BY reply_count DESC
-        """, (user_key,))
-        analytics_rows = cursor.fetchall()
+    for db in databases_to_query:
+        conn = db.get_connection()
+        cursor = conn.cursor()
 
-        invite_analytics = []
-        for a_row in analytics_rows:
-            sent = a_row[1] or 0
-            replied = a_row[2] or 0
-            # Рахуємо конверсію відсотках
-            conversion = round((replied / sent) * 100, 1) if sent > 0 else 0
+        cursor.execute("SELECT access_key, operator_id, is_banned, profiles, pending_config, stats_invites, stats_letters, last_ping FROM keys")
+        rows = cursor.fetchall()
 
-            invite_analytics.append({
-                "text": a_row[0],
-                "sent": sent,
-                "replied": replied,
-                "conversion": conversion
+        team_marker = "FS" if db == database_fs else "Alpha"
+
+        for row in rows:
+            user_key = row[0]
+
+            cursor.execute("""
+                SELECT invite_text, sent_count, reply_count 
+                FROM invite_analytics 
+                WHERE access_key = ?
+                ORDER BY reply_count DESC
+            """, (user_key,))
+            analytics_rows = cursor.fetchall()
+
+            invite_analytics = []
+            for a_row in analytics_rows:
+                sent = a_row[1] or 0
+                replied = a_row[2] or 0
+                conversion = round((replied / sent) * 100, 1) if sent > 0 else 0
+
+                invite_analytics.append({
+                    "text": a_row[0],
+                    "sent": sent,
+                    "replied": replied,
+                    "conversion": conversion
+                })
+
+            keys_list.append({
+                "id": global_index,
+                # Додаємо префікс до ключа в загальному списку, щоб розуміти звідки він
+                "access_key": f"[{team_marker}] {user_key}" if team == "all" else user_key,
+                "operator_id": row[1],
+                "balance": 0,
+                "is_banned": bool(row[2]),
+                "profiles": json.loads(row[3]) if row[3] else [],
+                "pending_config": json.loads(row[4]) if row[4] else None,
+                "stats_invites": row[5] or 0,
+                "stats_letters": row[6] or 0,
+                "last_ping": row[7],
+                "invite_analytics": invite_analytics
             })
+            global_index += 1
 
-        keys_list.append({
-            "id": index,
-            "access_key": user_key,
-            "operator_id": row[1],
-            "balance": 0,
-            "is_banned": bool(row[2]),
-            "profiles": json.loads(row[3]) if row[3] else [],
-            "pending_config": json.loads(row[4]) if row[4] else None,
-            "stats_invites": row[5] or 0,
-            "stats_letters": row[6] or 0,
-            "last_ping": row[7],
-            "invite_analytics": invite_analytics  # <--- Передаємо масив з топом інвайтів у Vue
-        })
+        conn.close()
 
-    conn.close()
     return {"status": "success", "keys": keys_list}
 
 
 @app.get("/admin/global_stats")
 async def get_global_stats(team: str = "alpha", authorized: bool = Depends(verify_admin)):
-    """Віддає топ найефективніших інвайтів по всій команді"""
-    db = database_fs if team == "fs" else database
+    if team == "all":
+        databases_to_query = [database, database_fs]
+    elif team == "fs":
+        databases_to_query = [database_fs]
+    else:
+        databases_to_query = [database]
 
-    conn = db.get_connection()
-    cursor = conn.cursor()
+    combined_stats = {}
 
-    # Групуємо всі записи за текстом, сумуємо відправки та відповіді
-    cursor.execute("""
-        SELECT invite_text, SUM(sent_count), SUM(reply_count)
-        FROM invite_analytics 
-        GROUP BY invite_text
-        ORDER BY SUM(reply_count) DESC
-    """)
-    rows = cursor.fetchall()
-    conn.close()
+    for db in databases_to_query:
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT invite_text, SUM(sent_count), SUM(reply_count)
+            FROM invite_analytics 
+            GROUP BY invite_text
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        for row in rows:
+            text = row[0]
+            sent = row[1] or 0
+            replied = row[2] or 0
+
+            # Математичне об'єднання текстів інвайтів з двох баз
+            if text in combined_stats:
+                combined_stats[text]["sent"] += sent
+                combined_stats[text]["replied"] += replied
+            else:
+                combined_stats[text] = {"sent": sent, "replied": replied}
 
     global_stats = []
-    for row in rows:
-        sent = row[1] or 0
-        replied = row[2] or 0
+    for text, stats in combined_stats.items():
+        sent = stats["sent"]
+        replied = stats["replied"]
         conversion = round((replied / sent) * 100, 1) if sent > 0 else 0
 
         global_stats.append({
-            "text": row[0],
+            "text": text,
             "sent": sent,
             "replied": replied,
             "conversion": conversion
         })
 
+    # Сортуємо за найбільшою кількістю відповідей
+    global_stats.sort(key=lambda x: x["replied"], reverse=True)
+
     return {"status": "success", "stats": global_stats}
 
 @app.get("/admin/leads")
 async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(verify_admin)):
-    # 1. Визначаємо, які бази опитувати
     if team == "all":
         databases_to_query = [database, database_fs]
     elif team == "fs":
@@ -506,7 +533,6 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
 
     all_leads = []
 
-    # 2. Проходимося по кожній базі і збираємо дані
     for db in databases_to_query:
         conn = db.get_connection()
         cursor = conn.cursor()
@@ -523,12 +549,12 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
         rows = cursor.fetchall()
         conn.close()
 
-        # Додаємо маркер команди, щоб розуміти, звідки лід (опціонально, але зручно)
+        # Додаємо маркер команди, щоб розуміти, звідки лід
         team_marker = "FS" if db == database_fs else "Alpha"
 
         for row in rows:
             all_leads.append({
-                "key": f"[{team_marker}] {row[0]}", # Додаємо префікс до ключа
+                "key": f"[{team_marker}] {row[0]}" if team == "all" else row[0],
                 "man_id": row[1],
                 "text": row[2],
                 "age": row[3],
@@ -542,11 +568,10 @@ async def get_leads_analytics(team: str = "alpha", authorized: bool = Depends(ve
                 "woman_id": row[11]
             })
 
-    # 3. Якщо баз декілька, сортуємо загальний масив по даті, щоб нові ліди були зверху
+    # Сортуємо загальний масив по даті, щоб нові ліди були зверху
     if team == "all":
         all_leads.sort(key=lambda x: x["time"], reverse=True)
 
-    # Обрізаємо до ліміту, якщо потрібно
     return {"status": "success", "leads": all_leads[:50000]}
 
 @app.get("/admin/metrics/invites-by-day")
