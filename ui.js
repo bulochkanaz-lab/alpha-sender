@@ -1569,59 +1569,112 @@ function injectMenuButton() {
 }
 
 function injectSearchButton() {
-    // 🛡 ЗМІНА 1: Шукаємо шапку чату за надійним data-testid
+    // 1. Додаємо стилі для анімації (інжектимо лише 1 раз)
+    if (!document.getElementById('alpha-search-styles')) {
+        const style = document.createElement('style');
+        style.id = 'alpha-search-styles';
+        style.innerHTML = `
+            @keyframes alphaRocking {
+                0% { transform: rotate(0deg); }
+                25% { transform: rotate(15deg); }
+                50% { transform: rotate(0deg); }
+                75% { transform: rotate(-15deg); }
+                100% { transform: rotate(0deg); }
+            }
+            .alpha-is-loading {
+                animation: alphaRocking 0.6s infinite ease-in-out !important;
+                pointer-events: none; /* Блокуємо кліки під час анімації */
+                opacity: 0.7;
+            }
+            .alpha-is-loaded {
+                transform: scale(1.2) !important; /* Робимо трохи більшою */
+                border: 1px solid #1976d2 !important;
+                background-color: #e3f2fd !important;
+                border-radius: 6px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     const chatHeaders = document.querySelectorAll('[data-testid="chat-header"]');
 
     chatHeaders.forEach(header => {
-        // Якщо кнопка вже є - пропускаємо
-        if (header.querySelector('.alpha-search-mockup')) return;
+        // Якщо наша кнопка вже є - йдемо далі
+        if (header.querySelector('.alpha-search-mockup-wrap')) return;
 
-        // 🛡 ЗМІНА 2: Шукаємо центральний блок кнопок за надійним data-testid
         const middleBlock = header.querySelector('[data-testid="options-btn"]');
         if (!middleBlock) return;
 
-        const searchContainer = document.createElement('div');
-        searchContainer.className = 'alpha-search-mockup';
-        searchContainer.innerHTML = `
-            <div class="alpha-progress-fill" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #e3f2fd; border-radius: 6px; transition: width 0.3s ease; z-index: 0;"></div>
-            <img src="https://cdn-icons-png.flaticon.com/512/751/751463.png" alt="search" style="width: 13px; height: 13px; margin-right: 6px; opacity: 0.5; position: relative; z-index: 1;">
-            <span class="alpha-search-text" style="font-size: 13px; color: #555; position: relative; z-index: 1;">Завантажити історію</span>
-        `;
-        Object.assign(searchContainer.style, {
-            display: 'flex', alignItems: 'center', alignSelf: 'center', position: 'relative',
-            margin: '0 15px', padding: '5px 8px', overflow: 'hidden',
-            backgroundColor: '#ffffff', borderRadius: '6px',
-            border: '1px solid #e2e2e2', cursor: 'pointer', transition: 'all 0.2s ease'
-        });
+        // 2. Створюємо обгортку точно як у рідних кнопок
+        const wrap = document.createElement('div');
+        wrap.className = 'chat_head_nav_btn_wrap-ARjQgi alpha-search-mockup-wrap';
 
-        let isLoaded = false;
+        // 3. Сама кнопка у вигляді PNG лупи
+        const btn = document.createElement('div');
+        btn.className = 'chat_head_nav_btn-gDTMMQ alpha-search-btn';
+        btn.title = "Завантажити історію (Пошук)";
 
-        searchContainer.addEventListener('click', async () => {
+        // Використовуємо прозору лупу з інтернету
+        btn.style.backgroundImage = "url('https://cdn-icons-png.flaticon.com/512/751/751463.png')";
+        btn.style.backgroundSize = "55%";
+        btn.style.backgroundPosition = "center";
+        btn.style.backgroundRepeat = "no-repeat";
+        btn.style.transition = "all 0.3s ease";
+        btn.style.cursor = "pointer";
+
+        wrap.appendChild(btn);
+
+        // Вставляємо всередину блоку з кнопками (в самий кінець)
+        middleBlock.appendChild(wrap);
+
+        // 4. Логіка станів
+        let loadState = 'idle'; // 'idle' -> 'loading' -> 'loaded'
+
+        btn.addEventListener('click', async () => {
             const token = localStorage.getItem('token');
             const match = window.location.href.match(/\/chat\/([a-z0-9\-]+)/);
             const currentChatId = match ? match[1] : null;
 
             if (!currentChatId || !window._alphaPhantom.alphaSmartSearch) return;
 
-            const textSpan = searchContainer.querySelector('.alpha-search-text');
-            const progressFill = searchContainer.querySelector('.alpha-progress-fill');
+            const searchObj = window._alphaPhantom.alphaSmartSearch;
 
-            if (isLoaded && window._alphaPhantom.alphaSmartSearch.chatId === currentChatId) {
-                window._alphaPhantom.alphaSmartSearch.modal.style.display = "flex";
-                return;
+            if (loadState === 'idle') {
+                // --- СТАН 1: ПОЧАТОК ЗАВАНТАЖЕННЯ ---
+                loadState = 'loading';
+                btn.classList.add('alpha-is-loading'); // Запускаємо гойдання
+                btn.title = "Завантажуємо історію...";
+
+                // Готуємо модалку, але НЕ показуємо її
+                searchObj.chatId = currentChatId;
+                searchObj.token = token;
+                searchObj.chatMessages = [];
+                searchObj.chatLoaded = false;
+
+                // Тихе завантаження у фоні
+                await searchObj.downloadChatHistory();
+
+                // --- СТАН 2: ЗАВЕРШЕНО ---
+                loadState = 'loaded';
+                btn.classList.remove('alpha-is-loading'); // Зупиняємо гойдання
+                btn.classList.add('alpha-is-loaded');     // Збільшуємо кнопку
+                btn.title = "Відкрити пошук";
+
+            } else if (loadState === 'loaded') {
+                // --- СТАН 3: ВІДКРИТТЯ ВІКНА ---
+                searchObj.modal.style.display = "flex";
+
+                // Імітуємо клік по вкладці "Чат", щоб відрендерити історію
+                searchObj.switchTab('chat');
+
+                // Змінюємо текст вкладки (щоб прибрати слово "Завантажити")
+                const btnChat = searchObj.modal.querySelector('#tab-btn-chat');
+                if(btnChat) btnChat.innerText = "💬 Чат";
+
+                // Фокусуємо курсор на полі пошуку
+                searchObj.modal.querySelector('#alpha-search-input').focus();
             }
-
-            window._alphaPhantom.alphaSmartSearch.openWithContext(currentChatId, token, 'chat');
-            isLoaded = true;
-            textSpan.innerText = "Відкрити пошук";
-            textSpan.style.color = "#1976d2";
-            textSpan.style.fontWeight = "bold";
-            progressFill.style.background = "#bbdefb";
-            progressFill.style.width = "100%";
         });
-
-        // Вставляємо нашу кнопку одразу після центрального блоку опцій
-        middleBlock.insertAdjacentElement('afterend', searchContainer);
     });
 }
 
