@@ -200,7 +200,7 @@ class SmartSearch {
             try {
                 const response = await fetch("https://alpha.date/api/mailbox/mails", {
                     method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
-                    body: JSON.stringify({ chat_uid: this.chatId, page: page })
+                    body: JSON.stringify({ chat_id: this.chatId, page: page })
                 });
                 const data = await response.json();
                 const mailsList = data.response?.mails || [];
