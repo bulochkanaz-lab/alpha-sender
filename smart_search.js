@@ -190,37 +190,23 @@ class SmartSearch {
         this.hideInternalProgress();
     }
 
-    // --- ЗАВАНТАЖЕННЯ ЛИСТІВ (ОНОВЛЕНО) ---
+    // --- ЗАВАНТАЖЕННЯ ЛИСТІВ (ОНОВЛЕНО 2.0) ---
     async downloadMailHistory() {
         this.modal.querySelector('#alpha-search-results').innerHTML = "";
         this.updateInternalProgress(0);
 
-        // 1. Спочатку нам треба дізнатися user_id (анкета) та man_id (мужик)
-        let womanId = null;
-        let manId = null;
+        // 1. Беремо ID напряму з HTML-коду сторінки! (Це гарантовано працює і дуже швидко)
+        const womanNode = document.querySelector('[data-testid="woman-external_id"]');
+        const manNode = document.querySelector('[data-testid="man-external_id"]');
 
-        try {
-            // Робимо один тестовий запит в чат, щоб витягнути ID учасників
-            const chatInfoRes = await fetch("https://alpha.date/api/chatList/chatHistory", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
-                body: JSON.stringify({ chat_id: this.chatId, page: 1 }) // chatId тут це насправді chat_uid з URL
-            });
-            const chatInfoData = await chatInfoRes.json();
+        // Витягуємо тільки цифри (наприклад, з "ID 1496916646" робимо "1496916646")
+        let womanId = womanNode ? womanNode.innerText.replace(/\D/g, '') : null;
+        let manId = manNode ? manNode.innerText.replace(/\D/g, '') : null;
 
-            if (chatInfoData.status && chatInfoData.response && chatInfoData.response.length > 0) {
-                // Беремо перше-ліпше повідомлення з чату, щоб подивитися, хто є хто
-                const firstMsg = chatInfoData.response[0];
-                womanId = firstMsg.female_id;
-                manId = firstMsg.male_id;
-            }
-        } catch (e) {
-            console.error("[SmartSearch] Помилка отримання ID учасників:", e);
-        }
+        console.log(`[SmartSearch DEBUG] Знайдено в HTML: womanId = ${womanId}, manId = ${manId}`);
 
-        // Якщо з якоїсь причини не вдалося дізнатися ID - повідомляємо про це
         if (!womanId || !manId) {
-            this.modal.querySelector('#alpha-search-results').innerHTML = `<div style="text-align:center; padding: 40px; color: #d32f2f;">Помилка: не вдалося визначити ID учасників чату.</div>`;
+            this.modal.querySelector('#alpha-search-results').innerHTML = `<div style="text-align:center; padding: 40px; color: #d32f2f;">Помилка: не вдалося знайти ID у шапці чату. Спробуйте оновити сторінку.</div>`;
             this.hideInternalProgress();
             return;
         }
@@ -228,31 +214,31 @@ class SmartSearch {
         let page = 1;
         let hasMore = true;
 
-        // 2. Тепер вантажимо листи за правильними параметрами
+        // 2. Відправляємо запит до API пошти з правильними ID
         while (hasMore && page <= 500) {
             try {
+                const reqBody = {
+                    user_id: parseInt(womanId),
+                    folder: "dialog",
+                    man_id: parseInt(manId),
+                    page: page
+                };
+
                 const response = await fetch("https://alpha.date/api/mailbox/mails", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
-                    body: JSON.stringify({
-                        user_id: parseInt(womanId),
-                        folder: "dialog",
-                        man_id: parseInt(manId),
-                        page: page
-                    })
+                    body: JSON.stringify(reqBody)
                 });
+
                 const data = await response.json();
 
-                // Якщо є масив листів
                 if (data.status === true && data.response && data.response.mails && data.response.mails.length > 0) {
                     data.response.mails.forEach(m => {
                         const mailObj = m.mail;
                         if (!mailObj) return;
 
-                        // Визначаємо, хто відправив лист
                         const isMale = String(mailObj.sender_id) === String(mailObj.male_id) ? 1 : 0;
 
-                        // Додаємо текст листа
                         if (mailObj.message_content) {
                             this.mailMessages.push({
                                 date_created: mailObj.date_created,
@@ -262,7 +248,6 @@ class SmartSearch {
                             });
                         }
 
-                        // Додаємо прикріплення (фото/відео/аудіо)
                         if (m.attachments) {
                             Object.values(m.attachments).forEach(att => {
                                 this.mailMessages.push({
@@ -278,7 +263,7 @@ class SmartSearch {
                     page++;
                     this.updateInternalProgress(Math.min(Math.floor(95 * (1 - Math.pow(0.9, page))), 95));
                 } else {
-                    hasMore = false; // Більше листів немає
+                    hasMore = false;
                 }
             } catch (e) {
                 console.error("[SmartSearch] Помилка завантаження листів:", e);
