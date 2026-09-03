@@ -190,23 +190,19 @@ class SmartSearch {
         this.hideInternalProgress();
     }
 
-    // --- ЗАВАНТАЖЕННЯ ЛИСТІВ (ОНОВЛЕНО 2.0) ---
+    // --- ЗАВАНТАЖЕННЯ ЛИСТІВ (ОНОВЛЕНО 3.0 - БЕЗ ДУБЛІВ) ---
     async downloadMailHistory() {
         this.modal.querySelector('#alpha-search-results').innerHTML = "";
         this.updateInternalProgress(0);
 
-        // 1. Беремо ID напряму з HTML-коду сторінки! (Це гарантовано працює і дуже швидко)
         const womanNode = document.querySelector('[data-testid="woman-external_id"]');
         const manNode = document.querySelector('[data-testid="man-external_id"]');
 
-        // Витягуємо тільки цифри (наприклад, з "ID 1496916646" робимо "1496916646")
         let womanId = womanNode ? womanNode.innerText.replace(/\D/g, '') : null;
         let manId = manNode ? manNode.innerText.replace(/\D/g, '') : null;
 
-        console.log(`[SmartSearch DEBUG] Знайдено в HTML: womanId = ${womanId}, manId = ${manId}`);
-
         if (!womanId || !manId) {
-            this.modal.querySelector('#alpha-search-results').innerHTML = `<div style="text-align:center; padding: 40px; color: #d32f2f;">Помилка: не вдалося знайти ID у шапці чату. Спробуйте оновити сторінку.</div>`;
+            this.modal.querySelector('#alpha-search-results').innerHTML = `<div style="text-align:center; padding: 40px; color: #d32f2f;">Помилка: не вдалося знайти ID у шапці чату.</div>`;
             this.hideInternalProgress();
             return;
         }
@@ -214,7 +210,9 @@ class SmartSearch {
         let page = 1;
         let hasMore = true;
 
-        // 2. Відправляємо запит до API пошти з правильними ID
+        // 🔥 ЗАПОБІЖНИК ВІД ДУБЛІВ: сюди записуємо ID листів, які вже додали
+        const processedMailIds = new Set();
+
         while (hasMore && page <= 500) {
             try {
                 const reqBody = {
@@ -233,9 +231,14 @@ class SmartSearch {
                 const data = await response.json();
 
                 if (data.status === true && data.response && data.response.mails && data.response.mails.length > 0) {
+
                     data.response.mails.forEach(m => {
                         const mailObj = m.mail;
                         if (!mailObj) return;
+
+                        // 🔥 ПЕРЕВІРКА: Якщо ми вже бачили цей лист - пропускаємо його!
+                        if (processedMailIds.has(mailObj.id)) return;
+                        processedMailIds.add(mailObj.id);
 
                         const isMale = String(mailObj.sender_id) === String(mailObj.male_id) ? 1 : 0;
 
@@ -260,8 +263,15 @@ class SmartSearch {
                             });
                         }
                     });
-                    page++;
-                    this.updateInternalProgress(Math.min(Math.floor(95 * (1 - Math.pow(0.9, page))), 95));
+
+                    // 🔥 РЕАГУЄМО НА СЛОВА СЕРВЕРА: якщо він каже, що більше немає - зупиняємо цикл
+                    if (data.response.hasMore === false) {
+                        hasMore = false;
+                    } else {
+                        page++;
+                        this.updateInternalProgress(Math.min(Math.floor(95 * (1 - Math.pow(0.9, page))), 95));
+                    }
+
                 } else {
                     hasMore = false;
                 }
@@ -274,7 +284,7 @@ class SmartSearch {
         this.mailMessages.sort((a, b) => new Date(a.date_created) - new Date(b.date_created));
         this.mailLoaded = true;
         this.hideInternalProgress();
-        this.renderMessages(); // Одразу відмальовуємо після завантаження
+        this.renderMessages();
     }
 
     // --- РЕНДЕР (Дивиться, яка вкладка активна) ---
