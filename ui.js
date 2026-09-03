@@ -1569,14 +1569,15 @@ function injectMenuButton() {
 }
 
 function injectSearchButton() {
-    // 🛡 ЗМІНА 1: Шукаємо шапку чату по частковому збігу (ігноруємо хеші типу __ao7Ds)
-    const chatHeaders = document.querySelectorAll('[class*="chat_head__"], [class*="chatHead"]');
+    // 🛡 ЗМІНА 1: Шукаємо шапку чату за надійним data-testid
+    const chatHeaders = document.querySelectorAll('[data-testid="chat-header"]');
 
     chatHeaders.forEach(header => {
+        // Якщо кнопка вже є - пропускаємо
         if (header.querySelector('.alpha-search-mockup')) return;
 
-        // 🛡 ЗМІНА 2: Шукаємо середній блок по частковому збігу
-        const middleBlock = header.querySelector('[class*="chat_head_middle"], [class*="chatHeadMiddle"]');
+        // 🛡 ЗМІНА 2: Шукаємо центральний блок кнопок за надійним data-testid
+        const middleBlock = header.querySelector('[data-testid="options-btn"]');
         if (!middleBlock) return;
 
         const searchContainer = document.createElement('div');
@@ -1619,7 +1620,7 @@ function injectSearchButton() {
             progressFill.style.width = "100%";
         });
 
-        // Вставляємо нашу кнопку одразу після блоку з іменем
+        // Вставляємо нашу кнопку одразу після центрального блоку опцій
         middleBlock.insertAdjacentElement('afterend', searchContainer);
     });
 }
