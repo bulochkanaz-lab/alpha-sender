@@ -1569,10 +1569,14 @@ function injectMenuButton() {
 }
 
 function injectSearchButton() {
-    const chatHeaders = document.querySelectorAll('.styles_chat_head__ao7Ds');
+    // 🛡 ЗМІНА 1: Шукаємо шапку чату по частковому збігу (ігноруємо хеші типу __ao7Ds)
+    const chatHeaders = document.querySelectorAll('[class*="chat_head__"], [class*="chatHead"]');
+
     chatHeaders.forEach(header => {
         if (header.querySelector('.alpha-search-mockup')) return;
-        const middleBlock = header.querySelector('.styles_chat_head_middle__D14pE');
+
+        // 🛡 ЗМІНА 2: Шукаємо середній блок по частковому збігу
+        const middleBlock = header.querySelector('[class*="chat_head_middle"], [class*="chatHeadMiddle"]');
         if (!middleBlock) return;
 
         const searchContainer = document.createElement('div');
@@ -1614,6 +1618,8 @@ function injectSearchButton() {
             progressFill.style.background = "#bbdefb";
             progressFill.style.width = "100%";
         });
+
+        // Вставляємо нашу кнопку одразу після блоку з іменем
         middleBlock.insertAdjacentElement('afterend', searchContainer);
     });
 }
