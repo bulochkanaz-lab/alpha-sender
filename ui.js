@@ -1766,6 +1766,23 @@ function renderCustomInvites() {
        const controlsDiv = document.createElement("div");
        controlsDiv.className = "alpha-msg-controls";
 
+       // 🔥 НОВА КНОПКА ШЕСТІРНІ ДЛЯ КОЖНОГО ІНВАЙТУ
+       const settingsBtn = document.createElement("div");
+       settingsBtn.innerHTML = "⚙️";
+       settingsBtn.className = "alpha-icon-btn";
+       settingsBtn.style.cssText = "background: #f0f4f8; font-size: 16px; margin-right: 5px;";
+       settingsBtn.title = "Налаштувати таргетинг для цього інвайту";
+       settingsBtn.onclick = () => {
+           // Запам'ятовуємо, який саме інвайт ми зараз редагуємо
+           window._alphaPhantom.currentEditingInviteIndex = index;
+           // Передаємо існуючі фільтри в панель
+           window._alphaPhantom.loadInviteFilters(item.filters);
+           // Відкриваємо панель
+           window._alphaPhantom.shadow.getElementById("alphaFilterPanel").classList.add("open");
+       };
+       controlsDiv.appendChild(settingsBtn);
+
+       // Кнопка Вгору
        if (index > 0) {
           const upBtn = document.createElement("div");
           upBtn.innerHTML = "↑";
@@ -1778,6 +1795,7 @@ function renderCustomInvites() {
           controlsDiv.appendChild(upBtn);
        }
 
+       // Кнопка Вниз
        if (index < saved.length - 1) {
           const downBtn = document.createElement("div");
           downBtn.innerHTML = "↓";
@@ -1790,6 +1808,7 @@ function renderCustomInvites() {
           controlsDiv.appendChild(downBtn);
        }
 
+       // Кнопка Видалити
        const delBtn = document.createElement("div");
        delBtn.innerHTML = "✕";
        delBtn.className = "alpha-icon-btn delete";
