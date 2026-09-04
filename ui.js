@@ -985,12 +985,20 @@ function setupUIEvents(overlay, galleryModal) {
 
     function loadBotSettings() {
         const settings = JSON.parse(localStorage.getItem("alphaBotSettings") || "{}");
+
         if (settings.delay !== undefined) window._alphaPhantom.shadow.getElementById("uiDelay").value = settings.delay;
         if (settings.profileDelay !== undefined) window._alphaPhantom.shadow.getElementById("uiProfileDelay").value = settings.profileDelay;
         if (settings.phaseDelay !== undefined) window._alphaPhantom.shadow.getElementById("uiPhaseDelay").value = settings.phaseDelay;
         if (settings.breakTime !== undefined) window._alphaPhantom.shadow.getElementById("uiBreakTime").value = settings.breakTime;
+
         if (settings.inviteMode !== undefined && window._alphaPhantom.shadow.getElementById("uiInviteMode")) {
             window._alphaPhantom.shadow.getElementById("uiInviteMode").value = settings.inviteMode;
+        } // ✅ ТУТ ДУЖКА ЗАКРИТА
+
+        // Завантаження швидкості відповіді на вінки/лайки
+        const savedSpeed = localStorage.getItem("alphaBotReplySpeed");
+        if (savedSpeed && window._alphaPhantom.shadow.getElementById("respSpeedInput")) {
+            window._alphaPhantom.shadow.getElementById("respSpeedInput").value = savedSpeed;
         }
     }
 
