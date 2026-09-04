@@ -155,6 +155,35 @@ function injectBotUI() {
 
         /* Чіп для прикріплених фото */
         .alpha-attachment-chip { display: inline-flex; align-items: center; gap: 6px; background: #f3e5f5; border: 1px solid #bbdefb; padding: 6px 12px; border-radius: 6px; font-size: 12px; color: #1976d2; font-weight: bold; margin-top: 10px; }
+
+        /* ================= ФІЛЬТРИ ІНВАЙТІВ ================= */
+        .alpha-filter-panel { position: absolute; top: 0; right: -320px; width: 300px; height: 100%; background: #fff; box-shadow: -5px 0 25px rgba(0,0,0,0.1); transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100; display: flex; flex-direction: column; border-left: 1px solid #e1e8ed; }
+        .alpha-filter-panel.open { right: 0; }
+        .alpha-filter-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; font-weight: bold; font-size: 16px; color: #333; }
+        .alpha-filter-body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 25px; }
+
+        /* 1. Повзунок віку */
+        .alpha-age-slider { position: relative; height: 40px; }
+        .alpha-age-track { position: absolute; top: 50%; left: 0; right: 0; height: 6px; background: #e1e8ed; border-radius: 3px; transform: translateY(-50%); }
+        .alpha-age-range { position: absolute; top: 50%; left: 0%; width: 100%; height: 6px; background: #1976d2; border-radius: 3px; transform: translateY(-50%); transition: 0.1s; }
+        .alpha-age-thumb { position: absolute; top: 50%; width: 20px; height: 20px; background: #fff; border: 2px solid #1976d2; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .alpha-age-thumb:hover { transform: translate(-50%, -50%) scale(1.15); }
+        .alpha-age-labels { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; color: #1976d2; margin-bottom: 10px; }
+
+        /* 2. Країни */
+        .alpha-country-btn { width: 100%; padding: 12px; background: #f8f9fa; border: 1px solid #ccc; border-radius: 6px; text-align: left; font-weight: bold; color: #333; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .alpha-country-list { display: none; flex-direction: column; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; margin-top: 5px; padding: 5px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); }
+        .alpha-country-list.open { display: flex; }
+        .alpha-country-item { padding: 8px 10px; display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+        .alpha-country-item:hover { background: #e3f2fd; }
+
+        /* 3. Кольори клієнтів (Чіпи) */
+        .alpha-color-chips { display: flex; gap: 10px; justify-content: space-between; }
+        .alpha-chip { flex: 1; padding: 10px 5px; border-radius: 8px; border: 2px solid transparent; text-align: center; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; opacity: 0.5; filter: grayscale(80%); display: flex; flex-direction: column; gap: 4px;}
+        .alpha-chip.active { opacity: 1; filter: grayscale(0%); box-shadow: 0 4px 10px rgba(0,0,0,0.15); transform: translateY(-2px); }
+        .alpha-chip.red { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+        .alpha-chip.blue { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
+        .alpha-chip.green { background: #e8f5e9; color: #2e7d32; border-color: #c8e6c9; }
     `;
 
     const styleEl = document.createElement("style");
@@ -199,6 +228,62 @@ function injectBotUI() {
             </div>
 
             <div class="alpha-content">
+
+                <div id="alphaFilterPanel" class="alpha-filter-panel">
+                    <div class="alpha-filter-header">
+                        ⚙️ Фільтри інвайту
+                        <span id="closeFilterPanelBtn" style="cursor: pointer; color: #999; font-size: 24px;">&times;</span>
+                    </div>
+
+                    <div class="alpha-filter-body">
+                        <div>
+                            <div class="alpha-label" style="margin-bottom: 10px;">Тип клієнта:</div>
+                            <div class="alpha-color-chips">
+                                <div class="alpha-chip red active" data-color="red">
+                                    <span>🔴 Червоний</span>
+                                    <span style="font-size: 10px; font-weight: normal;">0$ - 300$</span>
+                                </div>
+                                <div class="alpha-chip blue active" data-color="blue">
+                                    <span>🔵 Синій</span>
+                                    <span style="font-size: 10px; font-weight: normal;">300$ - 1000$</span>
+                                </div>
+                                <div class="alpha-chip green active" data-color="green">
+                                    <span>🟢 Зелений</span>
+                                    <span style="font-size: 10px; font-weight: normal;">1000$+</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="alpha-label" style="margin-bottom: 5px;">Вік клієнта:</div>
+                            <div class="alpha-age-labels">
+                                <span id="ageLabelMin">18</span>
+                                <span id="ageLabelMax">99</span>
+                            </div>
+                            <div class="alpha-age-slider">
+                                <div class="alpha-age-track"></div>
+                                <div id="ageRangeFill" class="alpha-age-range"></div>
+                                <div id="ageThumbMin" class="alpha-age-thumb" style="left: 0%;"></div>
+                                <div id="ageThumbMax" class="alpha-age-thumb" style="left: 100%;"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="alpha-label" style="margin-bottom: 10px;">Країни:</div>
+                            <div id="countryDropdownBtn" class="alpha-country-btn">
+                                <span>Обрано країн: <span id="countrySelectedCount">Всі</span></span>
+                                <span>▼</span>
+                            </div>
+                            <div id="countryList" class="alpha-country-list">
+                                <label class="alpha-country-item" style="font-weight: bold; border-bottom: 1px solid #eee;">
+                                    <input type="checkbox" id="checkAllCountries" checked> Усі країни
+                                </label>
+                                <div id="countryListDynamic"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="alpha-topbar">
                     <div class="alpha-global-selector" id="alphaGlobalSelector">
                         <div class="alpha-gs-btn" id="alphaGsBtn">
@@ -224,7 +309,6 @@ function injectBotUI() {
                         <div><span>В роботі:</span> <span id="uiCurrentProfile" style="color: #1976d2; font-weight: bold;">-</span></div>
                     </div>
 
-                    <!-- Контейнер для кнопок виходу та закриття -->
                     <div style="display: flex; align-items: center; gap: 20px;">
                         <img id="uiLogoutBtn" src="https://cdn-icons-png.flaticon.com/512/557/557332.png" alt="Logout" style="width: 22px; height: 22px; cursor: pointer; opacity: 0.5; transition: 0.2s;" title="Вийти з акаунта" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
                         <span id="uiCloseBtn" class="alpha-close">&times;</span>
@@ -274,14 +358,15 @@ function injectBotUI() {
                         <button id="uiStopBtn" data-lang="btnStop" class="alpha-btn-danger" style="display: none;">⏹ Зупинити</button>
                     </div>
 
-                    <div id="tabContentInvites" style="display: none;">
-                        <select id="invitesProfileSelect" style="display: none;"></select>
-                        <div id="invitesWorkArea" style="display: none; flex-direction: column;">
-                            <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
-                            <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="margin-bottom: 20px;">💾 Зберегти Інвайт</button>
-                            <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
+                    <div id="invitesWorkArea" style="display: none; flex-direction: column;">
+                        <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textar
+
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="flex: 1;">💾 Зберегти Інвайт</button>
+                            <button id="invitesFilterToggleBtn" style="background: #f8f9fa; border: 1px solid #ccc; border-radius: 6px; width: 44px; height: 44px; font-size: 20px; cursor: pointer; transition: 0.2s;" title="Фільтри інвайту" onmouseover="this.style.background='#eef2f5'" onmouseout="this.style.background='#f8f9fa'">⚙️</button>
                         </div>
-                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати інвайти</div>
+
+                        <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
                     </div>
 
                     <div id="tabContentLetters" style="display: none;">
@@ -772,6 +857,25 @@ function setupUIEvents(overlay, galleryModal) {
                 window._alphaPhantom.shadow.getElementById("lettersEmptyState").style.display = "block";
             }
         });
+    }
+
+    // ==========================================
+    // ЛОГІКА UI ФІЛЬТРІВ ІНВАЙТІВ
+    // ==========================================
+    const filterPanel = window._alphaPhantom.shadow.getElementById("alphaFilterPanel");
+    const toggleFilterBtn = window._alphaPhantom.shadow.getElementById("invitesFilterToggleBtn");
+    const closeFilterBtn = window._alphaPhantom.shadow.getElementById("closeFilterPanelBtn");
+
+    if (toggleFilterBtn && filterPanel) {
+        // Відкриваємо панель
+        toggleFilterBtn.onclick = () => {
+            filterPanel.classList.add("open");
+        };
+
+        // Закриваємо хрестиком
+        if (closeFilterBtn) {
+            closeFilterBtn.onclick = () => filterPanel.classList.remove("open");
+        }
     }
 
     const letSave = window._alphaPhantom.shadow.getElementById("lettersSaveBtn");
