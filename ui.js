@@ -281,6 +281,7 @@ function injectBotUI() {
                                 <div id="countryListDynamic"></div>
                             </div>
                         </div>
+                        <button id="saveInviteFiltersBtn" class="alpha-btn-primary" style="margin-top: auto; background: #4caf50;">💾 Застосувати фільтри</button>
                     </div>
                 </div>
 
@@ -888,6 +889,64 @@ function setupUIEvents(overlay, galleryModal) {
         if (closeFilterBtn) {
             closeFilterBtn.onclick = () => filterPanel.classList.remove("open");
         }
+    }
+
+    // === ОЖИВЛЯЄМО КОЛЬОРИ (ПЛАТОСПРОМОЖНІСТЬ) ===
+    const colorChips = window._alphaPhantom.shadow.querySelectorAll(".alpha-chip");
+    colorChips.forEach(chip => {
+        chip.onclick = () => {
+            chip.classList.toggle("active"); // Вмикає/вимикає чіп при кліку
+        };
+    });
+
+    // === ОЖИВЛЯЄМО МЕНЮ КРАЇН ===
+    const countryDropdownBtn = window._alphaPhantom.shadow.getElementById("countryDropdownBtn");
+    const countryList = window._alphaPhantom.shadow.getElementById("countryList");
+    const checkAllCountries = window._alphaPhantom.shadow.getElementById("checkAllCountries");
+    const countryListDynamic = window._alphaPhantom.shadow.getElementById("countryListDynamic");
+    const countrySelectedCount = window._alphaPhantom.shadow.getElementById("countrySelectedCount");
+
+    // Відкриття/закриття списку країн
+    if (countryDropdownBtn && countryList) {
+        countryDropdownBtn.onclick = () => countryList.classList.toggle("open");
+    }
+
+    // Тимчасовий список країн для візуалу (потім замінимо на реальні дані з сайту)
+    const mockCountries = ["США", "Канада", "Велика Британія", "Австралія", "Німеччина"];
+    if (countryListDynamic) {
+        mockCountries.forEach(c => {
+            const lbl = document.createElement("label");
+            lbl.className = "alpha-country-item";
+            lbl.innerHTML = `<input type="checkbox" class="alpha-country-checkbox" value="${c}" checked> ${c}`;
+            countryListDynamic.appendChild(lbl);
+        });
+    }
+
+    // Логіка галочки "Усі країни"
+    const allCheckboxes = window._alphaPhantom.shadow.querySelectorAll(".alpha-country-checkbox");
+
+    if (checkAllCountries) {
+        checkAllCountries.onchange = (e) => {
+            const isChecked = e.target.checked;
+            allCheckboxes.forEach(cb => cb.checked = isChecked);
+            updateCountryCount();
+        };
+    }
+
+    // Логіка кожної окремої країни
+    allCheckboxes.forEach(cb => {
+        cb.onchange = () => {
+            // Якщо хоч одна вимкнена, знімаємо галочку з "Усі країни"
+            const allChecked = Array.from(allCheckboxes).every(c => c.checked);
+            checkAllCountries.checked = allChecked;
+            updateCountryCount();
+        };
+    });
+
+    function updateCountryCount() {
+        if (!countrySelectedCount) return;
+        const count = Array.from(allCheckboxes).filter(c => c.checked).length;
+        countrySelectedCount.innerText = (count === allCheckboxes.length) ? "Всі" : count;
     }
 
     const letSave = window._alphaPhantom.shadow.getElementById("lettersSaveBtn");
