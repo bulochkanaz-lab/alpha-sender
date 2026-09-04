@@ -955,7 +955,6 @@ function setupUIEvents(overlay, galleryModal) {
             const searchTerm = e.target.value.toLowerCase();
             const countryItems = window._alphaPhantom.shadow.querySelectorAll(".alpha-country-item");
 
-            // Пропускаємо перший item, бо це "Усі країни"
             for (let i = 1; i < countryItems.length; i++) {
                 const item = countryItems[i];
                 const countryName = item.querySelector('.country-name').innerText.toLowerCase();
@@ -969,25 +968,13 @@ function setupUIEvents(overlay, galleryModal) {
         };
     }
 
-    if (checkAllCountries) {
-        checkAllCountries.onchange = (e) => {
-            const isChecked = e.target.checked;
-            allCheckboxes.forEach(cb => cb.checked = isChecked);
-            updateCountryCount();
-        };
+    function updateCountryCount() {
+        if (!countrySelectedCount) return;
+        const count = Array.from(allCheckboxes).filter(c => c.checked).length;
+        countrySelectedCount.innerText = (count === allCheckboxes.length) ? "Всі" : count;
     }
 
-    allCheckboxes.forEach(cb => {
-        cb.onchange = () => {
-            const allChecked = Array.from(allCheckboxes).every(c => c.checked);
-            checkAllCountries.checked = allChecked;
-            updateCountryCount();
-        };
-    });
-
     // Логіка галочки "Усі країни"
-    const allCheckboxes = window._alphaPhantom.shadow.querySelectorAll(".alpha-country-checkbox");
-
     if (checkAllCountries) {
         checkAllCountries.onchange = (e) => {
             const isChecked = e.target.checked;
@@ -999,18 +986,11 @@ function setupUIEvents(overlay, galleryModal) {
     // Логіка кожної окремої країни
     allCheckboxes.forEach(cb => {
         cb.onchange = () => {
-            // Якщо хоч одна вимкнена, знімаємо галочку з "Усі країни"
             const allChecked = Array.from(allCheckboxes).every(c => c.checked);
             checkAllCountries.checked = allChecked;
             updateCountryCount();
         };
     });
-
-    function updateCountryCount() {
-        if (!countrySelectedCount) return;
-        const count = Array.from(allCheckboxes).filter(c => c.checked).length;
-        countrySelectedCount.innerText = (count === allCheckboxes.length) ? "Всі" : count;
-    }
 
     // === ОЖИВЛЯЄМО ПОВЗУНОК ВІКУ (Dual Range Slider) ===
     const track = window._alphaPhantom.shadow.querySelector('.alpha-age-slider');
@@ -1026,7 +1006,6 @@ function setupUIEvents(overlay, galleryModal) {
     let currentMin = 18;
     let currentMax = 150;
 
-    // Допоміжна функція для розрахунку відсотків
     function updateSliderVisuals() {
         if (!track || !rangeFill || !thumbMin || !thumbMax || !labelMin || !labelMax) return;
 
@@ -1036,7 +1015,6 @@ function setupUIEvents(overlay, galleryModal) {
         thumbMin.style.left = `${percentMin}%`;
         thumbMax.style.left = `${percentMax}%`;
 
-        // Зафарбовуємо лінію між двома кружечками
         rangeFill.style.left = `${percentMin}%`;
         rangeFill.style.width = `${percentMax - percentMin}%`;
 
@@ -1044,27 +1022,22 @@ function setupUIEvents(overlay, galleryModal) {
         labelMax.innerText = currentMax;
     }
 
-    // Функція, яка обробляє перетягування мишкою
     function makeThumbDraggable(thumb, isMinThumb) {
         if (!thumb || !track) return;
 
-        thumb.onmousedown = function (e) {  // ✅ Виправлено event на e
-            e.preventDefault(); // Запобігаємо виділенню тексту при перетягуванні
+        thumb.onmousedown = function (e) {
+            e.preventDefault();
 
             document.onmousemove = function (e) {
-                // Рахуємо позицію миші відносно ширини всієї лінії
                 const trackRect = track.getBoundingClientRect();
                 let newLeft = e.clientX - trackRect.left;
 
-                // Обмежуємо мишу межами лінії (від 0 до 100%)
                 if (newLeft < 0) newLeft = 0;
                 if (newLeft > trackRect.width) newLeft = trackRect.width;
 
-                // Переводимо пікселі у значення віку
                 const percent = newLeft / trackRect.width;
                 let newValue = Math.round(MIN_AGE + percent * (MAX_AGE - MIN_AGE));
 
-                // Логіка зіткнення кружечків (щоб мін. не заїхав за макс. і навпаки)
                 if (isMinThumb) {
                     if (newValue >= currentMax) newValue = currentMax - 1;
                     currentMin = newValue;
@@ -1076,7 +1049,6 @@ function setupUIEvents(overlay, galleryModal) {
                 updateSliderVisuals();
             };
 
-            // Коли відпускаємо мишку - зупиняємо стеження
             document.onmouseup = function () {
                 document.onmousemove = null;
                 document.onmouseup = null;
@@ -1086,8 +1058,6 @@ function setupUIEvents(overlay, galleryModal) {
 
     makeThumbDraggable(thumbMin, true);
     makeThumbDraggable(thumbMax, false);
-
-    // Ініціалізація візуалу при першому відкритті
     updateSliderVisuals();
 
     const letSave = window._alphaPhantom.shadow.getElementById("lettersSaveBtn");
