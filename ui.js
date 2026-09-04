@@ -275,7 +275,7 @@ function injectBotUI() {
                                 <span>▼</span>
                             </div>
                             <div id="countryList" class="alpha-country-list">
-                                <!-- Поле пошуку -->
+
                                 <div style="padding: 5px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: #fff; z-index: 2;">
                                     <input type="text" id="countrySearchInput" placeholder="Пошук країни..." class="alpha-input" style="padding: 6px 10px; font-size: 12px; margin-bottom: 5px;">
                                 </div>
@@ -363,7 +363,6 @@ function injectBotUI() {
                         <button id="uiStopBtn" data-lang="btnStop" class="alpha-btn-danger" style="display: none;">⏹ Зупинити</button>
                     </div>
 
-                    <!-- === ВКЛАДКА ІНВАЙТІВ === -->
                     <div id="tabContentInvites" style="display: none;">
                         <select id="invitesProfileSelect" style="display: none;"></select>
 
@@ -376,7 +375,6 @@ function injectBotUI() {
                         <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати інвайти</div>
                     </div>
 
-                    <!-- === ВКЛАДКА ЛИСТІВ === -->
                     <div id="tabContentLetters" style="display: none;">
                         <select id="lettersProfileSelect" style="display: none;"></select>
 
@@ -1698,6 +1696,7 @@ function renderSavedMessages() {
        return;
     }
 
+    // ... початок функції ...
     saved.forEach((text, index) => {
        const item = document.createElement("div");
        item.className = "alpha-msg-card wink"; // Синя полоска для вінок/лайків
@@ -1706,27 +1705,7 @@ function renderSavedMessages() {
        textSpan.innerText = text;
        textSpan.className = "alpha-msg-text";
 
-       const controlsDiv = document.createElement("div");
-       const controlsDiv = document.createElement("div");
-       controlsDiv.className = "alpha-msg-controls";
-
-       // 🔥 НОВА КНОПКА ШЕСТІРНІ ДЛЯ КОЖНОГО ІНВАЙТУ
-       const settingsBtn = document.createElement("div");
-       settingsBtn.innerHTML = "⚙️";
-       settingsBtn.className = "alpha-icon-btn";
-       settingsBtn.style.cssText = "background: #f0f4f8; font-size: 16px; margin-right: 5px;";
-       settingsBtn.title = "Налаштувати таргетинг для цього інвайту";
-       settingsBtn.onclick = () => {
-           // Запам'ятовуємо, який саме інвайт ми зараз редагуємо
-           window._alphaPhantom.currentEditingInviteIndex = index;
-           // Передаємо існуючі фільтри в панель
-           window._alphaPhantom.loadInviteFilters(item.filters);
-           // Відкриваємо панель
-           window._alphaPhantom.shadow.getElementById("alphaFilterPanel").classList.add("open");
-       };
-       controlsDiv.appendChild(settingsBtn);
-
-       // ... далі йде твій старий код (кнопки Вгору, Вниз, Видалити) ...
+       const controlsDiv = document.createElement("div"); // <--- ЗАЛИШИТИ ЛИШЕ ОДИН
        controlsDiv.className = "alpha-msg-controls";
 
        const delBtn = document.createElement("div");
@@ -1755,6 +1734,7 @@ function renderSavedMessages() {
        item.appendChild(controlsDiv);
        listEl.appendChild(item);
     });
+// ... продовження функції ...
 
     updateProfileColors();
 }
