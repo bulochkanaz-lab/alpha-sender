@@ -367,12 +367,7 @@ function injectBotUI() {
                         <select id="invitesProfileSelect" style="display: none;"></select>
                         <div id="invitesWorkArea" style="display: none; flex-direction: column;">
                             <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
-
-                            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                                <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="flex: 1;">💾 Зберегти Інвайт</button>
-                                <button id="invitesFilterToggleBtn" style="background: #f8f9fa; border: 1px solid #ccc; border-radius: 6px; width: 44px; height: 44px; font-size: 20px; cursor: pointer; transition: 0.2s;" title="Фільтри інвайту" onmouseover="this.style.background='#eef2f5'" onmouseout="this.style.background='#f8f9fa'">⚙️</button>
-                            </div>
-
+                            <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="margin-bottom: 20px;">💾 Зберегти Інвайт</button>
                             <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
                         </div>
                         <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати інвайти</div>
@@ -817,7 +812,20 @@ function setupUIEvents(overlay, galleryModal) {
             if (!text || !profileId) return;
             const key = `alpha_invites_${profileId}`;
             let saved = JSON.parse(localStorage.getItem(key) || "[]");
-            saved.push({ message_content: text, message_type: "SENT_TEXT" });
+
+            // 🔥 Додаємо дефолтні фільтри для кожного НОВОГО інвайту
+            const defaultFilters = {
+                colors: ["red", "blue", "green"],
+                countries: ["ALL"],
+                age: { min: 18, max: 150 }
+            };
+
+            saved.push({
+                message_content: text,
+                message_type: "SENT_TEXT",
+                filters: defaultFilters // Зберігаємо фільтри всередині інвайту
+            });
+
             localStorage.setItem(key, JSON.stringify(saved));
             window._alphaPhantom.shadow.getElementById("invitesMessageInput").value = "";
             renderCustomInvites();
@@ -917,25 +925,40 @@ function setupUIEvents(overlay, galleryModal) {
 
     // Повний список країн (українською)
     const allWorldCountries = [
-        "Австралія", "Австрія", "Азербайджан", "Албанія", "Алжир", "Ангола", "Андорра", "Антигуа і Барбуда", "Аргентина", "Багамські Острови",
-        "Бангладеш", "Барбадос", "Бахрейн", "Беліз", "Бельгія", "Бенін", "Бермудські Острови", "Болгарія", "Болівія", "Боснія і Герцеговина",
-        "Ботсвана", "Бразилія", "Бруней", "Буркіна-Фасо", "Бурунді", "Бутан", "В'єтнам", "Вануату", "Ватикан", "Велика Британія",
-        "Венесуела", "Вірменія", "Гвінея", "Гвінея-Бісау", "Гондурас", "Гренада", "Греція", "Грузія", "Данія", "Джибуті",
-        "Домініка", "Домініканська Республіка", "Еквадор", "Екваторіальна Гвінея", "Еритрея", "Естонія", "Ефіопія", "Єгипет", "Ємен", "Замбія",
-        "Зімбабве", "Ізраїль", "Індія", "Індонезія", "Ірак", "Ірландія", "Ісландія", "Іспанія", "Італія", "Йорданія",
-        "Кабо-Верде", "Казахстан", "Камбоджа", "Камерун", "Канада", "Катар", "Кенія", "Киргизстан", "Китай", "Кіпр",
-        "Кірибаті", "Колумбія", "Коморські Острови", "ДР Конго", "Республіка Конго", "Південна Корея", "Коста-Рика", "Кот-д'Івуар", "Кувейт", "Лаос",
-        "Латвія", "Лесото", "Литва", "Ліберія", "Ліван", "Лівія", "Ліхтенштейн", "Люксембург", "Маврикій", "Мавританія",
-        "Мадагаскар", "Малаві", "Малайзія", "Малі", "Мальдіви", "Мальта", "Марокко", "Маршаллові Острови", "Мексика", "Мікронезія",
-        "Мозамбік", "Молдова", "Монако", "Монголія", "М'янма", "Намібія", "Науру", "Непал", "Нігер", "Нігерія",
-        "Нідерланди", "Нікарагуа", "Німеччина", "Нова Зеландія", "Норвегія", "ОАЕ", "Оман", "Пакистан", "Палау", "Панама",
-        "Папуа Нова Гвінея", "ПАР", "Парагвай", "Перу", "Північна Македонія", "Польща", "Португалія", "Руанда", "Румунія", "Сальвадор",
-        "Самоа", "Сан-Марино", "Сан-Томе і Принсіпі", "Саудівська Аравія", "Есватіні", "Сейшельські Острови", "Сенегал", "Сент-Вінсент і Гренадини", "Сент-Кітс і Невіс", "Сент-Люсія",
-        "Сербія", "Сінгапур", "Сирія", "Словаччина", "Словенія", "Соломонові Острови", "Сомалі", "США", "Судан", "Сьєрра-Леоне",
-        "Таджикистан", "Таїланд", "Танзанія", "Того", "Тонга", "Тринідад і Тобаго", "Тувалу", "Туніс", "Туреччина", "Туркменістан",
-        "Уганда", "Угорщина", "Узбекистан", "Уругвай", "Фіджі", "Філіппіни", "Фінляндія", "Франція", "Хорватія", "Чад",
-        "Чехія", "Чилі", "Чорногорія", "Швейцарія", "Швеція", "Шрі-Ланка", "Ямайка", "Японія"
-    ];
+        "Австралія", "Австрія", "Азербайджан", "Албанія", "Алжир", "Ангола", "Андорра",
+        "Антигуа і Барбуда", "Аргентина", "Афганістан", "Багамські Острови", "Бангладеш",
+        "Барбадос", "Бахрейн", "Беліз", "Бельгія", "Бенін", "Білорусь", "Болгарія",
+        "Болівія", "Боснія і Герцеговина", "Ботсвана", "Бразилія", "Бруней", "Буркіна-Фасо",
+        "Бурунді", "Бутан", "Вануату", "Ватикан", "Велика Британія", "Венесуела",
+        "В'єтнам", "Вірменія", "Габон", "Гаїті", "Гамбія", "Гана", "Гватемала",
+        "Гвінея", "Гвінея-Бісау", "Гондурас", "Гренада", "Греція", "Грузія", "Данія",
+        "Демократична Республіка Конго", "Джибуті", "Домініка", "Домініканська Республіка",
+        "Еквадор", "Екваторіальна Гвінея", "Еритрея", "Естонія", "Есватіні", "Ефіопія",
+        "Єгипет", "Ємен", "Замбія", "Зімбабве", "Ізраїль", "Індія", "Індонезія",
+        "Ірак", "Іран", "Ірландія", "Ісландія", "Іспанія", "Італія", "Йорданія",
+        "Кабо-Верде", "Казахстан", "Камбоджа", "Камерун", "Канада", "Катар", "Кенія",
+        "Киргизстан", "Китай", "Кіпр", "Кірибаті", "Колумбія", "Коморські Острови",
+        "Коста-Рика", "Кот-д'Івуар", "Куба", "Кувейт", "Лаос", "Латвія", "Лесото",
+        "Литва", "Ліван", "Ліберія", "Лівія", "Ліхтенштейн", "Люксембург", "Маврикій",
+        "Мавританія", "Мадагаскар", "Малаві", "Малайзія", "Малі", "Мальдіви", "Мальта",
+        "Марокко", "Маршаллові Острови", "Мексика", "Мікронезія", "Мозамбік", "Молдова",
+        "Монако", "Монголія", "М'янма", "Намібія", "Науру", "Непал", "Нігер",
+        "Нігерія", "Нідерланди", "Нікарагуа", "Німеччина", "Нова Зеландія", "Норвегія",
+        "Об'єднані Арабські Емірати", "Оман", "Пакистан", "Палау", "Палестина",
+        "Панама", "Папуа Нова Гвінея", "Парагвай", "Перу", "Південна Африка",
+        "Південна Корея", "Південний Судан", "Північна Корея", "Північна Македонія",
+        "Польща", "Португалія", "Республіка Конго", "Росія", "Руанда", "Румунія",
+        "Сальвадор", "Самоа", "Сан-Марино", "Сан-Томе і Принсіпі", "Саудівська Аравія",
+        "Сейшельські Острови", "Сенегал", "Сент-Вінсент і Гренадини", "Сент-Кітс і Невіс",
+        "Сент-Люсія", "Сербія", "Сінгапур", "Сирія", "Словаччина", "Словенія",
+        "Соломонові Острови", "Сомалі", "Сполучені Штати Америки", "Судан",
+        "Суринам", "Сьєрра-Леоне", "Таджикистан", "Таїланд", "Танзанія", "Того",
+        "Тонга", "Тринідад і Тобаго", "Тувалу", "Туніс", "Туреччина", "Туркменістан",
+        "Уганда", "Угорщина", "Узбекистан", "Україна", "Уругвай", "Фіджі",
+        "Філіппіни", "Фінляндія", "Франція", "Хорватія", "Центральноафриканська Республіка",
+        "Чад", "Чехія", "Чилі", "Чорногорія", "Швейцарія", "Швеція", "Шрі-Ланка",
+        "Ямайка", "Японія"
+];
 
     if (countryListDynamic) {
         allWorldCountries.forEach(c => {
@@ -1059,6 +1082,95 @@ function setupUIEvents(overlay, galleryModal) {
     makeThumbDraggable(thumbMin, true);
     makeThumbDraggable(thumbMax, false);
     updateSliderVisuals();
+
+    // ==========================================
+    // ЛОГІКА ЗБЕРЕЖЕННЯ ТА ЗАВАНТАЖЕННЯ ФІЛЬТРІВ (ДЛЯ КОЖНОГО ІНВАЙТУ)
+    // ==========================================
+    const saveFiltersBtn = window._alphaPhantom.shadow.getElementById("saveInviteFiltersBtn");
+    const filterPanel = window._alphaPhantom.shadow.getElementById("alphaFilterPanel");
+    const closeFilterBtn = window._alphaPhantom.shadow.getElementById("closeFilterPanelBtn");
+
+    if (closeFilterBtn) {
+        closeFilterBtn.onclick = () => filterPanel.classList.remove("open");
+    }
+
+    if (saveFiltersBtn) {
+        saveFiltersBtn.onclick = () => {
+            const profileId = window._alphaPhantom.shadow.getElementById("invitesProfileSelect").value;
+            const editingIndex = window._alphaPhantom.currentEditingInviteIndex; // Дістаємо індекс інвайту
+
+            if (!profileId || editingIndex === undefined || editingIndex === null) {
+                alert("Помилка: не обрано інвайт для редагування!");
+                return;
+            }
+
+            const activeChips = window._alphaPhantom.shadow.querySelectorAll(".alpha-chip.active");
+            const selectedColors = Array.from(activeChips).map(chip => chip.getAttribute("data-color"));
+
+            let selectedCountries = [];
+            if (checkAllCountries && checkAllCountries.checked) {
+                selectedCountries = ["ALL"];
+            } else {
+                selectedCountries = Array.from(allCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+            }
+
+            const newFilters = {
+                colors: selectedColors,
+                countries: selectedCountries,
+                age: { min: currentMin, max: currentMax }
+            };
+
+            // 🔥 ОНОВЛЮЄМО ФІЛЬТРИ ДЛЯ КОНКРЕТНОГО ІНВАЙТУ В ПАМ'ЯТІ
+            const key = `alpha_invites_${profileId}`;
+            let saved = JSON.parse(localStorage.getItem(key) || "[]");
+
+            if (saved[editingIndex]) {
+                saved[editingIndex].filters = newFilters;
+                localStorage.setItem(key, JSON.stringify(saved));
+            }
+
+            filterPanel.classList.remove("open");
+            if (typeof showSystemAlert === 'function') {
+                showSystemAlert("✅ Фільтри збережено", "Налаштування застосовано до обраного інвайту.", "#4caf50");
+            }
+        };
+    }
+
+    // Функція, яка заповнює панель даними з інвайту
+    window._alphaPhantom.loadInviteFilters = function(filtersData) {
+        const defaultFilters = {
+            colors: ["red", "blue", "green"],
+            countries: ["ALL"],
+            age: { min: 18, max: 150 }
+        };
+
+        const filters = filtersData || defaultFilters;
+
+        // 1. Кольори
+        const colorChips = window._alphaPhantom.shadow.querySelectorAll(".alpha-chip");
+        colorChips.forEach(chip => {
+            const color = chip.getAttribute("data-color");
+            if (filters.colors.includes(color)) chip.classList.add("active");
+            else chip.classList.remove("active");
+        });
+
+        // 2. Вік
+        currentMin = (filters.age && filters.age.min) ? filters.age.min : 18;
+        currentMax = (filters.age && filters.age.max) ? filters.age.max : 150;
+        updateSliderVisuals();
+
+        // 3. Країни
+        if (filters.countries.includes("ALL")) {
+            if(checkAllCountries) checkAllCountries.checked = true;
+            allCheckboxes.forEach(cb => cb.checked = true);
+        } else {
+            if(checkAllCountries) checkAllCountries.checked = false;
+            allCheckboxes.forEach(cb => {
+                cb.checked = filters.countries.includes(cb.value);
+            });
+        }
+        updateCountryCount();
+    };
 
     const letSave = window._alphaPhantom.shadow.getElementById("lettersSaveBtn");
     if(letSave) {
@@ -1597,6 +1709,26 @@ function renderSavedMessages() {
        textSpan.className = "alpha-msg-text";
 
        const controlsDiv = document.createElement("div");
+       const controlsDiv = document.createElement("div");
+       controlsDiv.className = "alpha-msg-controls";
+
+       // 🔥 НОВА КНОПКА ШЕСТІРНІ ДЛЯ КОЖНОГО ІНВАЙТУ
+       const settingsBtn = document.createElement("div");
+       settingsBtn.innerHTML = "⚙️";
+       settingsBtn.className = "alpha-icon-btn";
+       settingsBtn.style.cssText = "background: #f0f4f8; font-size: 16px; margin-right: 5px;";
+       settingsBtn.title = "Налаштувати таргетинг для цього інвайту";
+       settingsBtn.onclick = () => {
+           // Запам'ятовуємо, який саме інвайт ми зараз редагуємо
+           window._alphaPhantom.currentEditingInviteIndex = index;
+           // Передаємо існуючі фільтри в панель
+           window._alphaPhantom.loadInviteFilters(item.filters);
+           // Відкриваємо панель
+           window._alphaPhantom.shadow.getElementById("alphaFilterPanel").classList.add("open");
+       };
+       controlsDiv.appendChild(settingsBtn);
+
+       // ... далі йде твій старий код (кнопки Вгору, Вниз, Видалити) ...
        controlsDiv.className = "alpha-msg-controls";
 
        const delBtn = document.createElement("div");
