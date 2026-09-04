@@ -258,7 +258,7 @@ function injectBotUI() {
                             <div class="alpha-label" style="margin-bottom: 5px;">Вік мужика:</div>
                             <div class="alpha-age-labels">
                                 <span id="ageLabelMin">18</span>
-                                <span id="ageLabelMax">99</span>
+                                <span id="ageLabelMax">150</span>
                             </div>
                             <div class="alpha-age-slider">
                                 <div class="alpha-age-track"></div>
@@ -275,6 +275,10 @@ function injectBotUI() {
                                 <span>▼</span>
                             </div>
                             <div id="countryList" class="alpha-country-list">
+                                <!-- Поле пошуку -->
+                                <div style="padding: 5px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: #fff; z-index: 2;">
+                                    <input type="text" id="countrySearchInput" placeholder="Пошук країни..." class="alpha-input" style="padding: 6px 10px; font-size: 12px; margin-bottom: 5px;">
+                                </div>
                                 <label class="alpha-country-item" style="font-weight: bold; border-bottom: 1px solid #eee;">
                                     <input type="checkbox" id="checkAllCountries" checked> Усі країни
                                 </label>
@@ -911,16 +915,75 @@ function setupUIEvents(overlay, galleryModal) {
         countryDropdownBtn.onclick = () => countryList.classList.toggle("open");
     }
 
-    // Тимчасовий список країн для візуалу (потім замінимо на реальні дані з сайту)
-    const mockCountries = ["США", "Канада", "Велика Британія", "Австралія", "Німеччина"];
+    // Повний список країн (українською)
+    const allWorldCountries = [
+        "Австралія", "Австрія", "Азербайджан", "Албанія", "Алжир", "Ангола", "Андорра", "Антигуа і Барбуда", "Аргентина", "Багамські Острови",
+        "Бангладеш", "Барбадос", "Бахрейн", "Беліз", "Бельгія", "Бенін", "Бермудські Острови", "Болгарія", "Болівія", "Боснія і Герцеговина",
+        "Ботсвана", "Бразилія", "Бруней", "Буркіна-Фасо", "Бурунді", "Бутан", "В'єтнам", "Вануату", "Ватикан", "Велика Британія",
+        "Венесуела", "Вірменія", "Гвінея", "Гвінея-Бісау", "Гондурас", "Гренада", "Греція", "Грузія", "Данія", "Джибуті",
+        "Домініка", "Домініканська Республіка", "Еквадор", "Екваторіальна Гвінея", "Еритрея", "Естонія", "Ефіопія", "Єгипет", "Ємен", "Замбія",
+        "Зімбабве", "Ізраїль", "Індія", "Індонезія", "Ірак", "Ірландія", "Ісландія", "Іспанія", "Італія", "Йорданія",
+        "Кабо-Верде", "Казахстан", "Камбоджа", "Камерун", "Канада", "Катар", "Кенія", "Киргизстан", "Китай", "Кіпр",
+        "Кірибаті", "Колумбія", "Коморські Острови", "ДР Конго", "Республіка Конго", "Південна Корея", "Коста-Рика", "Кот-д'Івуар", "Кувейт", "Лаос",
+        "Латвія", "Лесото", "Литва", "Ліберія", "Ліван", "Лівія", "Ліхтенштейн", "Люксембург", "Маврикій", "Мавританія",
+        "Мадагаскар", "Малаві", "Малайзія", "Малі", "Мальдіви", "Мальта", "Марокко", "Маршаллові Острови", "Мексика", "Мікронезія",
+        "Мозамбік", "Молдова", "Монако", "Монголія", "М'янма", "Намібія", "Науру", "Непал", "Нігер", "Нігерія",
+        "Нідерланди", "Нікарагуа", "Німеччина", "Нова Зеландія", "Норвегія", "ОАЕ", "Оман", "Пакистан", "Палау", "Панама",
+        "Папуа Нова Гвінея", "ПАР", "Парагвай", "Перу", "Північна Македонія", "Польща", "Португалія", "Руанда", "Румунія", "Сальвадор",
+        "Самоа", "Сан-Марино", "Сан-Томе і Принсіпі", "Саудівська Аравія", "Есватіні", "Сейшельські Острови", "Сенегал", "Сент-Вінсент і Гренадини", "Сент-Кітс і Невіс", "Сент-Люсія",
+        "Сербія", "Сінгапур", "Сирія", "Словаччина", "Словенія", "Соломонові Острови", "Сомалі", "США", "Судан", "Сьєрра-Леоне",
+        "Таджикистан", "Таїланд", "Танзанія", "Того", "Тонга", "Тринідад і Тобаго", "Тувалу", "Туніс", "Туреччина", "Туркменістан",
+        "Уганда", "Угорщина", "Узбекистан", "Уругвай", "Фіджі", "Філіппіни", "Фінляндія", "Франція", "Хорватія", "Чад",
+        "Чехія", "Чилі", "Чорногорія", "Швейцарія", "Швеція", "Шрі-Ланка", "Ямайка", "Японія"
+    ];
+
     if (countryListDynamic) {
-        mockCountries.forEach(c => {
+        allWorldCountries.forEach(c => {
             const lbl = document.createElement("label");
             lbl.className = "alpha-country-item";
-            lbl.innerHTML = `<input type="checkbox" class="alpha-country-checkbox" value="${c}" checked> ${c}`;
+            lbl.innerHTML = `<input type="checkbox" class="alpha-country-checkbox" value="${c}" checked> <span class="country-name">${c}</span>`;
             countryListDynamic.appendChild(lbl);
         });
     }
+
+    const allCheckboxes = window._alphaPhantom.shadow.querySelectorAll(".alpha-country-checkbox");
+
+    // Логіка пошуку
+    const countrySearchInput = window._alphaPhantom.shadow.getElementById("countrySearchInput");
+    if (countrySearchInput) {
+        countrySearchInput.oninput = (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const countryItems = window._alphaPhantom.shadow.querySelectorAll(".alpha-country-item");
+
+            // Пропускаємо перший item, бо це "Усі країни"
+            for (let i = 1; i < countryItems.length; i++) {
+                const item = countryItems[i];
+                const countryName = item.querySelector('.country-name').innerText.toLowerCase();
+
+                if (countryName.includes(searchTerm)) {
+                    item.style.display = "flex";
+                } else {
+                    item.style.display = "none";
+                }
+            }
+        };
+    }
+
+    if (checkAllCountries) {
+        checkAllCountries.onchange = (e) => {
+            const isChecked = e.target.checked;
+            allCheckboxes.forEach(cb => cb.checked = isChecked);
+            updateCountryCount();
+        };
+    }
+
+    allCheckboxes.forEach(cb => {
+        cb.onchange = () => {
+            const allChecked = Array.from(allCheckboxes).every(c => c.checked);
+            checkAllCountries.checked = allChecked;
+            updateCountryCount();
+        };
+    });
 
     // Логіка галочки "Усі країни"
     const allCheckboxes = window._alphaPhantom.shadow.querySelectorAll(".alpha-country-checkbox");
@@ -959,9 +1022,9 @@ function setupUIEvents(overlay, galleryModal) {
 
     // Налаштування меж віку
     const MIN_AGE = 18;
-    const MAX_AGE = 99;
+    const MAX_AGE = 150;
     let currentMin = 18;
-    let currentMax = 99;
+    let currentMax = 150;
 
     // Допоміжна функція для розрахунку відсотків
     function updateSliderVisuals() {
