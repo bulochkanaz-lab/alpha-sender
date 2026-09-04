@@ -358,10 +358,22 @@ function injectBotUI() {
                         <button id="uiStopBtn" data-lang="btnStop" class="alpha-btn-danger" style="display: none;">⏹ Зупинити</button>
                     </div>
 
-                    <div id="invitesWorkArea" style="display: none; flex-direction: column;">
-                        <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textar
+                    <div id="tabContentInvites" style="display: none;">
+                        <select id="invitesProfileSelect" style="display: none;"></select>
+                        <div id="invitesWorkArea" style="display: none; flex-direction: column;">
+                            <textarea id="invitesMessageInput" data-lang="invitesPlaceholder" class="alpha-textarea" placeholder="Текст інвайту..." style="margin-bottom: 15px;"></textarea>
 
-                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                                <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="flex: 1;">💾 Зберегти Інвайт</button>
+                                <button id="invitesFilterToggleBtn" style="background: #f8f9fa; border: 1px solid #ccc; border-radius: 6px; width: 44px; height: 44px; font-size: 20px; cursor: pointer; transition: 0.2s;" title="Фільтри інвайту" onmouseover="this.style.background='#eef2f5'" onmouseout="this.style.background='#f8f9fa'">⚙️</button>
+                            </div>
+
+                            <div id="invitesSavedList" style="display: flex; flex-direction: column; max-height: 350px; overflow-y: auto;"></div>
+                        </div>
+                        <div id="invitesEmptyState" data-lang="invitesEmpty" style="text-align: center; color: #999; margin-top: 40px;">Оберіть анкету зверху, щоб додати інвайти</div>
+                    </div>
+
+                    <div id="tabContentLetters" style="display: none;">
                             <button id="invitesSaveBtn" data-lang="invitesSaveBtn" class="alpha-btn-success" style="flex: 1;">💾 Зберегти Інвайт</button>
                             <button id="invitesFilterToggleBtn" style="background: #f8f9fa; border: 1px solid #ccc; border-radius: 6px; width: 44px; height: 44px; font-size: 20px; cursor: pointer; transition: 0.2s;" title="Фільтри інвайту" onmouseover="this.style.background='#eef2f5'" onmouseout="this.style.background='#f8f9fa'">⚙️</button>
                         </div>
