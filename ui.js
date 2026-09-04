@@ -1083,9 +1083,8 @@ function setupUIEvents(overlay, galleryModal) {
     // ЛОГІКА ЗБЕРЕЖЕННЯ ТА ЗАВАНТАЖЕННЯ ФІЛЬТРІВ (ДЛЯ КОЖНОГО ІНВАЙТУ)
     // ==========================================
     const saveFiltersBtn = window._alphaPhantom.shadow.getElementById("saveInviteFiltersBtn");
-    const filterPanel = window._alphaPhantom.shadow.getElementById("alphaFilterPanel");
-    const closeFilterBtn = window._alphaPhantom.shadow.getElementById("closeFilterPanelBtn");
 
+    // filterPanel і closeFilterBtn вже існують вище, просто юзаємо їх
     if (closeFilterBtn) {
         closeFilterBtn.onclick = () => filterPanel.classList.remove("open");
     }
