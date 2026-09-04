@@ -237,25 +237,25 @@ function injectBotUI() {
 
                     <div class="alpha-filter-body">
                         <div>
-                            <div class="alpha-label" style="margin-bottom: 10px;">Тип клієнта:</div>
+                            <div class="alpha-label" style="margin-bottom: 10px;">Тип мужика:</div>
                             <div class="alpha-color-chips">
                                 <div class="alpha-chip red active" data-color="red">
                                     <span>🔴 Червоний</span>
-                                    <span style="font-size: 10px; font-weight: normal;">0$ - 300$</span>
+                                    <span style="font-size: 10px; font-weight: normal;"></span>
                                 </div>
                                 <div class="alpha-chip blue active" data-color="blue">
                                     <span>🔵 Синій</span>
-                                    <span style="font-size: 10px; font-weight: normal;">300$ - 1000$</span>
+                                    <span style="font-size: 10px; font-weight: normal;"></span>
                                 </div>
                                 <div class="alpha-chip green active" data-color="green">
                                     <span>🟢 Зелений</span>
-                                    <span style="font-size: 10px; font-weight: normal;">1000$+</span>
+                                    <span style="font-size: 10px; font-weight: normal;"></span>
                                 </div>
                             </div>
                         </div>
 
                         <div>
-                            <div class="alpha-label" style="margin-bottom: 5px;">Вік клієнта:</div>
+                            <div class="alpha-label" style="margin-bottom: 5px;">Вік мужика:</div>
                             <div class="alpha-age-labels">
                                 <span id="ageLabelMin">18</span>
                                 <span id="ageLabelMax">99</span>
@@ -948,6 +948,84 @@ function setupUIEvents(overlay, galleryModal) {
         const count = Array.from(allCheckboxes).filter(c => c.checked).length;
         countrySelectedCount.innerText = (count === allCheckboxes.length) ? "Всі" : count;
     }
+
+    // === ОЖИВЛЯЄМО ПОВЗУНОК ВІКУ (Dual Range Slider) ===
+    const track = window._alphaPhantom.shadow.querySelector('.alpha-age-slider');
+    const rangeFill = window._alphaPhantom.shadow.getElementById('ageRangeFill');
+    const thumbMin = window._alphaPhantom.shadow.getElementById('ageThumbMin');
+    const thumbMax = window._alphaPhantom.shadow.getElementById('ageThumbMax');
+    const labelMin = window._alphaPhantom.shadow.getElementById('ageLabelMin');
+    const labelMax = window._alphaPhantom.shadow.getElementById('ageLabelMax');
+
+    // Налаштування меж віку
+    const MIN_AGE = 18;
+    const MAX_AGE = 99;
+    let currentMin = 18;
+    let currentMax = 99;
+
+    // Допоміжна функція для розрахунку відсотків
+    function updateSliderVisuals() {
+        if (!track || !rangeFill || !thumbMin || !thumbMax || !labelMin || !labelMax) return;
+
+        const percentMin = ((currentMin - MIN_AGE) / (MAX_AGE - MIN_AGE)) * 100;
+        const percentMax = ((currentMax - MIN_AGE) / (MAX_AGE - MIN_AGE)) * 100;
+
+        thumbMin.style.left = `${percentMin}%`;
+        thumbMax.style.left = `${percentMax}%`;
+
+        // Зафарбовуємо лінію між двома кружечками
+        rangeFill.style.left = `${percentMin}%`;
+        rangeFill.style.width = `${percentMax - percentMin}%`;
+
+        labelMin.innerText = currentMin;
+        labelMax.innerText = currentMax;
+    }
+
+    // Функція, яка обробляє перетягування мишкою
+    function makeThumbDraggable(thumb, isMinThumb) {
+        if (!thumb || !track) return;
+
+        thumb.onmousedown = function (event) {
+            e.preventDefault(); // Запобігаємо виділенню тексту при перетягуванні
+
+            document.onmousemove = function (e) {
+                // Рахуємо позицію миші відносно ширини всієї лінії
+                const trackRect = track.getBoundingClientRect();
+                let newLeft = e.clientX - trackRect.left;
+
+                // Обмежуємо мишу межами лінії (від 0 до 100%)
+                if (newLeft < 0) newLeft = 0;
+                if (newLeft > trackRect.width) newLeft = trackRect.width;
+
+                // Переводимо пікселі у значення віку
+                const percent = newLeft / trackRect.width;
+                let newValue = Math.round(MIN_AGE + percent * (MAX_AGE - MIN_AGE));
+
+                // Логіка зіткнення кружечків (щоб мін. не заїхав за макс. і навпаки)
+                if (isMinThumb) {
+                    if (newValue >= currentMax) newValue = currentMax - 1;
+                    currentMin = newValue;
+                } else {
+                    if (newValue <= currentMin) newValue = currentMin + 1;
+                    currentMax = newValue;
+                }
+
+                updateSliderVisuals();
+            };
+
+            // Коли відпускаємо мишку - зупиняємо стеження
+            document.onmouseup = function () {
+                document.onmousemove = null;
+                document.onmouseup = null;
+            };
+        };
+    }
+
+    makeThumbDraggable(thumbMin, true);
+    makeThumbDraggable(thumbMax, false);
+
+    // Ініціалізація візуалу при першому відкритті
+    updateSliderVisuals();
 
     const letSave = window._alphaPhantom.shadow.getElementById("lettersSaveBtn");
     if(letSave) {
