@@ -985,7 +985,7 @@ function setupUIEvents(overlay, galleryModal) {
     function makeThumbDraggable(thumb, isMinThumb) {
         if (!thumb || !track) return;
 
-        thumb.onmousedown = function (event) {
+        thumb.onmousedown = function (e) {  // ✅ Виправлено event на e
             e.preventDefault(); // Запобігаємо виділенню тексту при перетягуванні
 
             document.onmousemove = function (e) {
