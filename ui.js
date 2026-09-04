@@ -313,7 +313,7 @@ function injectBotUI() {
                                         </div>
                                         <div class="alpha-col" style="flex: 1; border-left: 1px solid #eee; padding-left: 15px;">
                                             <label data-lang="respSpeedLabel" class="alpha-label">Швидкість (сек):</label>
-                                            <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="10">
+                                            <input type="number" id="respSpeedInput" class="alpha-input" value="3" min="0" max="120">
                                             <button id="respSaveBtn" data-lang="respSaveBtn" class="alpha-btn-success" style="margin-top: auto;">Зберегти текст</button>
                                         </div>
                                     </div>
@@ -667,6 +667,10 @@ function setupUIEvents(overlay, galleryModal) {
     const respSave = window._alphaPhantom.shadow.getElementById("respSaveBtn");
     if(respSave) {
         respSave.onclick = () => {
+            // 🔥 ДОДАЄМО ЦЕЙ РЯДОК: Зберігаємо швидкість у пам'ять щоразу при збереженні
+            const speedVal = window._alphaPhantom.shadow.getElementById("respSpeedInput").value;
+            localStorage.setItem("alphaBotReplySpeed", speedVal);
+
             const text = window._alphaPhantom.shadow.getElementById("respMessageInput").value.trim();
             if (!text || !currentSelectedProfile) return;
 
