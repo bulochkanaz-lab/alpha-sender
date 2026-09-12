@@ -21,7 +21,7 @@ if os.path.exists(token_path):
 else:
     BOT_TOKEN = "8859229937:AAGUEp0yHfxmdqxnKHVehxv4TiXaDcIxe4g"
 
-ADMIN_IDS = [7898484797, 8502175321, 7898484797]
+ADMIN_IDS = [7898484797, 8502175321, 7898484797, 8488484839]
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
